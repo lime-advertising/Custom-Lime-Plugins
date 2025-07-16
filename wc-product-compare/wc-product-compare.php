@@ -136,52 +136,53 @@ function wcp_get_compare_data()
     }
 
 
-    // First, gather all variation attribute names from all products
-    $variation_attributes = [];
+    // Collect all attribute names across products
+    $all_attributes = [];
 
     foreach ($product_ids as $id) {
         $product = wc_get_product($id);
-        if (!$product || $product->get_type() !== 'variable') continue;
+        if (!$product) continue;
 
-        $attributes = $product->get_variation_attributes();
-        foreach ($attributes as $name => $values) {
-            $taxonomy = wc_attribute_label($name);
-            $variation_attributes[$name] = $taxonomy;
+        foreach ($product->get_attributes() as $attribute) {
+            // if ($attribute->get_variation()) continue; // Skip variation-only attributes if needed
+            $name = $attribute->get_name();
+            $label = wc_attribute_label($name);
+            $all_attributes[$name] = $label;
         }
     }
 
-    // Now add each variation attribute as a row
-    foreach ($variation_attributes as $attribute_slug => $attribute_label) {
+
+    // Now display each attribute row
+    foreach ($all_attributes as $attribute_slug => $attribute_label) {
         echo '<tr>';
         echo '<td class="wcp-heading-cell"><strong>' . esc_html($attribute_label) . '</strong></td>';
 
         foreach ($product_ids as $id) {
             $product = wc_get_product($id);
+            $value = '-';
 
-            if ($product->get_type() !== 'variable') {
-                echo '<td>-</td>';
-                continue;
-            }
+            if ($product && $product->has_attributes()) {
+                $attributes = $product->get_attributes();
+                if (isset($attributes[$attribute_slug])) {
+                    $attr = $attributes[$attribute_slug];
 
-            $variations = $product->get_available_variations();
-            $options = [];
-
-            foreach ($variations as $variation) {
-                $val = $variation['attributes']['attribute_' . $attribute_slug] ?? '';
-                if ($val && !in_array($val, $options, true)) {
-                    $options[] = $val;
+                    if ($attr->is_taxonomy()) {
+                        $terms = wc_get_product_terms($id, $attribute_slug, ['fields' => 'names']);
+                        if (!empty($terms)) {
+                            $value = implode(', ', array_map('ucwords', $terms));
+                        }
+                    } else {
+                        $value = implode(', ', array_map('ucwords', wc_get_product_attribute_list($id, $attribute_slug)));
+                    }
                 }
             }
 
-            if (!empty($options)) {
-                echo '<td>' . implode(', ', array_map('ucwords', $options)) . '</td>';
-            } else {
-                echo '<td>-</td>';
-            }
+            echo '<td>' . $value . '</td>';
         }
 
         echo '</tr>';
     }
+
 
 
     echo '</tbody></table></div>';
