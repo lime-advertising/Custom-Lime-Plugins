@@ -1,131 +1,134 @@
 # WooCommerce Product Compare (Simple)
 
-Adds a **Compare** button to WooCommerce shop pages, allowing customers to compare up to **4 products** in a responsive modal table. Includes features like product image, price, categories, SKU, affiliate availability, and global attributes.
+Easily add a **Compare** button to your WooCommerce store. Let customers select up to **4 products** and view them side-by-side in a sleek, responsive modal. Displays key product details like image, price, category, SKU, availability (via affiliates), and global attributes like size or color.
 
 ---
 
 ## 📦 Features
 
-- Add **Compare** buttons on product loop items (archive pages)
-- Compare up to **4 WooCommerce products** in a modal
-- Display the following comparison data:
-  - Product Image
-  - Price
-  - Category
-  - SKU
-  - Affiliate availability (with logo & link)
-  - Global attributes (e.g., Color, Size, etc.)
-- Compatible with **external products** and global attributes
-- Fully responsive and styled with CSS
-- User state stored in localStorage to persist comparison list
+* Adds **Compare** buttons automatically on product archive (loop) pages
+* Modal compares up to **4 WooCommerce products**
+* Includes key comparison data:
+
+  * Product Image
+  * Price
+  * Categories
+  * SKU
+  * Affiliate availability (logo + link)
+  * Global product attributes (e.g. Size, Color)
+* Fully responsive and mobile-friendly
+* Compatible with **external products**
+* Remembers selected products via `localStorage`
+* Custom shortcode support
 
 ---
 
 ## 🚀 Installation
 
 1. Upload the plugin folder to `/wp-content/plugins/woocommerce-product-compare-simple`
-2. Activate the plugin from the WordPress admin panel
-3. No setup required — it works automatically on product archive pages
+2. Activate via **Plugins** in the WordPress admin
+3. No setup required — Compare buttons appear automatically on archive pages
 
 ---
 
 ## 🔧 Usage
 
-### Compare Button Placement
+### Compare Button Group
 
-The plugin automatically adds a button group under each product (on archive pages):
+On archive pages (like `/shop`), each product shows:
 
-- **View**: links to the product page
-- **Compare**: adds the product to the comparison list
-
-### Compare Modal
-
-Clicking “Compare” will:
-
-- Store the selected product ID in `localStorage`
-- Open a modal showing all selected products side-by-side
-- Display available information, including:
-  - Product image
-  - Price
-  - Categories
-  - SKU
-  - Additional affiliate links (if available via ACF or custom field `_additional_affiliate_links`)
-  - Global product attributes
+* **View** – links to the product page
+* **Compare** – adds product to the comparison list and opens modal
 
 ---
 
-## 🧠 Custom Field Format for Affiliate Links
+### Modal Comparison Table
 
-To show logos for "Available In" column, create a **custom field** named:
+Clicking “Compare” opens a modal table that includes:
 
+* Product name (with link)
+* Image
+* Price
+* Categories
+* SKU
+* Affiliate availability (via custom field)
+* Global attributes (e.g., Size, Material)
 
-`\_additional\_affiliate\_links`
+Modal is responsive with sticky feature column and horizontal scroll.
 
+---
 
-Its value must be a serialized array of objects with keys `name` and `url`. Example:
+## 🧠 Affiliate Logos Field
+
+To show affiliate logos in the **"Available In"** column, add a custom field named:
+
+```
+_additional_affiliate_links
+```
+
+Its value must be an array of associative arrays:
 
 ```php
 [
-    [
-        "name" => "Amazon",
-        "url" => "https://amazon.com/example"
-    ],
-    [
-        "name" => "BestBuy",
-        "url" => "https://bestbuy.com/example"
-    ]
+  [ "name" => "Amazon", "url" => "https://amazon.com/example" ],
+  [ "name" => "BestBuy", "url" => "https://bestbuy.ca/example" ]
 ]
-````
+```
 
-Supported store names with logos:
+Supported logos:
 
-* `Amazon`
-* `BestBuy`
-* `HomeDepot`
-* `Rona`
-* `HOD`
+* Amazon
+* BestBuy
+* HomeDepot
+* Rona
+* HOD
 
-Others will fallback to displaying the name as plain text.
+Other names will display as plain text links.
 
 ---
 
-## 🧩 Shortcode
+## 🔢 Shortcode
 
-You can manually place the Compare button with:
+To manually place a compare button (e.g. on single product pages):
 
 ```php
 [compare_button]
 ```
 
-This requires the global `$product` to be available (e.g., inside WooCommerce loops or single product templates).
+⚠️ `$product` must be available globally (inside WooCommerce loops or templates).
 
 ---
 
-## 🧼 Clear / Remove Actions
+## 🧼 Clear & Remove Actions
 
-* “Remove” button on each product column removes it from comparison
-* “Clear All” button resets the compare list and closes the modal
+* **Remove**: button under each product to remove it from the table
+* **Clear All**: resets the compare list and closes the modal
 
 ---
 
 ## 🖥 Styling
 
-Uses the `compare.css` file included in the plugin. Key styles:
+Custom styles are defined in `compare.css`:
 
-* Equal-width product columns
-* Responsive scroll behavior on smaller screens
-* Adjustable thumbnail height and alignment
-* Uses CSS variables for color and font theming (e.g., `--wdtPrimaryColor`, `--wdtSecondaryColor`)
+* Fixed-width equal columns
+* Sticky left column for “Feature” names
+* Mobile-friendly scroll with optional "Swipe right to view more" animation
+* CSS variables used for easy theme integration:
+
+  * `--wdtPrimaryColor`
+  * `--wdtSecondaryColor`
+  * `--wdtFontTypo_Base`, etc.
 
 ---
 
-## ⚙️ Technical Notes
+## ⚙️ Technical Details
 
-* Stores comparison list in `localStorage` (`compareList`)
-* Modal open state is tracked with `wcp_open_modal` flag in `localStorage`
-* Product data fetched via AJAX from `get_compare_data` action
-* Uses `wc_get_product_terms()` to display global attribute terms
-* Compatible with **external products** and **global WooCommerce attributes**
+* Compares up to 4 products using localStorage (`compareList`)
+* AJAX-loaded comparison data via `get_compare_data` action
+* Modal open state tracked with `wcp_open_modal`
+* Supports global attributes (taxonomy-based)
+* Uses `wc_get_product_terms()` for taxonomy attribute values
+* Compatible with **external products** and **variable/global attributes**
 
 ---
 
@@ -133,25 +136,27 @@ Uses the `compare.css` file included in the plugin. Key styles:
 
 ```
 woocommerce-product-compare-simple/
-├── compare.js         # JS logic for compare state and modal
-├── compare.css        # All styling for modal and table
+├── compare.js                     # All JS logic (compare list, modal, AJAX)
+├── compare.css                    # Modal/table styling
 ├── woocommerce-product-compare-simple.php
 ├── README.md
 ```
 
 ---
 
-## 🧑‍💻 Author
+## ✅ Roadmap / To-Do
 
-**Lime Advertising**
-[https://limeadvertising.com](https://limeadvertising.com)
+* Persist compare list to user meta (for logged-in users)
+* Add support for short description comparison
+* Enable comparison from single product pages
+* Add “Highlight differences” toggle
+* Export table as PDF or print view
 
 ---
 
-## ✅ To-Do / Future Enhancements
+## 👨‍💻 Author
 
-* Add option to persist comparison list across sessions (user meta)
-* Include short descriptions or additional meta
-* Enable compare from product page (single)
+**Lime Advertising**
+[https://limeadvertising.com](https://limeadvertising.com)
 
 ---

@@ -27,10 +27,14 @@ function wcp_add_buttons_wrapper()
     global $product;
     $product_url = get_permalink($product->get_id());
 
-    echo '<div class="wcp-button-group">';
-    echo '<a href="' . esc_url($product_url) . '" class="wcp-view-product">View</a>';
-    echo '<button class="wcp-compare-button" data-product-id="' . esc_attr($product->get_id()) . '">Compare</button>';
-    echo '</div>';
+    $options = get_option('wcp_settings');
+    if (!empty($options['enable_compare'])) {
+        $label = $options['compare_button_label'] ?? 'Compare';
+        echo '<div class="wcp-button-group">';
+        echo '<a href="' . esc_url($product_url) . '" class="wcp-view-product">View</a>';
+        echo '<button class="wcp-compare-button" data-product-id="' . esc_attr($product->get_id()) . '">' . esc_html($label) . '</button>';
+        echo '</div>';
+    }
 }
 
 
@@ -190,4 +194,10 @@ function wcp_get_compare_data()
 
 
     wp_send_json_success(ob_get_clean());
+}
+
+
+// Load admin settings page
+if (is_admin()) {
+    require_once plugin_dir_path(__FILE__) . 'admin-settings.php';
 }

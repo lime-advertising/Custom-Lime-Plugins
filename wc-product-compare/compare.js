@@ -19,7 +19,7 @@ jQuery(document).ready(function ($) {
 
   function updateModal() {
     if (compareList.length === 0) {
-      $("#wcp-compare-modal").hide();
+      closeModal();
       return;
     }
 
@@ -53,6 +53,11 @@ jQuery(document).ready(function ($) {
     });
   }
 
+  function closeModal() {
+    $("#wcp-compare-modal").hide();
+    localStorage.removeItem("wcp_open_modal");
+  }
+
   $(document).on("click", ".wcp-compare-button", function () {
     const productId = $(this).data("product-id").toString();
 
@@ -73,10 +78,7 @@ jQuery(document).ready(function ($) {
     updateModal();
   });
 
-  $(document).on("click", ".wcp-close-compare", function () {
-    $("#wcp-compare-modal").hide();
-    localStorage.removeItem("wcp_open_modal");
-  });
+  $(document).on("click", ".wcp-close-compare", closeModal);
 
   $(document).on("click", ".wcp-remove-item", function () {
     const idToRemove = $(this).data("remove-id").toString();
@@ -89,6 +91,19 @@ jQuery(document).ready(function ($) {
     compareList = [];
     saveCompareList();
     $("#wcp-compare-modal").hide();
+    closeModal();
+  });
+
+  // Close modal on Escape key press
+  $(document).on("keydown", function (e) {
+    if (e.key === "Escape") {
+      closeModal();
+    }
+  });
+
+  // Close modal on overlay click
+  $(document).on("click", ".wcp-overlay", function () {
+    closeModal();
   });
 
   // Initialize buttons and modal on load
