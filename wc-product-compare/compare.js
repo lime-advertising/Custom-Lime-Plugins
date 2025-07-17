@@ -34,6 +34,18 @@ jQuery(document).ready(function ($) {
         if (response.success) {
           $("#wcp-compare-table-container").html(response.data);
           $("#wcp-compare-modal").show();
+
+          // Delay scroll detection until DOM is fully updated
+          setTimeout(function () {
+            const scrollContainer = document.querySelector(".wcp-table-scroll");
+            const swipeHint = document.querySelector(".wcp-swipe-hint");
+
+            if (scrollContainer && swipeHint) {
+              const hasHorizontalScroll =
+                scrollContainer.scrollWidth > scrollContainer.clientWidth;
+              swipeHint.style.display = hasHorizontalScroll ? "block" : "none";
+            }
+          }, 50);
         } else {
           alert("Error loading compare data.");
         }
@@ -50,10 +62,10 @@ jQuery(document).ready(function ($) {
       return;
     }
 
-    if (compareList.length >= 4) {
-      alert("You can compare up to 4 products.");
-      return;
-    }
+    // if (compareList.length >= 4) {
+    //   alert("You can compare up to 4 products.");
+    //   return;
+    // }
 
     compareList.push(productId);
     saveCompareList();

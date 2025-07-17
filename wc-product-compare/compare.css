@@ -16,6 +16,7 @@
   align-items: center;
   justify-content: space-between;
   margin-top: 20px;
+  flex-wrap: wrap;
 }
 
 #wcp-compare-modal .wcp-compare-header h3 {
@@ -73,7 +74,7 @@
   padding: 10px;
 }
 .wcp-compare-table td.wcp-heading-cell {
-  background-color: #00000061;
+  background-color: #000;
   font-weight: bold;
   text-align: left;
   width: 150px;
@@ -86,11 +87,14 @@
   text-align: left;
   /* background: #f9f9f9; */
   font-weight: bold;
+  position: sticky;
+  left: -1px;
+  z-index: 2;
 }
 /* Let all product columns be equal */
 .wcp-compare-table th:not(:first-child),
 .wcp-compare-table td:not(.wcp-heading-cell) {
-  width: calc((100% - 180px) / 4); /* Adjust for 4 product max */
+  width: 360px;
 }
 
 .wcp-compare-table .affiliate_img {
@@ -182,6 +186,46 @@
   color: #fff;
 }
 
+.wcp-swipe-hint {
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 0px;
+  animation: fadeBounce 2s ease-in-out;
+  display: none;
+}
+
+.wcp-swipe-hint span {
+  display: inline-block;
+  animation: wiggle 1.6s ease-in-out;
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes fadeBounce {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 @media screen and (max-width: 768px) {
   .wcp-compare-table {
     min-width: 600px; /* or higher if needed */
@@ -198,6 +242,6 @@
   }
   .wcp-compare-table th:not(:first-child),
   .wcp-compare-table td:not(.wcp-heading-cell) {
-    width: calc((100% - 90px) / 4);
+    width: 226px;
   }
 }

@@ -93,13 +93,14 @@ function wcp_get_compare_data()
 
     echo '<div class="wcp-compare-header">';
     echo '<h3>Compare Products</h3>';
+    echo '<div class="wcp-swipe-hint"><span>Swipe right to view more →</span></div>';
     echo '<button id="wcp-clear-all" class="wcp-clear-all">Clear All</button>';
     echo '</div>';
-
     echo '<div class="wcp-table-scroll"><table class="wcp-compare-table"><thead><tr><th>Feature</th>';
     foreach ($product_ids as $id) {
+        $product_link = get_permalink($id);
         $product = wc_get_product($id);
-        echo '<th>' . esc_html($product->get_name()) . '<br><button class="wcp-remove-item" data-remove-id="' . esc_attr($id) . '">Remove</button></th>';
+        echo '<th><a href="' . esc_url($product_link) . '" target="_blank" rel="noopener noreferrer">' . esc_html($product->get_name()) . '</a><br><button class="wcp-remove-item" data-remove-id="' . esc_attr($id) . '">Remove</button></th>';
     }
     echo '</tr></thead><tbody>';
 
