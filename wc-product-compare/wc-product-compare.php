@@ -74,7 +74,7 @@ function get_store_logo_html($store_name, $url = '')
     $key = strtolower(sanitize_title($store_name));
 
     if (isset($logos[$key])) {
-        $img = '<img src="' . esc_url($logos[$key]) . '" alt="' . esc_attr($store_name) . '" style="max-height: 30px;">';
+        $img = '<img class="affiliate_img" src="' . esc_url($logos[$key]) . '" alt="' . esc_attr($store_name) . '" style="max-height: 30px;">';
         return '<a href="' . esc_url($url) . '" target="_blank" rel="nofollow">' . $img . '</a>';
     }
 

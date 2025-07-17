@@ -19,7 +19,6 @@
 }
 
 #wcp-compare-modal .wcp-compare-header h3 {
-  color: var(--wdtSecondaryColor);
   margin: 0;
 }
 
@@ -32,7 +31,8 @@
 }
 
 .wcp-content {
-  background: #fff;
+  background-color: #2b2b2b;
+  background-image: url(https://kucht.ca/wp-content/uploads/2024/05/body-bg.png);
   padding: 20px;
   max-width: 90%;
   max-height: 90%;
@@ -67,14 +67,13 @@
 }
 .wcp-compare-table td,
 .wcp-compare-table th {
-  border: 1px solid #ddd;
+  border: 1px solid 1px solid #ffffff24;
   word-wrap: break-word;
   overflow-wrap: break-word;
   padding: 10px;
 }
 .wcp-compare-table td.wcp-heading-cell {
-  background-color: #f5f5f5;
-  color: var(--wdtSecondaryColor);
+  background-color: #00000061;
   font-weight: bold;
   text-align: left;
   width: 150px;
@@ -92,6 +91,10 @@
 .wcp-compare-table th:not(:first-child),
 .wcp-compare-table td:not(.wcp-heading-cell) {
   width: calc((100% - 180px) / 4); /* Adjust for 4 product max */
+}
+
+.wcp-compare-table .affiliate_img {
+  filter: invert(1);
 }
 
 .wcp-remove-item {
@@ -171,6 +174,12 @@
 .wcp-table-scroll {
   width: 100%;
   overflow-x: auto;
+}
+
+.wcp-compare-table a,
+.wcp-compare-table p,
+.wcp-compare-table td {
+  color: #fff;
 }
 
 @media screen and (max-width: 768px) {
