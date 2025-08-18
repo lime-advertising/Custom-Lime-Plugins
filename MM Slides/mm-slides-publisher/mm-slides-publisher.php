@@ -3,7 +3,7 @@
 /**
  * Plugin Name: MM Slides Publisher
  * Description: Central slide manager + RSS feed for remote consumption (with tabbed global style settings).
- * Version: 1.3.0
+ * Version: 1.4.0
  */
 
 if (!defined('ABSPATH')) exit;
@@ -11,8 +11,8 @@ if (!defined('ABSPATH')) exit;
 final class MM_Slides_Publisher
 {
     const CPT       = 'mm_slide';
-    const NS        = 'mm';                 // RSS XML namespace
-    const OPT_STYLE = 'mm_slides_style';    // stores global styles
+    const NS        = 'mm';               // RSS XML namespace
+    const OPT_STYLE = 'mm_slides_style';  // stores global styles
 
     public function __construct()
     {
@@ -85,15 +85,14 @@ final class MM_Slides_Publisher
             <p><label>Button 2 Text<br><input type="text" name="mm_btn2_text" class="widefat" value="<?php echo esc_attr($get('mm_btn2_text')); ?>"></label></p>
             <p><label>Button 2 URL<br><input type="url" name="mm_btn2_url" class="widefat" value="<?php echo esc_attr($get('mm_btn2_url')); ?>"></label></p>
         </div>
-        <p><em>Use the main editor for the slide description. Use Featured Image for the slide background.</em></p>
+        <p><em>Use the main editor for the description. Use Featured Image for the background.</em></p>
     <?php
     }
 
     public function save_meta($post_id)
     {
         if (!isset($_POST['mm_slide_nonce']) || !wp_verify_nonce($_POST['mm_slide_nonce'], 'mm_slide_fields')) return;
-        $fields = ['mm_subtitle', 'mm_active', 'mm_btn1_text', 'mm_btn1_url', 'mm_btn2_text', 'mm_btn2_url'];
-        foreach ($fields as $f) {
+        foreach (['mm_subtitle', 'mm_active', 'mm_btn1_text', 'mm_btn1_url', 'mm_btn2_text', 'mm_btn2_url'] as $f) {
             if (isset($_POST[$f])) update_post_meta($post_id, $f, sanitize_text_field($_POST[$f]));
         }
     }
@@ -124,31 +123,70 @@ final class MM_Slides_Publisher
     public function admin_assets($hook)
     {
         if ($hook !== 'mm_slide_page_mm-slides-settings') return;
+
+        // WP color picker + alpha support
+        wp_enqueue_style('wp-color-picker');
+        wp_enqueue_script('wp-color-picker');
+        // lightweight alpha addon
+        wp_register_script('wp-color-picker-alpha', 'https://cdn.jsdelivr.net/npm/wp-color-picker-alpha@3.0.0/dist/wp-color-picker-alpha.min.js', ['wp-color-picker'], '3.0.0', true);
+        wp_enqueue_script('wp-color-picker-alpha');
+
         wp_add_inline_style('wp-admin', '
-            .mm-tabs { margin-top: 20px; }
-            .mm-tabs .nav-tab-wrapper { margin-bottom: 0; }
-            .mm-tab-panel { display:none; background:#fff; padding:16px 20px; border:1px solid #c3c4c7; border-top:0; }
-            .mm-tab-panel.active { display:block; }
-            .mm-two { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-            @media (max-width: 900px){ .mm-two{ grid-template-columns:1fr; } }
+            .mm-tabs{margin-top:20px}
+            .mm-tabs .nav-tab-wrapper{margin-bottom:0}
+            .mm-tab-panel{display:none;background:#fff;padding:16px 20px;border:1px solid #c3c4c7;border-top:0}
+            .mm-tab-panel.active{display:block}
+            .mm-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+            .mm-field small{opacity:.75}
+            @media (max-width:900px){.mm-two{grid-template-columns:1fr}}
         ');
         wp_add_inline_script('jquery-core', "
             jQuery(function($){
+                // tabs
                 const key='mmSlidesSettingsTab';
                 function showTab(id){
-                    $('.mm-tab-panel').removeClass('active');
-                    $(id).addClass('active');
+                    $('.mm-tab-panel').removeClass('active'); $(id).addClass('active');
                     $('.mm-tabs .nav-tab').removeClass('nav-tab-active');
                     $('.mm-tabs .nav-tab[data-target=\"'+id+'\"]').addClass('nav-tab-active');
-                    try{ localStorage.setItem(key,id); }catch(e){}
+                    try{localStorage.setItem(key,id);}catch(e){}
                 }
-                $('.mm-tabs .nav-tab').on('click', function(e){
-                    e.preventDefault(); showTab($(this).data('target'));
+                $('.mm-tabs .nav-tab').on('click', function(e){ e.preventDefault(); showTab($(this).data('target')); });
+                showTab(localStorage.getItem(key) || '#mm-general');
+
+                // color pickers (with alpha)
+                $('.mm-color').each(function(){
+                    $(this).attr('data-alpha-enabled','true').wpColorPicker();
                 });
-                let saved=null; try{ saved=localStorage.getItem(key); }catch(e){}
-                showTab(saved || '#mm-general');
+
+                // font selectors: toggle custom input
+                $('.mm-font-select').each(function(){
+                    const select=$(this), custom=select.closest('.mm-field').find('.mm-font-custom');
+                    function sync(){ (select.val()==='custom') ? custom.show() : custom.hide(); }
+                    select.on('change', sync); sync();
+                });
             });
         ");
+    }
+
+    /** Predefined fonts for selectors */
+    private function font_choices()
+    {
+        return [
+            'inherit' => 'Use Theme (inherit)',
+            'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif' => 'System UI',
+            'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif' => 'Inter',
+            'Roboto, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif' => 'Roboto',
+            'Open Sans, Helvetica, Arial, sans-serif' => 'Open Sans',
+            'Lato, Helvetica, Arial, sans-serif' => 'Lato',
+            'Montserrat, Helvetica, Arial, sans-serif' => 'Montserrat',
+            'Poppins, Helvetica, Arial, sans-serif' => 'Poppins',
+            'Merriweather, Georgia, serif' => 'Merriweather',
+            'Playfair Display, Georgia, serif' => 'Playfair Display',
+            'Georgia, serif' => 'Georgia',
+            'Times New Roman, Times, serif' => 'Times New Roman',
+            'Arial, Helvetica, sans-serif' => 'Arial',
+            'custom' => 'Custom…',
+        ];
     }
 
     /** Field groups and defaults */
@@ -157,7 +195,7 @@ final class MM_Slides_Publisher
         return [
             'general' => [
                 'slider_height' => ['Slider Height (e.g. 700px or 90vh)', '700px'],
-                'overlay'       => ['Overlay (CSS color with alpha, e.g. rgba(0,0,0,.35))', 'rgba(0,0,0,0)'],
+                'overlay'       => ['Overlay Color (supports alpha)', 'rgba(0,0,0,0)'],
                 'align_v'       => ['Vertical Align (flex-start|center|flex-end)', 'center'],
                 'align_h'       => ['Horizontal Align (flex-start|center|flex-end)', 'flex-start'],
                 'text_align'    => ['Text Align (left|center|right)', 'left'],
@@ -165,6 +203,7 @@ final class MM_Slides_Publisher
             ],
             'title' => [
                 'title_color'     => ['Title Color', '#ffffff'],
+                'title_font'      => ['Title Font Family', 'inherit'],
                 'title_size'      => ['Title Size', '90px'],
                 'title_line'      => ['Title Line-height', '1'],
                 'title_weight'    => ['Title Weight', '800'],
@@ -174,6 +213,7 @@ final class MM_Slides_Publisher
             ],
             'subtitle' => [
                 'sub_color'   => ['Subtitle Color', '#ffffff'],
+                'sub_font'    => ['Subtitle Font Family', 'inherit'],
                 'sub_size'    => ['Subtitle Size', '20px'],
                 'sub_line'    => ['Subtitle Line-height', '36px'],
                 'sub_weight'  => ['Subtitle Weight', '500'],
@@ -181,23 +221,46 @@ final class MM_Slides_Publisher
             ],
             'description' => [
                 'desc_color'  => ['Description Color', '#ffffff'],
+                'desc_font'   => ['Description Font Family', 'inherit'],
                 'desc_size'   => ['Description Size', '20px'],
                 'desc_line'   => ['Description Line-height', '40px'],
                 'desc_weight' => ['Description Weight', '600'],
                 'desc_margin' => ['Description Margin', '0 0 35px 0'],
                 'desc_max'    => ['Description Max-width', 'none'],
             ],
-            'buttons' => [
-                'btn_bg'           => ['Button BG', 'transparent'],
-                'btn_text'         => ['Button Text Color', '#ffffff'],
-                'btn_border'       => ['Button Border Color', '#ffffff'],
-                'btn_radius'       => ['Button Border Radius', '0'],
-                'btn_pad'          => ['Button Padding', '12px 24px'],
-                'btn_bg_hover'     => ['Button BG (Hover)', 'var(--mm-btn-bg)'],
-                'btn_text_hover'   => ['Button Text (Hover)', 'var(--mm-btn-text)'],
-                'btn_border_hover' => ['Button Border (Hover)', 'var(--mm-btn-border)'],
+            // Button 1 (primary)
+            'button1' => [
+                'btn1_bg'           => ['Button 1 BG', 'var(--e-global-color-qondri_accent)'],
+                'btn1_text'         => ['Button 1 Text', '#ffffff'],
+                'btn1_border'       => ['Button 1 Border', '#ffffff'],
+                'btn1_radius'       => ['Button 1 Radius', '0'],
+                'btn1_pad'          => ['Button 1 Padding', '12px 24px'],
+                'btn1_shadow'       => ['Button 1 Box-Shadow', 'none'],
+                'btn1_bg_hover'     => ['Button 1 BG (Hover)', 'var(--mm-btn1-bg)'],
+                'btn1_text_hover'   => ['Button 1 Text (Hover)', 'var(--mm-btn1-text)'],
+                'btn1_border_hover' => ['Button 1 Border (Hover)', 'var(--mm-btn1-border)'],
+                'btn1_shadow_hover' => ['Button 1 Box-Shadow (Hover)', 'var(--mm-btn1-shadow)'],
+            ],
+            // Button 2 (secondary/link)
+            'button2' => [
+                'btn2_bg'           => ['Button 2 BG', 'transparent'],
+                'btn2_text'         => ['Button 2 Text', '#ffffff'],
+                'btn2_border'       => ['Button 2 Border', '#ffffff'],
+                'btn2_radius'       => ['Button 2 Radius', '0'],
+                'btn2_pad'          => ['Button 2 Padding', '0'],
+                'btn2_shadow'       => ['Button 2 Box-Shadow', 'none'],
+                'btn2_bg_hover'     => ['Button 2 BG (Hover)', 'var(--mm-btn2-bg)'],
+                'btn2_text_hover'   => ['Button 2 Text (Hover)', 'var(--mm-btn2-text)'],
+                'btn2_border_hover' => ['Button 2 Border (Hover)', 'var(--mm-btn2-border)'],
+                'btn2_shadow_hover' => ['Button 2 Box-Shadow (Hover)', 'var(--mm-btn2-shadow)'],
             ],
         ];
+    }
+
+    /** Helper: is this a color-like key? */
+    private function is_color_key($key)
+    {
+        return (bool) preg_match('/(color|_bg$|_bg_hover$|_text$|_text_hover$|_border$|_border_hover$|^overlay$)/', $key);
     }
 
     /** Make available to WP as sanitize callback */
@@ -209,8 +272,8 @@ final class MM_Slides_Publisher
             foreach ($fields as $key => $_meta) {
                 if (!isset($input[$key])) continue;
                 $val = (string)$input[$key];
-                // allow safe CSS chars
-                $val = preg_replace('/[^a-zA-Z0-9#.%\s,\-()\/:rgbaRGBAVar\[\]]/', '', $val);
+                // allow safe CSS characters (incl. quotes for font stacks)
+                $val = preg_replace('/[^a-zA-Z0-9#.%\s,\-()\/:;_\[\]\'"]/', '', $val);
                 $out[$key] = trim($val);
             }
         }
@@ -220,6 +283,7 @@ final class MM_Slides_Publisher
     /** Map options -> CSS custom properties */
     private function option_to_css_vars(array $opt)
     {
+        // sensible defaults
         $def = [
             '--mm-slider-height'  => '700px',
             '--mm-overlay'        => 'rgba(0,0,0,0)',
@@ -227,34 +291,57 @@ final class MM_Slides_Publisher
             '--mm-align-h'        => 'flex-start',
             '--mm-text-align'     => 'left',
             '--mm-content-pad'    => '0 0 0 0',
+
             '--mm-sub-color'      => '#fff',
+            '--mm-sub-font'       => 'inherit',
             '--mm-sub-size'       => '20px',
             '--mm-sub-line'       => '36px',
             '--mm-sub-weight'     => '500',
             '--mm-sub-margin'     => '0 0 12px 0',
+
             '--mm-title-color'    => '#fff',
+            '--mm-title-font'     => 'inherit',
             '--mm-title-size'     => '90px',
             '--mm-title-line'     => '1',
             '--mm-title-weight'   => '800',
             '--mm-title-tracking' => '-1.6px',
             '--mm-title-margin'   => '0 0 30px 0',
             '--mm-title-max'      => 'none',
+
             '--mm-desc-color'     => '#fff',
+            '--mm-desc-font'      => 'inherit',
             '--mm-desc-size'      => '20px',
             '--mm-desc-line'      => '40px',
             '--mm-desc-weight'    => '600',
             '--mm-desc-margin'    => '0 0 35px 0',
             '--mm-desc-max'       => 'none',
-            '--mm-btn-bg'         => 'var(--e-global-color-qondri_accent)',
-            '--mm-btn-text'       => '#fff',
-            '--mm-btn-border'     => '#fff',
-            '--mm-btn-radius'     => '0',
-            '--mm-btn-pad'        => '12px 24px',
-            '--mm-btn-bg-hover'   => 'var(--mm-btn-bg)',
-            '--mm-btn-text-hover' => 'var(--mm-btn-text)',
-            '--mm-btn-border-hover' => 'var(--mm-btn-border)',
+
+            // Button 1 (also mirrored to legacy --mm-btn-* for back-compat)
+            '--mm-btn1-bg'         => 'var(--e-global-color-qondri_accent)',
+            '--mm-btn1-text'       => '#fff',
+            '--mm-btn1-border'     => '#fff',
+            '--mm-btn1-radius'     => '0',
+            '--mm-btn1-pad'        => '12px 24px',
+            '--mm-btn1-shadow'     => 'none',
+            '--mm-btn1-bg-hover'   => 'var(--mm-btn1-bg)',
+            '--mm-btn1-text-hover' => 'var(--mm-btn1-text)',
+            '--mm-btn1-border-hover' => 'var(--mm-btn1-border)',
+            '--mm-btn1-shadow-hover' => 'var(--mm-btn1-shadow)',
+
+            // Button 2
+            '--mm-btn2-bg'         => 'transparent',
+            '--mm-btn2-text'       => '#fff',
+            '--mm-btn2-border'     => '#fff',
+            '--mm-btn2-radius'     => '0',
+            '--mm-btn2-pad'        => '0',
+            '--mm-btn2-shadow'     => 'none',
+            '--mm-btn2-bg-hover'   => 'var(--mm-btn2-bg)',
+            '--mm-btn2-text-hover' => 'var(--mm-btn2-text)',
+            '--mm-btn2-border-hover' => 'var(--mm-btn2-border)',
+            '--mm-btn2-shadow-hover' => 'var(--mm-btn2-shadow)',
         ];
 
+        // map option keys to CSS vars
         $map = [
             'slider_height'  => '--mm-slider-height',
             'overlay'        => '--mm-overlay',
@@ -264,12 +351,14 @@ final class MM_Slides_Publisher
             'content_pad'    => '--mm-content-pad',
 
             'sub_color'      => '--mm-sub-color',
+            'sub_font'       => '--mm-sub-font',
             'sub_size'       => '--mm-sub-size',
             'sub_line'       => '--mm-sub-line',
             'sub_weight'     => '--mm-sub-weight',
             'sub_margin'     => '--mm-sub-margin',
 
             'title_color'    => '--mm-title-color',
+            'title_font'     => '--mm-title-font',
             'title_size'     => '--mm-title-size',
             'title_line'     => '--mm-title-line',
             'title_weight'   => '--mm-title-weight',
@@ -278,26 +367,78 @@ final class MM_Slides_Publisher
             'title_max'      => '--mm-title-max',
 
             'desc_color'     => '--mm-desc-color',
+            'desc_font'      => '--mm-desc-font',
             'desc_size'      => '--mm-desc-size',
             'desc_line'      => '--mm-desc-line',
             'desc_weight'    => '--mm-desc-weight',
             'desc_margin'    => '--mm-desc-margin',
             'desc_max'       => '--mm-desc-max',
 
-            'btn_bg'           => '--mm-btn-bg',
-            'btn_text'         => '--mm-btn-text',
-            'btn_border'       => '--mm-btn-border',
-            'btn_radius'       => '--mm-btn-radius',
-            'btn_pad'          => '--mm-btn-pad',
-            'btn_bg_hover'     => '--mm-btn-bg-hover',
-            'btn_text_hover'   => '--mm-btn-text-hover',
-            'btn_border_hover' => '--mm-btn-border-hover',
+            'btn1_bg'           => '--mm-btn1-bg',
+            'btn1_text'         => '--mm-btn1-text',
+            'btn1_border'       => '--mm-btn1-border',
+            'btn1_radius'       => '--mm-btn1-radius',
+            'btn1_pad'          => '--mm-btn1-pad',
+            'btn1_shadow'       => '--mm-btn1-shadow',
+            'btn1_bg_hover'     => '--mm-btn1-bg-hover',
+            'btn1_text_hover'   => '--mm-btn1-text-hover',
+            'btn1_border_hover' => '--mm-btn1-border-hover',
+            'btn1_shadow_hover' => '--mm-btn1-shadow-hover',
+
+            'btn2_bg'           => '--mm-btn2-bg',
+            'btn2_text'         => '--mm-btn2-text',
+            'btn2_border'       => '--mm-btn2-border',
+            'btn2_radius'       => '--mm-btn2-radius',
+            'btn2_pad'          => '--mm-btn2-pad',
+            'btn2_shadow'       => '--mm-btn2-shadow',
+            'btn2_bg_hover'     => '--mm-btn2-bg-hover',
+            'btn2_text_hover'   => '--mm-btn2-text-hover',
+            'btn2_border_hover' => '--mm-btn2-border-hover',
+            'btn2_shadow_hover' => '--mm-btn2-shadow-hover',
         ];
 
         foreach ($map as $k => $var) {
             if (!empty($opt[$k])) $def[$var] = $opt[$k];
         }
+
+        // Back-compat: mirror Button 1 into legacy --mm-btn-* vars
+        $def['--mm-btn-bg']           = $def['--mm-btn1-bg'];
+        $def['--mm-btn-text']         = $def['--mm-btn1-text'];
+        $def['--mm-btn-border']       = $def['--mm-btn1-border'];
+        $def['--mm-btn-radius']       = $def['--mm-btn1-radius'];
+        $def['--mm-btn-pad']          = $def['--mm-btn1-pad'];
+        $def['--mm-btn-bg-hover']     = $def['--mm-btn1-bg-hover'];
+        $def['--mm-btn-text-hover']   = $def['--mm-btn1-text-hover'];
+        $def['--mm-btn-border-hover'] = $def['--mm-btn1-border-hover'];
+
         return $def;
+    }
+
+    /** Render input helper */
+    private function render_input($key, $label, $value, $is_color = false, $is_font = false)
+    {
+        $id = esc_attr($key);
+        echo '<p class="mm-field">';
+        echo '<label for="' . $id . '"><strong>' . esc_html($label) . '</strong></label><br>';
+
+        if ($is_font) {
+            $choices = $this->font_choices();
+            echo '<select id="' . $id . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '" class="mm-font-select">';
+            foreach ($choices as $stack => $text) {
+                $sel = selected($value, $stack, false);
+                echo '<option value="' . esc_attr($stack) . '" ' . $sel . '>' . esc_html($text) . '</option>';
+            }
+            echo '</select>';
+            // Custom free-text stack
+            $custom_val = ($value !== '' && !array_key_exists($value, $choices)) ? $value : '';
+            echo '<input type="text" placeholder="e.g. &quot;Alexandria&quot;, Arial, sans-serif" class="regular-text mm-font-custom" style="margin-top:6px;display:none" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '_custom" value="' . esc_attr($custom_val) . '">';
+            echo '<small>Note: this does not load fonts. Ensure the selected family is available on your theme/site.</small>';
+        } else {
+            $cls = $is_color ? 'mm-color regular-text' : 'regular-text';
+            echo '<input type="text" id="' . $id . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '" value="' . esc_attr($value) . '" class="' . $cls . '"' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
+        }
+
+        echo '</p>';
     }
 
     public function settings_page()
@@ -314,7 +455,8 @@ final class MM_Slides_Publisher
                     <a href="#" class="nav-tab" data-target="#mm-title">Title</a>
                     <a href="#" class="nav-tab" data-target="#mm-subtitle">Subtitle</a>
                     <a href="#" class="nav-tab" data-target="#mm-desc">Description</a>
-                    <a href="#" class="nav-tab" data-target="#mm-buttons">Buttons</a>
+                    <a href="#" class="nav-tab" data-target="#mm-button1">Button 1</a>
+                    <a href="#" class="nav-tab" data-target="#mm-button2">Button 2</a>
                 </h2>
 
                 <form method="post" action="options.php">
@@ -323,70 +465,60 @@ final class MM_Slides_Publisher
                     <!-- General -->
                     <div id="mm-general" class="mm-tab-panel">
                         <div class="mm-two">
-                            <?php foreach ($groups['general'] as $key => $meta): ?>
-                                <p>
-                                    <label for="<?php echo esc_attr($key); ?>"><strong><?php echo esc_html($meta[0]); ?></strong></label><br>
-                                    <input type="text" id="<?php echo esc_attr($key); ?>"
-                                        name="<?php echo esc_attr(self::OPT_STYLE . "[$key]"); ?>"
-                                        value="<?php echo esc_attr($opt[$key] ?? $meta[1]); ?>" class="regular-text">
-                                </p>
-                            <?php endforeach; ?>
+                            <?php foreach ($groups['general'] as $key => $meta):
+                                $val = $opt[$key] ?? $meta[1];
+                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), false);
+                            endforeach; ?>
                         </div>
                     </div>
 
                     <!-- Title -->
                     <div id="mm-title" class="mm-tab-panel">
                         <div class="mm-two">
-                            <?php foreach ($groups['title'] as $key => $meta): ?>
-                                <p>
-                                    <label for="<?php echo esc_attr($key); ?>"><strong><?php echo esc_html($meta[0]); ?></strong></label><br>
-                                    <input type="text" id="<?php echo esc_attr($key); ?>"
-                                        name="<?php echo esc_attr(self::OPT_STYLE . "[$key]"); ?>"
-                                        value="<?php echo esc_attr($opt[$key] ?? $meta[1]); ?>" class="regular-text">
-                                </p>
-                            <?php endforeach; ?>
+                            <?php foreach ($groups['title'] as $key => $meta):
+                                $val = $opt[$key] ?? $meta[1];
+                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), $key === 'title_font');
+                            endforeach; ?>
                         </div>
                     </div>
 
                     <!-- Subtitle -->
                     <div id="mm-subtitle" class="mm-tab-panel">
                         <div class="mm-two">
-                            <?php foreach ($groups['subtitle'] as $key => $meta): ?>
-                                <p>
-                                    <label for="<?php echo esc_attr($key); ?>"><strong><?php echo esc_html($meta[0]); ?></strong></label><br>
-                                    <input type="text" id="<?php echo esc_attr($key); ?>"
-                                        name="<?php echo esc_attr(self::OPT_STYLE . "[$key]"); ?>"
-                                        value="<?php echo esc_attr($opt[$key] ?? $meta[1]); ?>" class="regular-text">
-                                </p>
-                            <?php endforeach; ?>
+                            <?php foreach ($groups['subtitle'] as $key => $meta):
+                                $val = $opt[$key] ?? $meta[1];
+                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), $key === 'sub_font');
+                            endforeach; ?>
                         </div>
                     </div>
 
                     <!-- Description -->
                     <div id="mm-desc" class="mm-tab-panel">
                         <div class="mm-two">
-                            <?php foreach ($groups['description'] as $key => $meta): ?>
-                                <p>
-                                    <label for="<?php echo esc_attr($key); ?>"><strong><?php echo esc_html($meta[0]); ?></strong></label><br>
-                                    <input type="text" id="<?php echo esc_attr($key); ?>"
-                                        name="<?php echo esc_attr(self::OPT_STYLE . "[$key]"); ?>"
-                                        value="<?php echo esc_attr($opt[$key] ?? $meta[1]); ?>" class="regular-text">
-                                </p>
-                            <?php endforeach; ?>
+                            <?php foreach ($groups['description'] as $key => $meta):
+                                $val = $opt[$key] ?? $meta[1];
+                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), $key === 'desc_font');
+                            endforeach; ?>
                         </div>
                     </div>
 
-                    <!-- Buttons -->
-                    <div id="mm-buttons" class="mm-tab-panel">
+                    <!-- Button 1 -->
+                    <div id="mm-button1" class="mm-tab-panel">
                         <div class="mm-two">
-                            <?php foreach ($groups['buttons'] as $key => $meta): ?>
-                                <p>
-                                    <label for="<?php echo esc_attr($key); ?>"><strong><?php echo esc_html($meta[0]); ?></strong></label><br>
-                                    <input type="text" id="<?php echo esc_attr($key); ?>"
-                                        name="<?php echo esc_attr(self::OPT_STYLE . "[$key]"); ?>"
-                                        value="<?php echo esc_attr($opt[$key] ?? $meta[1]); ?>" class="regular-text">
-                                </p>
-                            <?php endforeach; ?>
+                            <?php foreach ($groups['button1'] as $key => $meta):
+                                $val = $opt[$key] ?? $meta[1];
+                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), false);
+                            endforeach; ?>
+                        </div>
+                    </div>
+
+                    <!-- Button 2 -->
+                    <div id="mm-button2" class="mm-tab-panel">
+                        <div class="mm-two">
+                            <?php foreach ($groups['button2'] as $key => $meta):
+                                $val = $opt[$key] ?? $meta[1];
+                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), false);
+                            endforeach; ?>
                         </div>
                     </div>
 
@@ -394,7 +526,7 @@ final class MM_Slides_Publisher
                 </form>
             </div>
 
-            <p><em>These values are exported in the feed as CSS variables and applied on all consumer sites.</em></p>
+            <p><em>Values are exported in the feed as CSS variables and applied on consumer sites.</em></p>
         </div>
     <?php
     }
@@ -420,7 +552,7 @@ final class MM_Slides_Publisher
                 'terms'    => $location
             ]];
         }
-        $q = new WP_Query($args);
+        $q = new \WP_Query($args);
 
         $vars = $this->option_to_css_vars(get_option(self::OPT_STYLE, []));
 
