@@ -1,0 +1,290 @@
+.lime-wp-search-form {
+  display: flex;
+  gap: 10px;
+}
+.search-field {
+  padding: 8px;
+  width: 100%;
+}
+.search-submit {
+  padding: 8px 16px;
+}
+
+.lime-wp-search-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.lime-wp-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-image: url(https://kucht.ca/wp-content/uploads/2024/05/body-bg.png);
+  background-color: #2b2b2b;
+  border: 0;
+  z-index: 9999;
+  display: none;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.lime-wp-search-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lime-wp-search-list li {
+  padding: 12px !important;
+  border-bottom: 1px solid #ffffff3b;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lime-wp-search-list li a:not(.lws-cat-link) {
+  text-decoration: none;
+  color: var(--wdtPrimaryColor);
+  display: block;
+}
+
+.lime-wp-search-list li:hover {
+  background: #000000;
+}
+
+.lws-cats {
+  /* display: flex; */
+}
+
+/* === Lime WP Search Modal === */
+.lws-no-scroll {
+  overflow: hidden;
+}
+
+/* overlay */
+.lws-modal {
+  position: fixed;
+  inset: 0;
+  display: none; /* created only in trigger mode */
+  align-items: flex-start;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100000; /* above admin bar/front header */
+  padding-top: 6rem;
+}
+
+/* dialog */
+.lws-modal__dialog {
+  position: relative;
+  max-width: 720px;
+  width: min(92vw, 720px);
+  background-image: url(https://kucht.ca/wp-content/uploads/2024/05/body-bg.png);
+  background-color: #2b2b2b;
+  border-radius: 0 12px 0 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  padding: 20px;
+}
+
+/* close button */
+.lws-modal__close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  padding: 2px 8px 3px !important;
+  margin: 0 !important;
+  border-radius: 0 12px 0 12px !important;
+}
+
+.lws-modal input#lime-wp-search-input {
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid #ffffff2e;
+  padding: 10px;
+}
+
+/* Thumbnail + meta layout */
+.lws-thumb {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f3f3f3;
+  display: inline-block;
+}
+
+.lws-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.lws-thumb--placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #e5e7eb;
+}
+
+.lws-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* prevent overflow */
+}
+
+.lws-title {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.lws-type {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* hide visually but keep accessible */
+.screen-reader-text {
+  position: absolute !important;
+  clip: rect(1px, 1px, 1px, 1px);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}
+.lime-wp-search-form .search-submit {
+  display: none;
+} /* if you prefer no visible button */
+
+@media (prefers-reduced-motion: no-preference) {
+  .lws-modal[aria-hidden="false"] .lws-modal__dialog {
+    animation: lws-modal-in 0.18s ease-out;
+  }
+  @keyframes lws-modal-in {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+
+/* ==== Category sections ==== */
+.lws-section {
+  margin: 0;
+  padding: 48px 0;
+  /* border-bottom: 1px solid #ffffff30; */
+}
+.lws-section:last-child {
+  border-bottom: 0;
+  margin-bottom: 60px !important;
+}
+.lws-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.lws-section__title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+.lws-section__more {
+  font-size: 0.9rem;
+  text-decoration: none;
+  opacity: 0.8;
+}
+.lws-section__more:hover {
+  text-decoration: underline;
+}
+
+/* ==== Responsive grid: 1 / 2 / 4 ==== */
+.lws-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+@media (min-width: 768px) {
+  .lws-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .lws-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ==== Cards ==== */
+.lws-card {
+  border-radius: 10px;
+  overflow: hidden;
+}
+.lws-card__link {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+}
+.lws-card__thumb {
+  display: block;
+  overflow: hidden;
+}
+.lws-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.lws-card__placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #eee;
+}
+
+.lws-card__body {
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+.lws-card__title {
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+  text-align: center;
+}
+.lws-card__price {
+  font-weight: 700;
+  text-align: center;
+  font-size: var(--wdtFontSize_Base);
+  font-weight: var(--wdtFontWeight_Base);
+  margin-top: 16px;
+  font-family: "Mulish", sans-serif;
+}
+.lws-card__meta {
+  font-size: 0.875rem;
+  opacity: 0.75;
+}
+
+.lws-view-all {
+  display: block;
+  text-align: center;
+  padding: 10px;
+}

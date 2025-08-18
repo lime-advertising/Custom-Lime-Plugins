@@ -28,8 +28,9 @@ function wcp_add_buttons_wrapper()
     $product_url = get_permalink($product->get_id());
 
     $options = get_option('wcp_settings');
+
     if (!empty($options['enable_compare'])) {
-        $label = $options['compare_button_label'] ?? 'Compare';
+        $label = $options['compare_button_label'] ?? '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" stroke-width="0.00024000000000000003"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M1,8A1,1,0,0,1,2,7H9.586L7.293,4.707A1,1,0,1,1,8.707,3.293l4,4a1,1,0,0,1,0,1.414l-4,4a1,1,0,1,1-1.414-1.414L9.586,9H2A1,1,0,0,1,1,8Zm21,7H14.414l2.293-2.293a1,1,0,0,0-1.414-1.414l-4,4a1,1,0,0,0,0,1.414l4,4a1,1,0,0,0,1.414-1.414L14.414,17H22a1,1,0,0,0,0-2Z"></path></g></svg>';
         echo '<div class="wcp-button-group">';
         echo '<a href="' . esc_url($product_url) . '" class="wcp-view-product">View</a>';
         echo '<button class="wcp-compare-button" data-product-id="' . esc_attr($product->get_id()) . '">' . esc_html($label) . '</button>';
@@ -44,6 +45,13 @@ add_shortcode('compare_button', function () {
     if (!$product) return '';
     $id = $product->get_id();
     return '<button class="wcp-compare-button" data-product-id="' . esc_attr($id) . '">Compare</button>';
+});
+
+add_shortcode('compare_icon', function () {
+    return '<span class="wcp-shortcode-icon">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" stroke-width="0.00024000000000000003"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M1,8A1,1,0,0,1,2,7H9.586L7.293,4.707A1,1,0,1,1,8.707,3.293l4,4a1,1,0,0,1,0,1.414l-4,4a1,1,0,1,1-1.414-1.414L9.586,9H2A1,1,0,0,1,1,8Zm21,7H14.414l2.293-2.293a1,1,0,0,0-1.414-1.414l-4,4a1,1,0,0,0,0,1.414l4,4a1,1,0,0,0,1.414-1.414L14.414,17H22a1,1,0,0,0,0-2Z"></path></g></svg>    
+    <span class="wcp-count">0</span>
+    </span>';
 });
 
 // Output compare modal
@@ -65,24 +73,30 @@ function wcp_render_compare_modal()
 add_action('wp_ajax_get_compare_data', 'wcp_get_compare_data');
 add_action('wp_ajax_nopriv_get_compare_data', 'wcp_get_compare_data');
 
-function get_store_logo_html($store_name, $url = '')
+function get_store_logo_html($store_name, $url = '', $sku = '')
 {
     $logos = [
-        'bestbuy'   => 'https://kucht.ca/wp-content/uploads/2025/06/Bestbuy.svg',
-        'amazon'    => 'https://kucht.ca/wp-content/uploads/2025/06/Amazon.svg',
-        'homedepot' => 'https://kucht.ca/wp-content/uploads/2025/06/HomedepotLogo.svg',
-        'rona'      => 'https://kucht.ca/wp-content/uploads/2025/06/Ronalogo-1.svg',
-        'hod'       => 'https://kucht.ca/wp-content/uploads/2025/06/HODlogo.svg',
+        'best_buy'   => '/wp-content/plugins/wc-product-compare/icons/compare-icons/best_buy-ico.svg',
+        'amazon'    => '/wp-content/plugins/wc-product-compare/icons/compare-icons/amazon-ico.svg',
+        'the_home_depot' => '/wp-content/plugins/wc-product-compare/icons/compare-icons/the_home_depot-ico.svg',
+        'rona'      => '/wp-content/plugins/wc-product-compare/icons/compare-icons/rona-ico.svg',
+        'wayfair'       => '/wp-content/plugins/wc-product-compare/icons/compare-icons/wayfair-ico.svg',
+        'walmart'       => '/wp-content/plugins/wc-product-compare/icons/compare-icons/walmart-ico.svg',
     ];
 
     $key = strtolower(sanitize_title($store_name));
+    $attrs = sprintf(
+        'class="affiliate-button" data-store="%s" data-sku="%s"',
+        esc_attr($key),
+        esc_attr($sku)
+    );
 
     if (isset($logos[$key])) {
         $img = '<img class="affiliate_img" src="' . esc_url($logos[$key]) . '" alt="' . esc_attr($store_name) . '" style="max-height: 30px;">';
-        return '<a href="' . esc_url($url) . '" target="_blank" rel="nofollow">' . $img . '</a>';
+        return '<a href="' . esc_url($url) . '" target="_blank" rel="nofollow" ' . $attrs . '>' . $img . '</a>';
     }
 
-    return '<a href="' . esc_url($url) . '" target="_blank" rel="nofollow">' . esc_html($store_name) . '</a>';
+    return '<a href="' . esc_url($url) . '" target="_blank" rel="nofollow" ' . $attrs . '>' . esc_html($store_name) . '</a>';
 }
 
 function wcp_get_compare_data()
@@ -110,20 +124,29 @@ function wcp_get_compare_data()
 
     // Define comparison rows
     $rows = [
-        'Image' => fn($p) => $p->get_image(),
+        'Image' => function ($p) {
+            $product_link = get_permalink($p->get_id());
+            return '<a href="' . esc_url($product_link) . '" target="_blank" rel="noopener noreferrer">'
+                . $p->get_image()
+                . '</a>';
+        },
         'Price' => fn($p) => $p->get_price_html(),
         'Category' => fn($p) => wc_get_product_category_list($p->get_id()),
         'SKU' => fn($p) => $p->get_sku(),
         'Available in' => function ($p) {
-            $affiliates = get_post_meta($p->get_id(), '_additional_affiliate_links', true);
-            if (!is_array($affiliates) || empty($affiliates)) return '-';
-
             $output = '';
-            foreach ($affiliates as $link) {
-                if (!empty($link['name']) && !empty($link['url'])) {
-                    $output .= get_store_logo_html($link['name'], $link['url']) . ' ';
+            $stores = ['amazon', 'best_buy', 'rona', 'the_home_depot', 'wayfair', 'walmart'];
+            $sku    = $p->get_sku();
+
+            foreach ($stores as $store) {
+                $url = get_field($store, $p->get_id());
+                if (!empty($url)) {
+                    $output .= get_store_logo_html($store, $url, $sku) . ' ';
                 }
             }
+
+            return $output ?: '-';
+
 
             return $output ?: '-';
         }

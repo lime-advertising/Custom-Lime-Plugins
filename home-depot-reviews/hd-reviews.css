@@ -1,0 +1,125 @@
+.hd-review-wrapper .hd-review-summary,
+.hd-review-wrapper .hd-review-list,
+.hd-review-wrapper .hd-review-item {
+  font-size: 14px;
+}
+
+.hd-review-swiper .swiper-wrapper {
+  display: flex;
+  align-items: stretch;
+}
+
+.hd-review-swiper .swiper-slide {
+  display: flex;
+  height: auto; /* Can also set to fixed value like 100% if needed */
+}
+
+.hd-review-wrapper .hd-review-item {
+  border: 1px solid #eee;
+  padding: 20px;
+  border-radius: 10px;
+  background-color: #2b2b2b;
+  background-image: url(https://kucht.ca/wp-content/uploads/2024/05/body-bg.png);
+  height: 100%;
+  width: 100%;
+}
+
+.hd-review-wrapper .hd-review-item .hd-review-author {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.hd-review-wrapper .hd-review-item .hd-review-author strong {
+  font-family: "Marcellus", sans-serif;
+  color: #fff;
+  font-size: 18px;
+}
+
+.hd-review-wrapper .hd-review-item .hd-review-text {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.hd-review-wrapper .hd-star-rating .star {
+  color: #ccc;
+  font-size: 16px;
+  display: inline-block;
+}
+
+.hd-review-wrapper .hd-star-rating .star.full {
+  color: #f5a623;
+}
+
+.hd-review-wrapper .hd-star-rating .star.half {
+  background: linear-gradient(to right, #f5a623 50%, #ccc 50%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hd-review-wrapper .hd-review-image {
+  width: 100%;
+  max-width: 100px;
+  height: auto;
+}
+
+.hd-custom-nav {
+  text-align: center;
+  margin-top: 15px;
+}
+
+.hd-button-prev,
+.hd-button-next {
+  background-color: #f5a623;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  margin: 0 5px;
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 3px;
+}
+
+.hd-button-prev:hover,
+.hd-button-next:hover {
+  background-color: #e69500;
+}
+
+.hd-rating-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 16px;
+}
+
+.hd-rating-summary .hd-star-rating .star {
+  font-size: 16px;
+}
+
+.hd-rating-summary .hd-star-rating .star.full {
+  color: #f5a623;
+}
+
+.hd-rating-summary .hd-star-rating .star.half {
+  background: linear-gradient(to right, #f5a623 50%, #ccc 50%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@media only screen and (min-width: 992px) {
+  .hd-review-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .hd-review-wrapper .hd-review-item .hd-review-content {
+    display: flex;
+    align-items: stretch;
+    gap: 30px;
+  }
+}

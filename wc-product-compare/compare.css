@@ -97,8 +97,16 @@
   width: 360px;
 }
 
-.wcp-compare-table .affiliate_img {
+/* .wcp-compare-table .affiliate_img {
   filter: invert(1);
+} */
+
+.wcp-compare-table .affiliate-button {
+  background: #fff;
+  display: inline-block;
+  border-radius: 100%;
+  padding: 6px;
+  margin: 4px;
 }
 
 .wcp-remove-item {
@@ -200,6 +208,81 @@
   animation: wiggle 1.6s ease-in-out;
 }
 
+.wcp-shortcode-icon {
+  background: var(--wdtPrimaryColor);
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50px;
+  color: #fff;
+  cursor: pointer;
+  position: relative;
+}
+.wcp-shortcode-icon svg {
+  fill: #fff;
+  stroke: #fff;
+  width: 30px;
+  height: 26px;
+}
+.wcp-shortcode-icon .wcp-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 12px;
+  background: #fff;
+  color: var(--wdtPrimaryColor);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50px;
+}
+.wcp-shortcode-icon:hover {
+  background-color: #fff;
+  color: var(--wdtPrimaryColor);
+}
+.wcp-shortcode-icon:hover svg {
+  fill: var(--wdtPrimaryColor) !important;
+  stroke: var(--wdtPrimaryColor);
+}
+.wcp-shortcode-icon:hover .wcp-count {
+  background-color: var(--wdtPrimaryColor);
+  color: #fff;
+}
+
+.wcp-add-to-cart {
+  background: var(--wdtPrimaryColor);
+  color: white;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 9000px;
+  cursor: pointer;
+  font-size: 28px;
+  margin: 0;
+}
+
+.wcp-add-to-cart svg {
+  fill: #fff;
+  stroke: #fff;
+}
+.wcp-add-to-cart svg path {
+  fill: #fff;
+}
+
+.wcp-add-to-cart:hover {
+  background: #fff;
+}
+.wcp-add-to-cart:hover svg {
+  fill: var(--wdtPrimaryColor);
+  stroke: var(--wdtPrimaryColor);
+}
+.wcp-add-to-cart:hover svg path {
+  fill: var(--wdtPrimaryColor);
+}
+
 @keyframes wiggle {
   0%,
   100% {
@@ -238,7 +321,7 @@
 
   .wcp-compare-table td.wcp-heading-cell,
   .wcp-compare-table th:first-child {
-    width: 90px;
+    width: 100px;
   }
   .wcp-compare-table th:not(:first-child),
   .wcp-compare-table td:not(.wcp-heading-cell) {

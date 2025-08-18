@@ -1,0 +1,15 @@
+/*
+ * Admin styles for Lime Accessibility plugin.
+ *
+ * These styles primarily enhance the layout of the accessibility scanner table and
+ * forms on the admin page. They rely on WordPress core styles (widefat,
+ * striped) and are intentionally minimal.
+ */
+
+.lime-accessibility-admin-table .column-thumbnail {
+    width: 100px;
+}
+.lime-accessibility-admin-table input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+}
