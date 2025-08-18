@@ -41,6 +41,7 @@
   border-color: var(--mm-btn-border, #fff) !important;
   border-radius: var(--mm-btn-radius, 0) !important;
   padding: var(--mm-btn-pad, 12px 24px) !important;
+  box-shadow: var(--mm-btn1-shadow) !important;
 }
 .master-slider .master-button.big .content-base {
   color: inherit !important;
@@ -52,6 +53,7 @@
     --mm-btn-border-hover,
     var(--mm-btn-border, #fff)
   ) !important;
+  box-shadow: var(--mm-btn1-shadow-hover) !important ;
 }
 .master-slider .master-link {
   font-family: var(--mm-desc-font, inherit) !important;

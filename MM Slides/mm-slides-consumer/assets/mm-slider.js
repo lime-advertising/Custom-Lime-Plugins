@@ -1,9 +1,10 @@
 /*!
- * MM Master Slider (consumer) – v1.0.2
- * - Uses a single GSAP timeline per transition (fixes reverse animations)
+ * MM Master Slider (consumer) – v1.0.3
+ * - Single GSAP timeline per transition (fixes reverse animations)
  * - True initial autoplay delay (no first-jump)
  * - url2 effect variable fix
  * - Safer Splitting/TouchSwipe guards
+ * - FIX: Don't pre-hide text when eff === "none"
  */
 (function ($, window, document, undefined) {
   "use strict";
@@ -50,7 +51,7 @@
     build: function () {
       var t = this;
 
-      // Shorthand (with guards)
+      // Shorthand (guards)
       var a = (t.args.subEffIn || {}).eff || "none",
         b = (t.args.subEffOut || {}).eff || "none",
         c = (t.args.titleEffIn || {}).eff || "none",
@@ -68,7 +69,7 @@
       var images = t.$elm.find(".bg-wrap .bg");
       var dotsWrap = t.$elm.find(".nav-dots");
 
-      // Build dots
+      // Dots
       slides.each(function () {
         $('<span class="dot"></span>').appendTo(dotsWrap);
       });
@@ -180,7 +181,7 @@
               next: { x: -50, opacity: 0, duration: 0.3 },
               prev: { x: 50, opacity: 0, duration: 0.3 },
             },
-            set: { next: { x: 50, opacity: 0 }, prev: { x: -50, opacity: 0 } },
+            set: { next: { x: -50, opacity: 0 }, prev: { x: 50, opacity: 0 } },
             in: { x: 0, opacity: 1, duration: 0.3, delay: 0.5 },
           },
           slideScale: {
@@ -427,7 +428,6 @@
       prevArrow.on("click", function () {
         navigate("prev");
       });
-
       dots.each(function (idx, el) {
         $(el).on("click", function () {
           navigateTo(idx);
@@ -450,7 +450,6 @@
       var autoplay = t.args.autoplay === "yes";
       var autoplaySpeed = t.args.autoplaySpeed;
       var autoplayTimer = null;
-
       function startAutoplay() {
         if (!autoplay) return;
         stopAutoplay();
@@ -494,15 +493,13 @@
       }
 
       function transitionTo(newIndex) {
-        // kill any existing timeline/tweens for safety
         if (tl) {
           tl.kill();
           tl = null;
         }
         gsap.killTweensOf([slides.get(), images.get()]);
 
-        // --- PREP (synchronous) ---
-        // Kenburns reset
+        // --- PREP ---
         if (kenburns) {
           gsap.set(images[newIndex], { scale: 1 });
           gsap.killTweensOf(images[current]);
@@ -521,19 +518,24 @@
           opacity: 1,
         });
 
-        // Base text opacity prep (when not split)
+        // Prep text opacity:
+        // Only pre-hide when the incoming effect is NOT "none".
         var ns = slides.eq(newIndex);
-        var prep = function (sel) {
+        var prep = function (sel, effKey) {
+          var eff = ((t.args[effKey] || {}).eff || "none").toLowerCase();
           if (!ns.find(sel).length) return;
-          if (ns.find(sel + " .text-wrap").length)
-            gsap.set(ns.find(sel), { opacity: 1 });
-          else gsap.set(ns.find(sel), { opacity: 0 });
+          var $target = ns.find(sel);
+          if ($target.find(".text-wrap").length) {
+            gsap.set($target, { opacity: 1 });
+          } else {
+            gsap.set($target, { opacity: eff === "none" ? 1 : 0 });
+          }
         };
-        prep(".sub-title");
-        prep(".title");
-        prep(".desc");
-        prep(".url1");
-        prep(".url2");
+        prep(".sub-title", "subEffIn");
+        prep(".title", "titleEffIn");
+        prep(".desc", "descEffIn");
+        prep(".url1", "url1EffIn");
+        prep(".url2", "url2EffIn");
 
         // --- TIMELINE ---
         tl = gsap.timeline({
@@ -567,7 +569,7 @@
           },
         });
 
-        // helpers to fetch effect props
+        // lookup helpers
         var P = {
           imgOut: function (key) {
             var eff = (t.args[key] || {}).eff || "none";
@@ -620,67 +622,66 @@
           },
         };
 
-        // --- SET initial states for "in" targets (so both directions are visible) ---
-        // backgrounds
+        // Set initial states for incoming targets
         var bgSet = P.imgSet("bgEffIn");
         if (Object.keys(bgSet).length) gsap.set(images[newIndex], bgSet);
-        // wrapper
         var wrapSet = P.imgSet("wrapEffIn");
         if (Object.keys(wrapSet).length) gsap.set(slides[newIndex], wrapSet);
-        // text groups
-        var setIf = function ($el, setObj) {
-          if ($el.length && Object.keys(setObj).length) gsap.set($el, setObj);
-        };
 
         var nsSub = ns.find(".sub-title");
-        setIf(
-          nsSub.find(".text-wrap").length
+        if (nsSub.length) {
+          var nsSubT = nsSub.find(".text-wrap").length
             ? nsSub.find(".text-wrap > *")
-            : nsSub,
-          P.txtSet("subEffIn")
-        );
+            : nsSub;
+          var s1 = P.txtSet("subEffIn");
+          if (Object.keys(s1).length) gsap.set(nsSubT, s1);
+        }
         var nsTit = ns.find(".title");
-        setIf(
-          nsTit.find(".text-wrap").length
+        if (nsTit.length) {
+          var nsTitT = nsTit.find(".text-wrap").length
             ? nsTit.find(".text-wrap > *")
-            : nsTit,
-          P.txtSet("titleEffIn")
-        );
+            : nsTit;
+          var s2 = P.txtSet("titleEffIn");
+          if (Object.keys(s2).length) gsap.set(nsTitT, s2);
+        }
         var nsDesc = ns.find(".desc");
-        setIf(
-          nsDesc.find(".text-wrap").length
+        if (nsDesc.length) {
+          var nsDescT = nsDesc.find(".text-wrap").length
             ? nsDesc.find(".text-wrap > *")
-            : nsDesc,
-          P.txtSet("descEffIn")
-        );
+            : nsDesc;
+          var s3 = P.txtSet("descEffIn");
+          if (Object.keys(s3).length) gsap.set(nsDescT, s3);
+        }
         var nsU1 = ns.find(".url1");
-        setIf(
-          nsU1.find(".text-wrap").length ? nsU1.find(".text-wrap > *") : nsU1,
-          P.urlSet("url1EffIn")
-        );
+        if (nsU1.length) {
+          var nsU1T = nsU1.find(".text-wrap").length
+            ? nsU1.find(".text-wrap > *")
+            : nsU1;
+          var s4 = P.urlSet("url1EffIn");
+          if (Object.keys(s4).length) gsap.set(nsU1T, s4);
+        }
         var nsU2 = ns.find(".url2");
-        setIf(
-          nsU2.find(".text-wrap").length ? nsU2.find(".text-wrap > *") : nsU2,
-          P.urlSet("url2EffIn")
-        );
+        if (nsU2.length) {
+          var nsU2T = nsU2.find(".text-wrap").length
+            ? nsU2.find(".text-wrap > *")
+            : nsU2;
+          var s5 = P.urlSet("url2EffIn");
+          if (Object.keys(s5).length) gsap.set(nsU2T, s5);
+        }
 
-        // --- ADD tweens at time 0 so both ways behave the same ---
-        // images out/in
+        // Timeline tweens (time 0 => symmetric both ways)
         var bgOut = P.imgOut("bgEffOut");
         if (Object.keys(bgOut).length) tl.to(images[current], bgOut, 0);
         var bgIn = P.imgIn("bgEffIn");
         if (Object.keys(bgIn).length) tl.to(images[newIndex], bgIn, 0);
 
-        // wrapper out/in
         var wOut = P.imgOut("wrapEffOut");
         if (Object.keys(wOut).length) tl.to(slides[current], wOut, 0);
         var wIn = P.imgIn("wrapEffIn");
         if (Object.keys(wIn).length) tl.to(slides[newIndex], wIn, 0);
 
-        // text out/in
         var cur = slides.eq(current),
           tgt;
-        // sub
         tgt = cur.find(".sub-title");
         if (tgt.length)
           tl.to(
@@ -695,7 +696,7 @@
             P.txtIn("subEffIn"),
             0
           );
-        // title
+
         tgt = cur.find(".title");
         if (tgt.length)
           tl.to(
@@ -710,7 +711,7 @@
             P.txtIn("titleEffIn"),
             0
           );
-        // desc
+
         tgt = cur.find(".desc");
         if (tgt.length)
           tl.to(
@@ -725,7 +726,7 @@
             P.txtIn("descEffIn"),
             0
           );
-        // url1
+
         tgt = cur.find(".url1");
         if (tgt.length)
           tl.to(
@@ -740,7 +741,7 @@
             P.urlIn("url1EffIn"),
             0
           );
-        // url2
+
         tgt = cur.find(".url2");
         if (tgt.length)
           tl.to(
