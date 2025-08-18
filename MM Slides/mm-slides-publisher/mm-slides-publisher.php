@@ -268,11 +268,27 @@ final class MM_Slides_Publisher
     {
         $groups = $this->field_groups();
         $out = [];
+
         foreach ($groups as $fields) {
             foreach ($fields as $key => $_meta) {
                 if (!isset($input[$key])) continue;
+
                 $val = (string)$input[$key];
-                // allow safe CSS characters (incl. quotes for font stacks)
+
+                // If this is a font selector and the choice is "custom",
+                // replace it with the custom value (or fallback to inherit).
+                if (preg_match('/_font$/', $key)) {
+                    if ($val === 'custom') {
+                        $custom_key = $key . '_custom';
+                        if (!empty($input[$custom_key])) {
+                            $val = (string)$input[$custom_key];
+                        } else {
+                            $val = 'inherit';
+                        }
+                    }
+                }
+
+                // allow safe CSS characters (incl quotes, semicolons for safety)
                 $val = preg_replace('/[^a-zA-Z0-9#.%\s,\-()\/:;_\[\]\'"]/', '', $val);
                 $out[$key] = trim($val);
             }
@@ -423,16 +439,22 @@ final class MM_Slides_Publisher
 
         if ($is_font) {
             $choices = $this->font_choices();
+
+            // If saved value is not one of the presets, show Custom selected
+            $is_custom    = ($value !== '' && !array_key_exists($value, $choices));
+            $select_value = $is_custom ? 'custom' : ($value !== '' ? $value : 'inherit');
+            $custom_val   = $is_custom ? $value : '';
+
             echo '<select id="' . $id . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '" class="mm-font-select">';
             foreach ($choices as $stack => $text) {
-                $sel = selected($value, $stack, false);
+                $sel = selected($select_value, $stack, false);
                 echo '<option value="' . esc_attr($stack) . '" ' . $sel . '>' . esc_html($text) . '</option>';
             }
             echo '</select>';
-            // Custom free-text stack
-            $custom_val = ($value !== '' && !array_key_exists($value, $choices)) ? $value : '';
+
+            // Custom free-text stack (only shown when "Custom…" is selected)
             echo '<input type="text" placeholder="e.g. &quot;Alexandria&quot;, Arial, sans-serif" class="regular-text mm-font-custom" style="margin-top:6px;display:none" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '_custom" value="' . esc_attr($custom_val) . '">';
-            echo '<small>Note: this does not load fonts. Ensure the selected family is available on your theme/site.</small>';
+            echo '<small>Note: this does not load webfonts; ensure the family is available on your site.</small>';
         } else {
             $cls = $is_color ? 'mm-color regular-text' : 'regular-text';
             echo '<input type="text" id="' . $id . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '" value="' . esc_attr($value) . '" class="' . $cls . '"' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
@@ -440,6 +462,7 @@ final class MM_Slides_Publisher
 
         echo '</p>';
     }
+
 
     public function settings_page()
     {

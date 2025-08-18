@@ -8,6 +8,7 @@
   padding: var(--mm-content-pad, 0 0 0 0) !important;
 }
 .master-slider .slide .sub-title {
+  font-family: var(--mm-sub-font, inherit) !important;
   color: var(--mm-sub-color, #fff) !important;
   font-size: var(--mm-sub-size, 20px) !important;
   line-height: var(--mm-sub-line, 36px) !important;
@@ -15,6 +16,7 @@
   margin: var(--mm-sub-margin, 0 0 12px 0) !important;
 }
 .master-slider .slide .title {
+  font-family: var(--mm-title-font, inherit) !important;
   color: var(--mm-title-color, #fff) !important;
   font-size: var(--mm-title-size, 90px) !important;
   line-height: var(--mm-title-line, 1) !important;
@@ -24,6 +26,7 @@
   max-width: var(--mm-title-max, none) !important;
 }
 .master-slider .slide .desc {
+  font-family: var(--mm-desc-font, inherit) !important;
   color: var(--mm-desc-color, #fff) !important;
   font-size: var(--mm-desc-size, 20px) !important;
   line-height: var(--mm-desc-line, 40px) !important;
@@ -32,6 +35,7 @@
   max-width: var(--mm-desc-max, none) !important;
 }
 .master-slider .master-button.big {
+  font-family: var(--mm-desc-font, inherit) !important;
   background: var(--mm-btn-bg, transparent) !important;
   color: var(--mm-btn-text, #fff) !important;
   border-color: var(--mm-btn-border, #fff) !important;
@@ -50,6 +54,7 @@
   ) !important;
 }
 .master-slider .master-link {
+  font-family: var(--mm-desc-font, inherit) !important;
   color: var(--mm-btn-text, #fff) !important;
 }
 .master-slider .master-link:hover {

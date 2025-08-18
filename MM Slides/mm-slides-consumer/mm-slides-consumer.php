@@ -164,37 +164,54 @@ final class MM_Slides_Consumer
     /* Assets */
     public function enqueue_assets()
     {
-        $this->ensure_script('gsap',       'https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js', [], '3');
-        $this->ensure_script('touchSwipe', 'https://cdn.jsdelivr.net/npm/jquery-touchswipe@1.6.19/jquery.touchSwipe.min.js', ['jquery'], '1.6.19');
-        $this->ensure_script('splitting',  'https://cdn.jsdelivr.net/npm/splitting@1.0.6/dist/splitting.min.js', [], '1.0.6');
+        $this->ensure_script('gsap', 'https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js', [], '3');
+        $this->ensure_script('touchSwipe', 'https://cdn.jsdelivr.net/npm/jquery-touchswipe@1.6.19/jquery.touchswipe.min.js', ['jquery'], '1.6.19');
+        $this->ensure_script('splitting', 'https://cdn.jsdelivr.net/npm/splitting@1.0.6/dist/splitting.min.js', [], '1.0.6');
 
-        $theme_slider_js  = $this->find_registered_script_handle();
-        $theme_slider_css = $this->find_registered_style_handle();
+        $local_js_path = plugin_dir_path(__FILE__) . 'assets/mm-slider.js';
+        $local_css_path = plugin_dir_path(__FILE__) . 'assets/mm-slider.css';
 
-        if ($theme_slider_css) {
-            wp_enqueue_style($theme_slider_css);
-        } else {
-            $local_css = plugin_dir_path(__FILE__) . 'assets/mm-slider.css';
-            if (file_exists($local_css)) {
+        // Always prefer local if it exists
+        if (file_exists($local_js_path)) {
+            // If the theme registered a slider, remove it to avoid duplicates
+            if ($theme = $this->find_registered_script_handle()) {
+                wp_dequeue_script($theme);
+                wp_deregister_script($theme);
+            }
+            if ($theme_css = $this->find_registered_style_handle()) {
+                // optional: keep theme CSS, or dequeue it and use your own CSS
+                // wp_dequeue_style($theme_css);
+                // wp_deregister_style($theme_css);
+            }
+
+            // Enqueue your fixed slider
+            wp_enqueue_script(
+                'mm-slider',
+                plugins_url('assets/mm-slider.js', __FILE__),
+                ['jquery', 'gsap', 'touchSwipe', 'splitting'],
+                '1.0.1',
+                true
+            );
+            $init_handle = 'mm-slider';
+
+            // Use your CSS if present (you can keep the theme CSS instead if you prefer)
+            if (file_exists($local_css_path)) {
                 wp_enqueue_style('mm-slider', plugins_url('assets/mm-slider.css', __FILE__), [], '1.0.0');
             }
-        }
-
-        if ($theme_slider_js) {
-            wp_enqueue_script($theme_slider_js);
-            $init_handle = $theme_slider_js;
         } else {
-            $local_js = plugin_dir_path(__FILE__) . 'assets/mm-slider.js';
-            if (file_exists($local_js)) {
-                wp_enqueue_script('mm-slider', plugins_url('assets/mm-slider.js', __FILE__), ['jquery', 'gsap', 'touchSwipe', 'splitting'], '1.0.0', true);
-                $init_handle = 'mm-slider';
+            // Fallback to theme’s assets
+            if ($theme_css = $this->find_registered_style_handle()) wp_enqueue_style($theme_css);
+            if ($theme_js  = $this->find_registered_script_handle()) {
+                wp_enqueue_script($theme_js);
+                $init_handle = $theme_js;
             } else {
-                return;
+                return; // neither local nor theme: nothing to init
             }
         }
 
         wp_add_inline_script($init_handle, "jQuery(function($){ $('.master-slider').masterSlider(); });");
     }
+
 
     private function ensure_script($handle, $src, $deps = [], $ver = null)
     {
@@ -244,12 +261,14 @@ final class MM_Slides_Consumer
         $pairs = [];
         foreach ($vars as $k => $v) {
             if (strpos($k, '--') === 0) {
-                $v = preg_replace('/[^a-zA-Z0-9#.%\s,\-()\/]/', '', (string)$v);
+                // allow safe CSS chars incl quotes/underscore/semicolon/colon
+                $v = preg_replace('/[^a-zA-Z0-9#.%\s,\-()\/:;_\'"]/', '', (string)$v);
                 $pairs[] = $k . ':' . trim($v);
             }
         }
         return implode(';', $pairs);
     }
+
 
     public function shortcode_slider($atts)
     {
