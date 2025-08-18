@@ -200,6 +200,16 @@ final class MM_Slides_Publisher
                 'align_h'       => ['Horizontal Align (flex-start|center|flex-end)', 'flex-start'],
                 'text_align'    => ['Text Align (left|center|right)', 'left'],
                 'content_pad'   => ['Content Padding (CSS shorthand)', '0 0 0 0'],
+                'slider_height_md' => ['Slider Height (≤1024px)', ''],
+                'slider_height_sm' => ['Slider Height (≤640px)', ''],
+                'content_pad_md'   => ['Content Padding (≤1024px)', ''],
+                'content_pad_sm'   => ['Content Padding (≤640px)', ''],
+                'text_align_md'    => ['Text Align (≤1024px)', ''],
+                'text_align_sm'    => ['Text Align (≤640px)', ''],
+                'align_v_md'       => ['Vertical Align (≤1024px)', ''],
+                'align_v_sm'       => ['Vertical Align (≤640px)', ''],
+                'align_h_md'       => ['Horizontal Align (≤1024px)', ''],
+                'align_h_sm'       => ['Horizontal Align (≤640px)', ''],
             ],
             'title' => [
                 'title_color'     => ['Title Color', '#ffffff'],
@@ -210,6 +220,16 @@ final class MM_Slides_Publisher
                 'title_tracking'  => ['Title Letter-spacing', '-1.6px'],
                 'title_margin'    => ['Title Margin', '0 0 30px 0'],
                 'title_max'       => ['Title Max-width', 'none'],
+                'title_size_md'     => ['Title Size (≤1024px)', ''],
+                'title_size_sm'     => ['Title Size (≤640px)', ''],
+                'title_line_md'     => ['Title Line-height (≤1024px)', ''],
+                'title_line_sm'     => ['Title Line-height (≤640px)', ''],
+                'title_margin_md'   => ['Title Margin (≤1024px)', ''],
+                'title_margin_sm'   => ['Title Margin (≤640px)', ''],
+                'title_max_md'      => ['Title Max-width (≤1024px)', ''],
+                'title_max_sm'      => ['Title Max-width (≤640px)', ''],
+                'title_tracking_md' => ['Title Letter-spacing (≤1024px)', ''],
+                'title_tracking_sm' => ['Title Letter-spacing (≤640px)', ''],
             ],
             'subtitle' => [
                 'sub_color'   => ['Subtitle Color', '#ffffff'],
@@ -218,6 +238,15 @@ final class MM_Slides_Publisher
                 'sub_line'    => ['Subtitle Line-height', '36px'],
                 'sub_weight'  => ['Subtitle Weight', '500'],
                 'sub_margin'  => ['Subtitle Margin', '0 0 12px 0'],
+                'sub_size_md'   => ['Subtitle Size (≤1024px)', ''],
+                'sub_size_sm'   => ['Subtitle Size (≤640px)', ''],
+                'sub_line_md'   => ['Subtitle Line-height (≤1024px)', ''],
+                'sub_line_sm'   => ['Subtitle Line-height (≤640px)', ''],
+                'sub_margin_md' => ['Subtitle Margin (≤1024px)', ''],
+                'sub_margin_sm' => ['Subtitle Margin (≤640px)', ''],
+                'sub_max'       => ['Subtitle Max-width', 'none'],
+                'sub_max_md'    => ['Subtitle Max-width (≤1024px)', ''],
+                'sub_max_sm'    => ['Subtitle Max-width (≤640px)', ''],
             ],
             'description' => [
                 'desc_color'  => ['Description Color', '#ffffff'],
@@ -227,6 +256,14 @@ final class MM_Slides_Publisher
                 'desc_weight' => ['Description Weight', '600'],
                 'desc_margin' => ['Description Margin', '0 0 35px 0'],
                 'desc_max'    => ['Description Max-width', 'none'],
+                'desc_size_md'   => ['Description Size (≤1024px)', ''],
+                'desc_size_sm'   => ['Description Size (≤640px)', ''],
+                'desc_line_md'   => ['Description Line-height (≤1024px)', ''],
+                'desc_line_sm'   => ['Description Line-height (≤640px)', ''],
+                'desc_margin_md' => ['Description Margin (≤1024px)', ''],
+                'desc_margin_sm' => ['Description Margin (≤640px)', ''],
+                'desc_max_md'    => ['Description Max-width (≤1024px)', ''],
+                'desc_max_sm'    => ['Description Max-width (≤640px)', ''],
             ],
             // Button 1 (primary)
             'button1' => [
@@ -240,6 +277,8 @@ final class MM_Slides_Publisher
                 'btn1_text_hover'   => ['Button 1 Text (Hover)', 'var(--mm-btn1-text)'],
                 'btn1_border_hover' => ['Button 1 Border (Hover)', 'var(--mm-btn1-border)'],
                 'btn1_shadow_hover' => ['Button 1 Box-Shadow (Hover)', 'var(--mm-btn1-shadow)'],
+                'btn1_pad_md' => ['Button 1 Padding (≤1024px)', ''],
+                'btn1_pad_sm' => ['Button 1 Padding (≤640px)', ''],
             ],
             // Button 2 (secondary/link)
             'button2' => [
@@ -253,6 +292,8 @@ final class MM_Slides_Publisher
                 'btn2_text_hover'   => ['Button 2 Text (Hover)', 'var(--mm-btn2-text)'],
                 'btn2_border_hover' => ['Button 2 Border (Hover)', 'var(--mm-btn2-border)'],
                 'btn2_shadow_hover' => ['Button 2 Box-Shadow (Hover)', 'var(--mm-btn2-shadow)'],
+                'btn2_pad_md' => ['Button 2 Padding (≤1024px)', ''],
+                'btn2_pad_sm' => ['Button 2 Padding (≤640px)', ''],
             ],
         ];
     }
@@ -289,7 +330,7 @@ final class MM_Slides_Publisher
                 }
 
                 // allow safe CSS characters (incl quotes, semicolons for safety)
-                $val = preg_replace('/[^a-zA-Z0-9#.%\s,\-()\/:;_\[\]\'"]/', '', $val);
+                $val = preg_replace('/[^a-zA-Z0-9#.%\s,\-()\/:;_\[\]\'"\+\*]/', '', $val);
                 $out[$key] = trim($val);
             }
         }
@@ -365,6 +406,17 @@ final class MM_Slides_Publisher
             'align_h'        => '--mm-align-h',
             'text_align'     => '--mm-text-align',
             'content_pad'    => '--mm-content-pad',
+            // General responsive
+            'slider_height_md' => '--mm-slider-height-md',
+            'slider_height_sm' => '--mm-slider-height-sm',
+            'content_pad_md'   => '--mm-content-pad-md',
+            'content_pad_sm'   => '--mm-content-pad-sm',
+            'text_align_md'    => '--mm-text-align-md',
+            'text_align_sm'    => '--mm-text-align-sm',
+            'align_v_md'       => '--mm-align-v-md',
+            'align_v_sm'       => '--mm-align-v-sm',
+            'align_h_md'       => '--mm-align-h-md',
+            'align_h_sm'       => '--mm-align-h-sm',
 
             'sub_color'      => '--mm-sub-color',
             'sub_font'       => '--mm-sub-font',
@@ -372,6 +424,15 @@ final class MM_Slides_Publisher
             'sub_line'       => '--mm-sub-line',
             'sub_weight'     => '--mm-sub-weight',
             'sub_margin'     => '--mm-sub-margin',
+            // Subtitle responsive
+            'sub_size_md'      => '--mm-sub-size-md',
+            'sub_size_sm'      => '--mm-sub-size-sm',
+            'sub_line_md'      => '--mm-sub-line-md',
+            'sub_line_sm'      => '--mm-sub-line-sm',
+            'sub_margin_md'    => '--mm-sub-margin-md',
+            'sub_margin_sm'    => '--mm-sub-margin-sm',
+            'sub_max_md'       => '--mm-sub-max-md',
+            'sub_max_sm'       => '--mm-sub-max-sm',
 
             'title_color'    => '--mm-title-color',
             'title_font'     => '--mm-title-font',
@@ -381,6 +442,17 @@ final class MM_Slides_Publisher
             'title_tracking' => '--mm-title-tracking',
             'title_margin'   => '--mm-title-margin',
             'title_max'      => '--mm-title-max',
+            // Title responsive
+            'title_size_md'    => '--mm-title-size-md',
+            'title_size_sm'    => '--mm-title-size-sm',
+            'title_line_md'    => '--mm-title-line-md',
+            'title_line_sm'    => '--mm-title-line-sm',
+            'title_margin_md'  => '--mm-title-margin-md',
+            'title_margin_sm'  => '--mm-title-margin-sm',
+            'title_max_md'     => '--mm-title-max-md',
+            'title_max_sm'     => '--mm-title-max-sm',
+            'title_tracking_md' => '--mm-title-tracking-md',
+            'title_tracking_sm' => '--mm-title-tracking-sm',
 
             'desc_color'     => '--mm-desc-color',
             'desc_font'      => '--mm-desc-font',
@@ -389,6 +461,15 @@ final class MM_Slides_Publisher
             'desc_weight'    => '--mm-desc-weight',
             'desc_margin'    => '--mm-desc-margin',
             'desc_max'       => '--mm-desc-max',
+            // Description responsive
+            'desc_size_md'     => '--mm-desc-size-md',
+            'desc_size_sm'     => '--mm-desc-size-sm',
+            'desc_line_md'     => '--mm-desc-line-md',
+            'desc_line_sm'     => '--mm-desc-line-sm',
+            'desc_margin_md'   => '--mm-desc-margin-md',
+            'desc_margin_sm'   => '--mm-desc-margin-sm',
+            'desc_max_md'      => '--mm-desc-max-md',
+            'desc_max_sm'      => '--mm-desc-max-sm',
 
             'btn1_bg'           => '--mm-btn1-bg',
             'btn1_text'         => '--mm-btn1-text',
@@ -400,6 +481,9 @@ final class MM_Slides_Publisher
             'btn1_text_hover'   => '--mm-btn1-text-hover',
             'btn1_border_hover' => '--mm-btn1-border-hover',
             'btn1_shadow_hover' => '--mm-btn1-shadow-hover',
+            // Button 1 responsive
+            'btn1_pad_md'      => '--mm-btn1-pad-md',
+            'btn1_pad_sm'      => '--mm-btn1-pad-sm',
 
             'btn2_bg'           => '--mm-btn2-bg',
             'btn2_text'         => '--mm-btn2-text',
@@ -411,11 +495,16 @@ final class MM_Slides_Publisher
             'btn2_text_hover'   => '--mm-btn2-text-hover',
             'btn2_border_hover' => '--mm-btn2-border-hover',
             'btn2_shadow_hover' => '--mm-btn2-shadow-hover',
+            // Button 2 responsive
+            'btn2_pad_md'      => '--mm-btn2-pad-md',
+            'btn2_pad_sm'      => '--mm-btn2-pad-sm',
         ];
 
         foreach ($map as $k => $var) {
-            if (!empty($opt[$k])) $def[$var] = $opt[$k];
-        }
+            if (!empty($opt[$k]) || $opt[$k] === '0') {
+                $def[$var] = $opt[$k];
+            }
+        }   
 
         // Back-compat: mirror Button 1 into legacy --mm-btn-* vars
         $def['--mm-btn-bg']           = $def['--mm-btn1-bg'];

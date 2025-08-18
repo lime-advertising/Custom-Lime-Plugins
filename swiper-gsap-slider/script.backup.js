@@ -9,6 +9,15 @@ $(function () {
   let timer = null;
   let isAnimating = false;
   let kenBurnsTween = null;
+  // Swipe state
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchActive = false;
+  const SWIPE_THRESHOLD = 40; // px
+  // Pointer/mouse state
+  let pointerDown = false;
+  let pointerStartX = 0;
+  let pointerStartY = 0;
 
   function updateUI() {
     $slides.removeClass('is-active').css({ pointerEvents: 'none' });
@@ -107,6 +116,119 @@ $(function () {
   $slider.find('.nav.next').on('click', () => goTo((current + 1) % count, 'next'));
   $slider.find('.nav.prev').on('click', () => goTo((current - 1 + count) % count, 'prev'));
 
+  // Keyboard arrows when slider is focused or hovered
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    const interactive = tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable);
+    if (interactive) return; // don't hijack typing
+
+    const sliderFocused = document.activeElement === sliderEl;
+    const sliderHovered = $slider.is(':hover');
+    if (!sliderFocused && !sliderHovered) return;
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      goTo((current + 1) % count, 'next');
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      goTo((current - 1 + count) % count, 'prev');
+    }
+  });
+
+  // Touch swipe (left/right)
+  const sliderEl = $slider.get(0);
+  if (sliderEl) {
+    sliderEl.addEventListener('touchstart', (e) => {
+      if (!e.touches || !e.touches.length) return;
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      touchActive = true;
+      clearTimeout(timer); // pause autoplay while interacting
+    }, { passive: true });
+
+    sliderEl.addEventListener('touchmove', (e) => {
+      // passive; we don't prevent scrolling, only track
+    }, { passive: true });
+
+    sliderEl.addEventListener('touchend', (e) => {
+      if (!touchActive) return;
+      touchActive = false;
+      const t = (e.changedTouches && e.changedTouches[0]) || null;
+      if (!t) { startAutoplay(); return; }
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) {
+          goTo((current + 1) % count, 'next');
+        } else {
+          goTo((current - 1 + count) % count, 'prev');
+        }
+      } else {
+        // resume autoplay if no navigation triggered
+        startAutoplay();
+      }
+    });
+  }
+
+  // Pointer/mouse swipe for desktop
+  if (window.PointerEvent) {
+    sliderEl.addEventListener('pointerdown', (e) => {
+      // Ignore secondary buttons
+      if (e.button && e.button !== 0) return;
+      pointerDown = true;
+      pointerStartX = e.clientX;
+      pointerStartY = e.clientY;
+      $slider.addClass('dragging');
+      clearTimeout(timer);
+    });
+    window.addEventListener('pointerup', (e) => {
+      if (!pointerDown) return;
+      pointerDown = false;
+      $slider.removeClass('dragging');
+      const dx = e.clientX - pointerStartX;
+      const dy = e.clientY - pointerStartY;
+      if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) {
+          goTo((current + 1) % count, 'next');
+        } else {
+          goTo((current - 1 + count) % count, 'prev');
+        }
+      } else {
+        startAutoplay();
+      }
+    });
+    // Prevent image dragging ghost
+    sliderEl.addEventListener('dragstart', (e) => e.preventDefault());
+  } else {
+    // Mouse fallback
+    sliderEl.addEventListener('mousedown', (e) => {
+      if (e.button && e.button !== 0) return;
+      pointerDown = true;
+      pointerStartX = e.clientX;
+      pointerStartY = e.clientY;
+      $slider.addClass('dragging');
+      clearTimeout(timer);
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (!pointerDown) return;
+      pointerDown = false;
+      $slider.removeClass('dragging');
+      const dx = e.clientX - pointerStartX;
+      const dy = e.clientY - pointerStartY;
+      if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) {
+          goTo((current + 1) % count, 'next');
+        } else {
+          goTo((current - 1 + count) % count, 'prev');
+        }
+      } else {
+        startAutoplay();
+      }
+    });
+    sliderEl.addEventListener('dragstart', (e) => e.preventDefault());
+  }
+
   // Init
   primeSlides();
   // Reveal the first slide with an intro animation
@@ -130,4 +252,3 @@ $(function () {
   updateUI();
   startAutoplay();
 });
-
