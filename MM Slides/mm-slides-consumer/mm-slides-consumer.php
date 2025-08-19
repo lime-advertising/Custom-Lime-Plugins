@@ -315,6 +315,32 @@ final class MM_Slides_Consumer
             'kenburnsDuration' => 5000,
         ];
 
+        $preset = isset($vars['mm-anim']) ? strtolower(trim($vars['mm-anim'])) : 'reveal';
+
+        if ($preset === 'fade') {
+            $fade = ['eff' => 'fade'];
+
+            // Backgrounds
+            $config['bgEffIn']  = $fade;
+            $config['bgEffOut'] = $fade;
+
+            // Whole slide wrapper
+            $config['wrapEffIn']  = $fade;
+            $config['wrapEffOut'] = $fade;
+
+            // Text + buttons
+            foreach (['sub', 'title', 'desc'] as $k) {
+                $config[$k . 'EffIn']  = $fade;
+                $config[$k . 'EffOut'] = $fade;
+            }
+            foreach (['url1', 'url2'] as $k) {
+                $config[$k . 'EffIn']  = $fade;
+                $config[$k . 'EffOut'] = $fade;
+            }
+
+            // Optional: if you prefer to keep text static on fade, comment the loops above.
+        }
+
         $style_inline = $this->inline_vars_style($vars);
 
         ob_start(); ?>

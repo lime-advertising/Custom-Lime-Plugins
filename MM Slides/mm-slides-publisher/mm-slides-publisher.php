@@ -138,6 +138,10 @@ final class MM_Slides_Publisher
             .mm-tab-panel.active{display:block}
             .mm-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
             .mm-field small{opacity:.75}
+            .mm-resp { margin-top:6px }
+            .mm-devices { margin-bottom:6px }
+            .mm-devices .button { margin-right:4px }
+            .mm-devices .button.active { box-shadow: inset 0 0 0 2px #2271b1; }
             @media (max-width:900px){.mm-two{grid-template-columns:1fr}}
         ');
         wp_add_inline_script('jquery-core', "
@@ -163,6 +167,25 @@ final class MM_Slides_Publisher
                     const select=$(this), custom=select.closest('.mm-field').find('.mm-font-custom');
                     function sync(){ (select.val()==='custom') ? custom.show() : custom.hide(); }
                     select.on('change', sync); sync();
+                });
+
+                // responsive device toggles
+                $(document).on('click', '.mm-devices .button', function(e){
+                    e.preventDefault();
+                    var b   = $(this);
+                    var box = b.closest('.mm-resp');
+                    var dev = b.data('dev');
+                    box.find('.mm-devices .button').removeClass('active');
+                    b.addClass('active');
+                    box.find('.mm-resp-input').hide();
+                    box.find('.mm-input-'+dev).show().trigger('focus');
+                });
+
+                // show placeholders for Auto (empty) on md/sm
+                $('.mm-resp .mm-input-md, .mm-resp .mm-input-sm').each(function(){
+                    if(!$(this).val()){
+                        $(this).attr('placeholder', $(this).attr('placeholder') || 'Auto');
+                    }
                 });
             });
         ");
@@ -194,6 +217,8 @@ final class MM_Slides_Publisher
     {
         return [
             'general' => [
+                'ratio_tablet'  => ['Tablet size ratio (0–1)', '0.78'],
+                'ratio_mobile'  => ['Mobile size ratio (0–1)', '0.60'],
                 'slider_height' => ['Slider Height (e.g. 700px or 90vh)', '700px'],
                 'overlay'       => ['Overlay Color (supports alpha)', 'rgba(0,0,0,0)'],
                 'align_v'       => ['Vertical Align (flex-start|center|flex-end)', 'center'],
@@ -210,6 +235,8 @@ final class MM_Slides_Publisher
                 'align_v_sm'       => ['Vertical Align (≤640px)', ''],
                 'align_h_md'       => ['Horizontal Align (≤1024px)', ''],
                 'align_h_sm'       => ['Horizontal Align (≤640px)', ''],
+                'anim_preset' => ['Animation (reveal|fade)', 'reveal'],
+
             ],
             'title' => [
                 'title_color'     => ['Title Color', '#ffffff'],
@@ -304,6 +331,43 @@ final class MM_Slides_Publisher
         return (bool) preg_match('/(color|_bg$|_bg_hover$|_text$|_text_hover$|_border$|_border_hover$|^overlay$)/', $key);
     }
 
+    /** Scale a CSS value (number+unit or 4-value shorthand). Only scales px, rem, em, vw, vh. */
+    private function scale_css_value($val, $ratio)
+    {
+        $val = trim((string)$val);
+        if ($val === '' || stripos($val, 'clamp(') !== false || stripos($val, 'calc(') !== false) return $val;
+
+        // Handle 1-4 value shorthands
+        if (preg_match('/\s/', $val)) {
+            $parts = preg_split('/\s+/', $val);
+            foreach ($parts as &$p) $p = $this->scale_css_value($p, $ratio);
+            return implode(' ', $parts);
+        }
+
+        if (!preg_match('/^(-?\d+(?:\.\d+)?)(px|rem|em|vw|vh|%)?$/i', $val, $m)) {
+            // unitless (e.g., line-height: 1) or other tokens -> return as-is
+            return $val;
+        }
+        $num  = (float)$m[1];
+        $unit = isset($m[2]) ? strtolower($m[2]) : '';
+
+        // Do not scale percentages or unitless
+        if ($unit === '' || $unit === '%') return $val;
+
+        $scaled = $num * (float)$ratio;
+        // Trim trailing zeros
+        $scaled = rtrim(rtrim(number_format($scaled, 3, '.', ''), '0'), '.');
+        return $scaled . $unit;
+    }
+
+    /** Returns custom (if provided) else auto-scaled from base. */
+    private function auto_or_custom($base, $custom, $ratio)
+    {
+        $custom = trim((string)$custom);
+        if ($custom !== '') return $custom;
+        return $this->scale_css_value($base, $ratio);
+    }
+
     /** Make available to WP as sanitize callback */
     public function sanitize_style_option($input)
     {
@@ -338,218 +402,311 @@ final class MM_Slides_Publisher
     }
 
     /** Map options -> CSS custom properties */
+    /** Map options -> CSS custom properties */
     private function option_to_css_vars(array $opt)
     {
-        // sensible defaults
+        // 1) Defaults: ONLY CSS var => default value
         $def = [
-            '--mm-slider-height'  => '700px',
-            '--mm-overlay'        => 'rgba(0,0,0,0)',
-            '--mm-align-v'        => 'center',
-            '--mm-align-h'        => 'flex-start',
-            '--mm-text-align'     => 'left',
-            '--mm-content-pad'    => '0 0 0 0',
+            // general
+            '--mm-slider-height'   => '700px',
+            '--mm-slider-height-md' => '',
+            '--mm-slider-height-sm' => '',
+            '--mm-overlay'         => 'rgba(0,0,0,0)',
+            '--mm-align-v'         => 'center',
+            '--mm-align-v-md'      => '',
+            '--mm-align-v-sm'      => '',
+            '--mm-align-h'         => 'flex-start',
+            '--mm-align-h-md'      => '',
+            '--mm-align-h-sm'      => '',
+            '--mm-text-align'      => 'left',
+            '--mm-text-align-md'   => '',
+            '--mm-text-align-sm'   => '',
+            '--mm-content-pad'     => '0 0 0 0',
+            '--mm-content-pad-md'  => '',
+            '--mm-content-pad-sm'  => '',
+            'mm-anim' => 'reveal',
 
-            '--mm-sub-color'      => '#fff',
-            '--mm-sub-font'       => 'inherit',
-            '--mm-sub-size'       => '20px',
-            '--mm-sub-line'       => '36px',
-            '--mm-sub-weight'     => '500',
-            '--mm-sub-margin'     => '0 0 12px 0',
+            // subtitle
+            '--mm-sub-color'       => '#fff',
+            '--mm-sub-font'        => 'inherit',
+            '--mm-sub-size'        => '20px',
+            '--mm-sub-size-md'     => '',
+            '--mm-sub-size-sm'     => '',
+            '--mm-sub-line'        => '36px',
+            '--mm-sub-line-md'     => '',
+            '--mm-sub-line-sm'     => '',
+            '--mm-sub-weight'      => '500',
+            '--mm-sub-margin'      => '0 0 12px 0',
+            '--mm-sub-margin-md'   => '',
+            '--mm-sub-margin-sm'   => '',
+            '--mm-sub-max'         => 'none',
+            '--mm-sub-max-md'      => '',
+            '--mm-sub-max-sm'      => '',
 
-            '--mm-title-color'    => '#fff',
-            '--mm-title-font'     => 'inherit',
-            '--mm-title-size'     => '90px',
-            '--mm-title-line'     => '1',
-            '--mm-title-weight'   => '800',
-            '--mm-title-tracking' => '-1.6px',
-            '--mm-title-margin'   => '0 0 30px 0',
-            '--mm-title-max'      => 'none',
+            // title
+            '--mm-title-color'     => '#fff',
+            '--mm-title-font'      => 'inherit',
+            '--mm-title-size'      => '90px',
+            '--mm-title-size-md'   => '',
+            '--mm-title-size-sm'   => '',
+            '--mm-title-line'      => '1',
+            '--mm-title-line-md'   => '',
+            '--mm-title-line-sm'   => '',
+            '--mm-title-weight'    => '800',
+            '--mm-title-tracking'  => '-1.6px',
+            '--mm-title-tracking-md' => '',
+            '--mm-title-tracking-sm' => '',
+            '--mm-title-margin'    => '0 0 30px 0',
+            '--mm-title-margin-md' => '',
+            '--mm-title-margin-sm' => '',
+            '--mm-title-max'       => 'none',
+            '--mm-title-max-md'    => '',
+            '--mm-title-max-sm'    => '',
 
-            '--mm-desc-color'     => '#fff',
-            '--mm-desc-font'      => 'inherit',
-            '--mm-desc-size'      => '20px',
-            '--mm-desc-line'      => '40px',
-            '--mm-desc-weight'    => '600',
-            '--mm-desc-margin'    => '0 0 35px 0',
-            '--mm-desc-max'       => 'none',
+            // description
+            '--mm-desc-color'      => '#fff',
+            '--mm-desc-font'       => 'inherit',
+            '--mm-desc-size'       => '20px',
+            '--mm-desc-size-md'    => '',
+            '--mm-desc-size-sm'    => '',
+            '--mm-desc-line'       => '40px',
+            '--mm-desc-line-md'    => '',
+            '--mm-desc-line-sm'    => '',
+            '--mm-desc-weight'     => '600',
+            '--mm-desc-margin'     => '0 0 35px 0',
+            '--mm-desc-margin-md'  => '',
+            '--mm-desc-margin-sm'  => '',
+            '--mm-desc-max'        => 'none',
+            '--mm-desc-max-md'     => '',
+            '--mm-desc-max-sm'     => '',
 
-            // Button 1 (also mirrored to legacy --mm-btn-* for back-compat)
-            '--mm-btn1-bg'         => 'var(--e-global-color-qondri_accent)',
-            '--mm-btn1-text'       => '#fff',
-            '--mm-btn1-border'     => '#fff',
-            '--mm-btn1-radius'     => '0',
-            '--mm-btn1-pad'        => '12px 24px',
-            '--mm-btn1-shadow'     => 'none',
-            '--mm-btn1-bg-hover'   => 'var(--mm-btn1-bg)',
-            '--mm-btn1-text-hover' => 'var(--mm-btn1-text)',
-            '--mm-btn1-border-hover' => 'var(--mm-btn1-border)',
-            '--mm-btn1-shadow-hover' => 'var(--mm-btn1-shadow)',
+            // button 1
+            '--mm-btn1-bg'            => 'var(--e-global-color-qondri_accent)',
+            '--mm-btn1-text'          => '#fff',
+            '--mm-btn1-border'        => '#fff',
+            '--mm-btn1-radius'        => '0',
+            '--mm-btn1-pad'           => '12px 24px',
+            '--mm-btn1-pad-md'        => '',
+            '--mm-btn1-pad-sm'        => '',
+            '--mm-btn1-shadow'        => 'none',
+            '--mm-btn1-bg-hover'      => 'var(--mm-btn1-bg)',
+            '--mm-btn1-text-hover'    => 'var(--mm-btn1-text)',
+            '--mm-btn1-border-hover'  => 'var(--mm-btn1-border)',
+            '--mm-btn1-shadow-hover'  => 'var(--mm-btn1-shadow)',
 
-            // Button 2
-            '--mm-btn2-bg'         => 'transparent',
-            '--mm-btn2-text'       => '#fff',
-            '--mm-btn2-border'     => '#fff',
-            '--mm-btn2-radius'     => '0',
-            '--mm-btn2-pad'        => '0',
-            '--mm-btn2-shadow'     => 'none',
-            '--mm-btn2-bg-hover'   => 'var(--mm-btn2-bg)',
-            '--mm-btn2-text-hover' => 'var(--mm-btn2-text)',
-            '--mm-btn2-border-hover' => 'var(--mm-btn2-border)',
-            '--mm-btn2-shadow-hover' => 'var(--mm-btn2-shadow)',
+            // button 2
+            '--mm-btn2-bg'            => 'transparent',
+            '--mm-btn2-text'          => '#fff',
+            '--mm-btn2-border'        => '#fff',
+            '--mm-btn2-radius'        => '0',
+            '--mm-btn2-pad'           => '0',
+            '--mm-btn2-pad-md'        => '',
+            '--mm-btn2-pad-sm'        => '',
+            '--mm-btn2-shadow'        => 'none',
+            '--mm-btn2-bg-hover'      => 'var(--mm-btn2-bg)',
+            '--mm-btn2-text-hover'    => 'var(--mm-btn2-text)',
+            '--mm-btn2-border-hover'  => 'var(--mm-btn2-border)',
+            '--mm-btn2-shadow-hover'  => 'var(--mm-btn2-shadow)',
         ];
 
-        // map option keys to CSS vars
+        // 2) Map: option key => CSS var (include md/sm)
         $map = [
+            // general
             'slider_height'  => '--mm-slider-height',
-            'overlay'        => '--mm-overlay',
-            'align_v'        => '--mm-align-v',
-            'align_h'        => '--mm-align-h',
-            'text_align'     => '--mm-text-align',
-            'content_pad'    => '--mm-content-pad',
-            // General responsive
             'slider_height_md' => '--mm-slider-height-md',
             'slider_height_sm' => '--mm-slider-height-sm',
-            'content_pad_md'   => '--mm-content-pad-md',
-            'content_pad_sm'   => '--mm-content-pad-sm',
-            'text_align_md'    => '--mm-text-align-md',
-            'text_align_sm'    => '--mm-text-align-sm',
-            'align_v_md'       => '--mm-align-v-md',
-            'align_v_sm'       => '--mm-align-v-sm',
-            'align_h_md'       => '--mm-align-h-md',
-            'align_h_sm'       => '--mm-align-h-sm',
+            'overlay'        => '--mm-overlay',
+            'align_v'        => '--mm-align-v',
+            'align_v_md'     => '--mm-align-v-md',
+            'align_v_sm'     => '--mm-align-v-sm',
+            'align_h'        => '--mm-align-h',
+            'align_h_md'     => '--mm-align-h-md',
+            'align_h_sm'     => '--mm-align-h-sm',
+            'text_align'     => '--mm-text-align',
+            'text_align_md'  => '--mm-text-align-md',
+            'text_align_sm'  => '--mm-text-align-sm',
+            'content_pad'    => '--mm-content-pad',
+            'content_pad_md' => '--mm-content-pad-md',
+            'content_pad_sm' => '--mm-content-pad-sm',
+            'anim_preset' => 'mm-anim',
 
+            // subtitle
             'sub_color'      => '--mm-sub-color',
             'sub_font'       => '--mm-sub-font',
             'sub_size'       => '--mm-sub-size',
+            'sub_size_md'    => '--mm-sub-size-md',
+            'sub_size_sm'    => '--mm-sub-size-sm',
             'sub_line'       => '--mm-sub-line',
+            'sub_line_md'    => '--mm-sub-line-md',
+            'sub_line_sm'    => '--mm-sub-line-sm',
             'sub_weight'     => '--mm-sub-weight',
             'sub_margin'     => '--mm-sub-margin',
-            // Subtitle responsive
-            'sub_size_md'      => '--mm-sub-size-md',
-            'sub_size_sm'      => '--mm-sub-size-sm',
-            'sub_line_md'      => '--mm-sub-line-md',
-            'sub_line_sm'      => '--mm-sub-line-sm',
-            'sub_margin_md'    => '--mm-sub-margin-md',
-            'sub_margin_sm'    => '--mm-sub-margin-sm',
-            'sub_max_md'       => '--mm-sub-max-md',
-            'sub_max_sm'       => '--mm-sub-max-sm',
+            'sub_margin_md'  => '--mm-sub-margin-md',
+            'sub_margin_sm'  => '--mm-sub-margin-sm',
+            'sub_max'        => '--mm-sub-max',
+            'sub_max_md'     => '--mm-sub-max-md',
+            'sub_max_sm'     => '--mm-sub-max-sm',
 
+            // title
             'title_color'    => '--mm-title-color',
             'title_font'     => '--mm-title-font',
             'title_size'     => '--mm-title-size',
+            'title_size_md'  => '--mm-title-size-md',
+            'title_size_sm'  => '--mm-title-size-sm',
             'title_line'     => '--mm-title-line',
+            'title_line_md'  => '--mm-title-line-md',
+            'title_line_sm'  => '--mm-title-line-sm',
             'title_weight'   => '--mm-title-weight',
             'title_tracking' => '--mm-title-tracking',
-            'title_margin'   => '--mm-title-margin',
-            'title_max'      => '--mm-title-max',
-            // Title responsive
-            'title_size_md'    => '--mm-title-size-md',
-            'title_size_sm'    => '--mm-title-size-sm',
-            'title_line_md'    => '--mm-title-line-md',
-            'title_line_sm'    => '--mm-title-line-sm',
-            'title_margin_md'  => '--mm-title-margin-md',
-            'title_margin_sm'  => '--mm-title-margin-sm',
-            'title_max_md'     => '--mm-title-max-md',
-            'title_max_sm'     => '--mm-title-max-sm',
             'title_tracking_md' => '--mm-title-tracking-md',
             'title_tracking_sm' => '--mm-title-tracking-sm',
+            'title_margin'   => '--mm-title-margin',
+            'title_margin_md' => '--mm-title-margin-md',
+            'title_margin_sm' => '--mm-title-margin-sm',
+            'title_max'      => '--mm-title-max',
+            'title_max_md'   => '--mm-title-max-md',
+            'title_max_sm'   => '--mm-title-max-sm',
 
+            // description
             'desc_color'     => '--mm-desc-color',
             'desc_font'      => '--mm-desc-font',
             'desc_size'      => '--mm-desc-size',
+            'desc_size_md'   => '--mm-desc-size-md',
+            'desc_size_sm'   => '--mm-desc-size-sm',
             'desc_line'      => '--mm-desc-line',
+            'desc_line_md'   => '--mm-desc-line-md',
+            'desc_line_sm'   => '--mm-desc-line-sm',
             'desc_weight'    => '--mm-desc-weight',
             'desc_margin'    => '--mm-desc-margin',
+            'desc_margin_md' => '--mm-desc-margin-md',
+            'desc_margin_sm' => '--mm-desc-margin-sm',
             'desc_max'       => '--mm-desc-max',
-            // Description responsive
-            'desc_size_md'     => '--mm-desc-size-md',
-            'desc_size_sm'     => '--mm-desc-size-sm',
-            'desc_line_md'     => '--mm-desc-line-md',
-            'desc_line_sm'     => '--mm-desc-line-sm',
-            'desc_margin_md'   => '--mm-desc-margin-md',
-            'desc_margin_sm'   => '--mm-desc-margin-sm',
-            'desc_max_md'      => '--mm-desc-max-md',
-            'desc_max_sm'      => '--mm-desc-max-sm',
+            'desc_max_md'    => '--mm-desc-max-md',
+            'desc_max_sm'    => '--mm-desc-max-sm',
 
+            // button 1
             'btn1_bg'           => '--mm-btn1-bg',
             'btn1_text'         => '--mm-btn1-text',
             'btn1_border'       => '--mm-btn1-border',
             'btn1_radius'       => '--mm-btn1-radius',
             'btn1_pad'          => '--mm-btn1-pad',
+            'btn1_pad_md'       => '--mm-btn1-pad-md',
+            'btn1_pad_sm'       => '--mm-btn1-pad-sm',
             'btn1_shadow'       => '--mm-btn1-shadow',
             'btn1_bg_hover'     => '--mm-btn1-bg-hover',
             'btn1_text_hover'   => '--mm-btn1-text-hover',
             'btn1_border_hover' => '--mm-btn1-border-hover',
             'btn1_shadow_hover' => '--mm-btn1-shadow-hover',
-            // Button 1 responsive
-            'btn1_pad_md'      => '--mm-btn1-pad-md',
-            'btn1_pad_sm'      => '--mm-btn1-pad-sm',
 
+            // button 2
             'btn2_bg'           => '--mm-btn2-bg',
             'btn2_text'         => '--mm-btn2-text',
             'btn2_border'       => '--mm-btn2-border',
             'btn2_radius'       => '--mm-btn2-radius',
             'btn2_pad'          => '--mm-btn2-pad',
+            'btn2_pad_md'       => '--mm-btn2-pad-md',
+            'btn2_pad_sm'       => '--mm-btn2-pad-sm',
             'btn2_shadow'       => '--mm-btn2-shadow',
             'btn2_bg_hover'     => '--mm-btn2-bg-hover',
             'btn2_text_hover'   => '--mm-btn2-text-hover',
             'btn2_border_hover' => '--mm-btn2-border-hover',
             'btn2_shadow_hover' => '--mm-btn2-shadow-hover',
-            // Button 2 responsive
-            'btn2_pad_md'      => '--mm-btn2-pad-md',
-            'btn2_pad_sm'      => '--mm-btn2-pad-sm',
         ];
 
+        // 3) Apply option values
         foreach ($map as $k => $var) {
-            if (!empty($opt[$k]) || $opt[$k] === '0') {
-                $def[$var] = $opt[$k];
+            if (!empty($opt[$k])) {
+                $def[$var] = (string) $opt[$k];
             }
-        }   
+        }
 
-        // Back-compat: mirror Button 1 into legacy --mm-btn-* vars
-        $def['--mm-btn-bg']           = $def['--mm-btn1-bg'];
-        $def['--mm-btn-text']         = $def['--mm-btn1-text'];
-        $def['--mm-btn-border']       = $def['--mm-btn1-border'];
-        $def['--mm-btn-radius']       = $def['--mm-btn1-radius'];
-        $def['--mm-btn-pad']          = $def['--mm-btn1-pad'];
-        $def['--mm-btn-bg-hover']     = $def['--mm-btn1-bg-hover'];
-        $def['--mm-btn-text-hover']   = $def['--mm-btn1-text-hover'];
-        $def['--mm-btn-border-hover'] = $def['--mm-btn1-border-hover'];
+        // 4) Legacy mirror for Button 1
+        $def['--mm-btn-bg']            = $def['--mm-btn1-bg'];
+        $def['--mm-btn-text']          = $def['--mm-btn1-text'];
+        $def['--mm-btn-border']        = $def['--mm-btn1-border'];
+        $def['--mm-btn-radius']        = $def['--mm-btn1-radius'];
+        $def['--mm-btn-pad']           = $def['--mm-btn1-pad'];
+        $def['--mm-btn-bg-hover']      = $def['--mm-btn1-bg-hover'];
+        $def['--mm-btn-text-hover']    = $def['--mm-btn1-text-hover'];
+        $def['--mm-btn-border-hover']  = $def['--mm-btn1-border-hover'];
 
         return $def;
     }
 
+
+
     /** Render input helper */
-    private function render_input($key, $label, $value, $is_color = false, $is_font = false)
+    private function render_input($key, $label, $value, $is_color = false, $is_font = false, $opt = [], $is_responsive = false)
     {
         $id = esc_attr($key);
-        echo '<p class="mm-field">';
+        echo '<div class="mm-field">';
         echo '<label for="' . $id . '"><strong>' . esc_html($label) . '</strong></label><br>';
 
-        if ($is_font) {
-            $choices = $this->font_choices();
-
-            // If saved value is not one of the presets, show Custom selected
-            $is_custom    = ($value !== '' && !array_key_exists($value, $choices));
-            $select_value = $is_custom ? 'custom' : ($value !== '' ? $value : 'inherit');
-            $custom_val   = $is_custom ? $value : '';
-
-            echo '<select id="' . $id . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '" class="mm-font-select">';
-            foreach ($choices as $stack => $text) {
-                $sel = selected($select_value, $stack, false);
-                echo '<option value="' . esc_attr($stack) . '" ' . $sel . '>' . esc_html($text) . '</option>';
+        if ($key === 'anim_preset') {
+            echo '<select id="' . $id . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '">';
+            $choices = ['reveal' => 'Reveal (mask slide)', 'fade' => 'Simple Fade'];
+            foreach ($choices as $val => $label) {
+                echo '<option value="' . esc_attr($val) . '" ' . selected($value, $val, false) . '>' . esc_html($label) . '</option>';
             }
             echo '</select>';
-
-            // Custom free-text stack (only shown when "Custom…" is selected)
-            echo '<input type="text" placeholder="e.g. &quot;Alexandria&quot;, Arial, sans-serif" class="regular-text mm-font-custom" style="margin-top:6px;display:none" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '_custom" value="' . esc_attr($custom_val) . '">';
-            echo '<small>Note: this does not load webfonts; ensure the family is available on your site.</small>';
-        } else {
-            $cls = $is_color ? 'mm-color regular-text' : 'regular-text';
-            echo '<input type="text" id="' . $id . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '" value="' . esc_attr($value) . '" class="' . $cls . '"' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
+            echo '</p>';
+            return;
         }
 
-        echo '</p>';
+        // Helpers
+        $nameBase = esc_attr(self::OPT_STYLE . "[$key]");
+        $val_md   = $opt[$key . '_md'] ?? '';
+        $val_sm   = $opt[$key . '_sm'] ?? '';
+
+        if ($is_responsive) {
+            // Device chips
+            echo '<div class="mm-resp" data-key="' . esc_attr($key) . '">';
+            echo '<div class="mm-devices">';
+            echo '<button type="button" class="button button-small active" data-dev="lg">Desktop</button> ';
+            echo '<button type="button" class="button button-small" data-dev="md">Tablet</button> ';
+            echo '<button type="button" class="button button-small" data-dev="sm">Mobile</button>';
+            echo '</div>';
+
+            // Inputs (show one at a time). For md/sm, empty value means "Auto".
+            $cls = $is_color ? 'mm-color regular-text' : 'regular-text';
+
+            // Desktop (real input)
+            echo '<input type="text" id="' . $id . '" name="' . $nameBase . '" value="' . esc_attr($value) . '" class="' . $cls . ' mm-resp-input mm-input-lg" ' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
+
+            // Tablet (hidden unless active)
+            echo '<input type="text" name="' . esc_attr(self::OPT_STYLE . "[$key" . "_md]") . '" value="' . esc_attr($val_md) . '" class="regular-text mm-resp-input mm-input-md" placeholder="Auto (uses Desktop × tablet ratio)" style="display:none">';
+
+            // Mobile (hidden unless active)
+            echo '<input type="text" name="' . esc_attr(self::OPT_STYLE . "[$key" . "_sm]") . '" value="' . esc_attr($val_sm) . '" class="regular-text mm-resp-input mm-input-sm" placeholder="Auto (uses Desktop × mobile ratio)" style="display:none">';
+
+            echo '</div>'; // .mm-resp
+
+            if ($is_font) {
+                echo '<small>Tip: responsive font **family** isn’t needed; use once for all devices.</small>';
+            }
+        } else {
+            // Normal (non-responsive) field
+            if ($is_font) {
+                $choices     = $this->font_choices();
+                $is_custom   = ($value !== '' && !array_key_exists($value, $choices));
+                $select_val  = $is_custom ? 'custom' : ($value !== '' ? $value : 'inherit');
+                $custom_val  = $is_custom ? $value : '';
+
+                echo '<select id="' . $id . '" name="' . $nameBase . '" class="mm-font-select">';
+                foreach ($choices as $stack => $text) {
+                    $sel = selected($select_val, $stack, false);
+                    echo '<option value="' . esc_attr($stack) . '" ' . $sel . '>' . esc_html($text) . '</option>';
+                }
+                echo '</select>';
+                echo '<input type="text" placeholder="e.g. &quot;Alexandria&quot;, Arial, sans-serif" class="regular-text mm-font-custom" style="margin-top:6px;display:none" name="' . $nameBase . '_custom" value="' . esc_attr($custom_val) . '">';
+                echo '<small>Note: this does not load webfonts; ensure the family exists on your site.</small>';
+            } else {
+                $cls = $is_color ? 'mm-color regular-text' : 'regular-text';
+                echo '<input type="text" id="' . $id . '" name="' . $nameBase . '" value="' . esc_attr($value) . '" class="' . $cls . '"' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
+            }
+        }
+
+        echo '</div>';
     }
 
 
@@ -566,7 +723,7 @@ final class MM_Slides_Publisher
                     <a href="#" class="nav-tab" data-target="#mm-general">General</a>
                     <a href="#" class="nav-tab" data-target="#mm-title">Title</a>
                     <a href="#" class="nav-tab" data-target="#mm-subtitle">Subtitle</a>
-                    <a href="#" class="nav-tab" data-target="#mm-desc">Description</a>
+                    <a href="#" class="nav-tab" data-target="#mm-description">Description</a>
                     <a href="#" class="nav-tab" data-target="#mm-button1">Button 1</a>
                     <a href="#" class="nav-tab" data-target="#mm-button2">Button 2</a>
                 </h2>
@@ -574,65 +731,36 @@ final class MM_Slides_Publisher
                 <form method="post" action="options.php">
                     <?php settings_fields('mm_slides_style_group'); ?>
 
-                    <!-- General -->
-                    <div id="mm-general" class="mm-tab-panel">
-                        <div class="mm-two">
-                            <?php foreach ($groups['general'] as $key => $meta):
-                                $val = $opt[$key] ?? $meta[1];
-                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), false);
-                            endforeach; ?>
-                        </div>
-                    </div>
+                    <?php
+                    // Helper to render a whole group
+                    $render_group = function ($tabKey) use ($groups, $opt) {
+                        $fields = $groups[$tabKey];
+                        echo '<div id="mm-' . esc_attr($tabKey) . '" class="mm-tab-panel"><div class="mm-two">';
+                        foreach ($fields as $key => $meta) {
+                            // Skip device variants in UI; we still save them via hidden inputs inside responsive widget
+                            if (preg_match('/_(md|sm)$/', $key)) continue;
 
-                    <!-- Title -->
-                    <div id="mm-title" class="mm-tab-panel">
-                        <div class="mm-two">
-                            <?php foreach ($groups['title'] as $key => $meta):
-                                $val = $opt[$key] ?? $meta[1];
-                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), $key === 'title_font');
-                            endforeach; ?>
-                        </div>
-                    </div>
+                            $val = $opt[$key] ?? $meta[1];
+                            $is_color = $this->is_color_key($key);
+                            $is_font  = (bool) preg_match('/_font$/', $key);
 
-                    <!-- Subtitle -->
-                    <div id="mm-subtitle" class="mm-tab-panel">
-                        <div class="mm-two">
-                            <?php foreach ($groups['subtitle'] as $key => $meta):
-                                $val = $opt[$key] ?? $meta[1];
-                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), $key === 'sub_font');
-                            endforeach; ?>
-                        </div>
-                    </div>
+                            // Mark responsive if a *_md or *_sm key exists in this group
+                            $has_md = array_key_exists($key . '_md', $fields);
+                            $has_sm = array_key_exists($key . '_sm', $fields);
+                            $is_responsive = ($has_md || $has_sm) && !$is_color && !$is_font;
 
-                    <!-- Description -->
-                    <div id="mm-desc" class="mm-tab-panel">
-                        <div class="mm-two">
-                            <?php foreach ($groups['description'] as $key => $meta):
-                                $val = $opt[$key] ?? $meta[1];
-                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), $key === 'desc_font');
-                            endforeach; ?>
-                        </div>
-                    </div>
+                            $this->render_input($key, $meta[0], $val, $is_color, $is_font, $opt, $is_responsive);
+                        }
+                        echo '</div></div>';
+                    };
 
-                    <!-- Button 1 -->
-                    <div id="mm-button1" class="mm-tab-panel">
-                        <div class="mm-two">
-                            <?php foreach ($groups['button1'] as $key => $meta):
-                                $val = $opt[$key] ?? $meta[1];
-                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), false);
-                            endforeach; ?>
-                        </div>
-                    </div>
-
-                    <!-- Button 2 -->
-                    <div id="mm-button2" class="mm-tab-panel">
-                        <div class="mm-two">
-                            <?php foreach ($groups['button2'] as $key => $meta):
-                                $val = $opt[$key] ?? $meta[1];
-                                $this->render_input($key, $meta[0], $val, $this->is_color_key($key), false);
-                            endforeach; ?>
-                        </div>
-                    </div>
+                    $render_group('general');
+                    $render_group('title');
+                    $render_group('subtitle');
+                    $render_group('description');
+                    $render_group('button1');
+                    $render_group('button2');
+                    ?>
 
                     <?php submit_button('Save Styles'); ?>
                 </form>
@@ -642,6 +770,7 @@ final class MM_Slides_Publisher
         </div>
     <?php
     }
+
 
     /* ---------------- Feed ---------------- */
 
