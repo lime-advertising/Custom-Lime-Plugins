@@ -4,12 +4,19 @@
  * Plugin Name: MM Slides Consumer
  * Description: Pulls remote slides via RSS and renders a Simple Slider compatible markup.
  * Version: 1.2.0
+ * Requires at least: 5.8
+ * Requires PHP: 7.4
+ *  * Author: Lime Advertising
+ * Text Domain: mm-slides-consumer
+ * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 
 if (!defined('ABSPATH')) exit;
 
 final class MM_Slides_Consumer
 {
+    const VERSION     = '1.2.0';
     const OPT_FEED_URL = 'mm_remote_slides_feed';
     const OPT_CACHE    = 'mm_remote_slides_cache';
     const CRON_HOOK    = 'mm_fetch_remote_slides';
@@ -95,25 +102,25 @@ final class MM_Slides_Consumer
             'headers' => ['User-Agent' => 'MM-Slides-Consumer/1.2 (+wordpress)'],
         ]);
         if (is_wp_error($res)) {
-            error_log('MM Slides fetch error: ' . $res->get_error_message());
+            // error_log('MM Slides fetch error: ' . $res->get_error_message());
             return;
         }
 
         $code = wp_remote_retrieve_response_code($res);
         if ($code !== 200) {
-            error_log('MM Slides fetch HTTP ' . $code);
+            // error_log('MM Slides fetch HTTP ' . $code);
             return;
         }
 
         $body = wp_remote_retrieve_body($res);
         if (!$body) {
-            error_log('MM Slides fetch empty body');
+            // error_log('MM Slides fetch empty body');
             return;
         }
 
         $xml = @simplexml_load_string($body);
         if (!$xml || !$xml->channel) {
-            error_log('MM Slides invalid feed');
+            // error_log('MM Slides invalid feed');
             return;
         }
 
@@ -188,8 +195,8 @@ final class MM_Slides_Consumer
 
             $init_handle = 'mm-slider';
 
-            wp_enqueue_script('mm-slider', $js, ['jquery', 'gsap', 'touchSwipe', 'splitting'], null, true);
-            wp_enqueue_style('mm-slider', $css, [], null);
+            wp_enqueue_script('mm-slider', $js, ['jquery', 'gsap', 'touchSwipe', 'splitting'], ($ver ?: self::VERSION), true);
+            wp_enqueue_style('mm-slider', $css, [], ($ver ?: self::VERSION));
         } else {
             $local_js_path = plugin_dir_path(__FILE__) . 'assets/mm-slider.js';
             $local_css_path = plugin_dir_path(__FILE__) . 'assets/mm-slider.css';

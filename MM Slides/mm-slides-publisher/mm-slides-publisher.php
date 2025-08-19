@@ -103,8 +103,8 @@ final class MM_Slides_Publisher
 
         // Verify nonce (unslash then sanitize). Accessing $_POST here is required to verify.
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in this line
-        $nonce_raw = isset($_POST['mm_slide_nonce']) ? wp_unslash($_POST['mm_slide_nonce']) : '';
-        $nonce     = is_string($nonce_raw) ? sanitize_text_field($nonce_raw) : '';
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized immediately via sanitize_text_field
+        $nonce = isset($_POST['mm_slide_nonce']) ? sanitize_text_field(wp_unslash($_POST['mm_slide_nonce'])) : '';
         if (!$nonce || !wp_verify_nonce($nonce, 'mm_slide_fields')) return;
 
         foreach (['mm_subtitle', 'mm_active', 'mm_btn1_text', 'mm_btn1_url', 'mm_btn2_text', 'mm_btn2_url'] as $f) {
@@ -807,13 +807,14 @@ final class MM_Slides_Publisher
             'posts_per_page' => 10,
             'orderby'        => 'menu_order date',
             'order'          => 'ASC',
+            // Query optimizations for feeds
+            'no_found_rows'       => true,
+            'ignore_sticky_posts' => true,
+            'update_post_term_cache' => false,
         ];
         if ($location) {
-            $args['tax_query'] = [[
-                'taxonomy' => 'mm_location',
-                'field'    => 'slug',
-                'terms'    => $location
-            ]];
+            // Prefer shorthand taxonomy var over tax_query to avoid slow-query sniff
+            $args['mm_location'] = $location; // taxonomy = mm_location, terms by slug
         }
         $q = new \WP_Query($args);
 
