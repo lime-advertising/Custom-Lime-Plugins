@@ -4,7 +4,7 @@
  * Plugin Name: MM Slides Publisher
  * Description: Central slide manager + RSS feed for remote consumption (with tabbed global style settings).
  * Version: 1.4.0
- */›
+ */
 
 if (!defined('ABSPATH')) exit;
 
