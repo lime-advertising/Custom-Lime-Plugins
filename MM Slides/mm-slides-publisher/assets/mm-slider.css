@@ -87,6 +87,17 @@
 .master-slider .content-wrap {
   z-index: 2 !important;
 }
+.master-slider .arrow.arrow-prev {
+  right: 0 !important;
+  top: calc(50% - 20px) !important;
+}
+.master-slider .arrow.arrow-next {
+  right: 0 !important;
+  top: calc(50% - 100px) !important;
+}
+.master-slider .nav-dots {
+  bottom: 120px !important;
+}
 
 .slider-full-screen .master-slider .bg-wrap,
 .slider-full-width .master-slider .bg-wrap {

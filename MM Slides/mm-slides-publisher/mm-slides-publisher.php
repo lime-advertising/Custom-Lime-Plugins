@@ -4,6 +4,12 @@
  * Plugin Name: MM Slides Publisher
  * Description: Central slide manager + RSS feed for remote consumption (with tabbed global style settings).
  * Version: 1.4.0
+ * Requires at least: 5.8
+ * Requires PHP: 7.4
+ * Author: Lime Advertising
+ * Text Domain: mm-slides-publisher
+ * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 
 if (!defined('ABSPATH')) exit;
@@ -91,9 +97,23 @@ final class MM_Slides_Publisher
 
     public function save_meta($post_id)
     {
-        if (!isset($_POST['mm_slide_nonce']) || !wp_verify_nonce($_POST['mm_slide_nonce'], 'mm_slide_fields')) return;
+        // Basic guards
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+        if (!current_user_can('edit_post', $post_id)) return;
+
+        // Verify nonce (unslash then sanitize). Accessing $_POST here is required to verify.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in this line
+        $nonce_raw = isset($_POST['mm_slide_nonce']) ? wp_unslash($_POST['mm_slide_nonce']) : '';
+        $nonce     = is_string($nonce_raw) ? sanitize_text_field($nonce_raw) : '';
+        if (!$nonce || !wp_verify_nonce($nonce, 'mm_slide_fields')) return;
+
         foreach (['mm_subtitle', 'mm_active', 'mm_btn1_text', 'mm_btn1_url', 'mm_btn2_text', 'mm_btn2_url'] as $f) {
-            if (isset($_POST[$f])) update_post_meta($post_id, $f, sanitize_text_field($_POST[$f]));
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Presence check only
+            if (isset($_POST[$f])) {
+                // Sanitize immediately after unslashing
+                $san = sanitize_text_field(wp_unslash($_POST[$f]));
+                update_post_meta($post_id, $f, $san);
+            }
         }
     }
 
@@ -124,12 +144,9 @@ final class MM_Slides_Publisher
     {
         if ($hook !== 'mm_slide_page_mm-slides-settings') return;
 
-        // WP color picker + alpha support
+        // WP color picker (core only; no external offloaded assets)
         wp_enqueue_style('wp-color-picker');
         wp_enqueue_script('wp-color-picker');
-        // lightweight alpha addon
-        wp_register_script('wp-color-picker-alpha', 'https://cdn.jsdelivr.net/npm/wp-color-picker-alpha@3.0.0/dist/wp-color-picker-alpha.min.js', ['wp-color-picker'], '3.0.0', true);
-        wp_enqueue_script('wp-color-picker-alpha');
 
         wp_add_inline_style('wp-admin', '
             .mm-tabs{margin-top:20px}
@@ -644,12 +661,12 @@ final class MM_Slides_Publisher
     /** Render input helper */
     private function render_input($key, $label, $value, $is_color = false, $is_font = false, $opt = [], $is_responsive = false)
     {
-        $id = esc_attr($key);
+        $id = $key; // escape on output
         echo '<div class="mm-field">';
-        echo '<label for="' . $id . '"><strong>' . esc_html($label) . '</strong></label><br>';
+        echo '<label for="' . esc_attr($id) . '"><strong>' . esc_html($label) . '</strong></label><br>';
 
         if ($key === 'anim_preset') {
-            echo '<select id="' . $id . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '">';
+            echo '<select id="' . esc_attr($id) . '" name="' . esc_attr(self::OPT_STYLE . "[$key]") . '">';
             $choices = ['reveal' => 'Reveal (mask slide)', 'fade' => 'Simple Fade'];
             foreach ($choices as $val => $label) {
                 echo '<option value="' . esc_attr($val) . '" ' . selected($value, $val, false) . '>' . esc_html($label) . '</option>';
@@ -659,7 +676,7 @@ final class MM_Slides_Publisher
             return;
         }
         // Helpers
-        $nameBase = esc_attr(self::OPT_STYLE . "[$key]");
+        $nameBase = self::OPT_STYLE . "[$key]";
         $val_md   = $opt[$key . '_md'] ?? '';
         $val_sm   = $opt[$key . '_sm'] ?? '';
 
@@ -676,13 +693,13 @@ final class MM_Slides_Publisher
             $cls = $is_color ? 'mm-color regular-text' : 'regular-text';
 
             // Desktop (real input)
-            echo '<input type="text" id="' . $id . '" name="' . $nameBase . '" value="' . esc_attr($value) . '" class="' . $cls . ' mm-resp-input mm-input-lg" ' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
+            echo '<input type="text" id="' . esc_attr($id) . '" name="' . esc_attr($nameBase) . '" value="' . esc_attr($value) . '" class="' . esc_attr($cls . ' mm-resp-input mm-input-lg') . '" ' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
 
             // Tablet (hidden unless active)
-            echo '<input type="text" name="' . esc_attr(self::OPT_STYLE . "[$key" . "_md]") . '" value="' . esc_attr($val_md) . '" class="regular-text mm-resp-input mm-input-md" placeholder="Auto (uses Desktop × tablet ratio)" style="display:none">';
+            echo '<input type="text" name="' . esc_attr(self::OPT_STYLE . "[$key" . "_md]") . '" value="' . esc_attr($val_md) . '" class="' . esc_attr('regular-text mm-resp-input mm-input-md') . '" placeholder="Auto (uses Desktop × tablet ratio)" style="display:none">';
 
             // Mobile (hidden unless active)
-            echo '<input type="text" name="' . esc_attr(self::OPT_STYLE . "[$key" . "_sm]") . '" value="' . esc_attr($val_sm) . '" class="regular-text mm-resp-input mm-input-sm" placeholder="Auto (uses Desktop × mobile ratio)" style="display:none">';
+            echo '<input type="text" name="' . esc_attr(self::OPT_STYLE . "[$key" . "_sm]") . '" value="' . esc_attr($val_sm) . '" class="' . esc_attr('regular-text mm-resp-input mm-input-sm') . '" placeholder="Auto (uses Desktop × mobile ratio)" style="display:none">';
 
             echo '</div>'; // .mm-resp
 
@@ -697,17 +714,16 @@ final class MM_Slides_Publisher
                 $select_val  = $is_custom ? 'custom' : ($value !== '' ? $value : 'inherit');
                 $custom_val  = $is_custom ? $value : '';
 
-                echo '<select id="' . $id . '" name="' . $nameBase . '" class="mm-font-select">';
+                echo '<select id="' . esc_attr($id) . '" name="' . esc_attr($nameBase) . '" class="' . esc_attr('mm-font-select') . '">';
                 foreach ($choices as $stack => $text) {
-                    $sel = selected($select_val, $stack, false);
-                    echo '<option value="' . esc_attr($stack) . '" ' . $sel . '>' . esc_html($text) . '</option>';
+                    echo '<option value="' . esc_attr($stack) . '" ' . selected($select_val, $stack, false) . '>' . esc_html($text) . '</option>';
                 }
                 echo '</select>';
-                echo '<input type="text" placeholder="e.g. &quot;Alexandria&quot;, Arial, sans-serif" class="regular-text mm-font-custom" style="margin-top:6px;display:none" name="' . $nameBase . '_custom" value="' . esc_attr($custom_val) . '">';
+                echo '<input type="text" placeholder="e.g. &quot;Alexandria&quot;, Arial, sans-serif" class="' . esc_attr('regular-text mm-font-custom') . '" style="margin-top:6px;display:none" name="' . esc_attr($nameBase . '_custom') . '" value="' . esc_attr($custom_val) . '">';
                 echo '<small>Note: this does not load webfonts; ensure the family exists on your site.</small>';
             } else {
                 $cls = $is_color ? 'mm-color regular-text' : 'regular-text';
-                echo '<input type="text" id="' . $id . '" name="' . $nameBase . '" value="' . esc_attr($value) . '" class="' . $cls . '"' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
+                echo '<input type="text" id="' . esc_attr($id) . '" name="' . esc_attr($nameBase) . '" value="' . esc_attr($value) . '" class="' . esc_attr($cls) . '"' . ($is_color ? ' data-alpha-enabled="true"' : '') . '>';
             }
         }
 
@@ -783,11 +799,12 @@ final class MM_Slides_Publisher
     {
         header('Content-Type: application/rss+xml; charset=' . get_option('blog_charset'), true);
 
-        $location = isset($_GET['location']) ? sanitize_text_field($_GET['location']) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public feed endpoint does not use nonces
+        $location = isset($_GET['location']) ? sanitize_text_field(wp_unslash($_GET['location'])) : '';
         $args = [
             'post_type'      => self::CPT,
             'post_status'    => 'publish',
-            'posts_per_page' => -1,
+            'posts_per_page' => 10,
             'orderby'        => 'menu_order date',
             'order'          => 'ASC',
         ];
@@ -804,16 +821,16 @@ final class MM_Slides_Publisher
 
         echo '<?xml version="1.0" encoding="' . esc_attr(get_option('blog_charset')) . '"?>';
     ?>
-        <rss version="2.0" xmlns:<?php echo self::NS; ?>="https://example.com/mm">
+        <rss version="2.0" xmlns:<?php echo esc_attr(self::NS); ?>="https://example.com/mm">
             <channel>
                 <title><?php echo esc_html(get_bloginfo('name')); ?> - MM Slides</title>
                 <link><?php echo esc_url(home_url('/')); ?></link>
                 <description>Remote slides feed</description>
                 <lastBuildDate><?php echo esc_html(mysql2date(DATE_RSS, current_time('mysql'))); ?></lastBuildDate>
 
-                <<?php echo self::NS; ?>:vars>
+                <?php echo '<' . esc_html(self::NS) . ':vars>'; ?>
                     <![CDATA[<?php echo wp_json_encode($vars); ?>]]>
-                </<?php echo self::NS; ?>:vars>
+                <?php echo '</' . esc_html(self::NS) . ':vars>'; ?>
 
                 <?php while ($q->have_posts()): $q->the_post();
                     $id  = get_the_ID();
@@ -836,9 +853,9 @@ final class MM_Slides_Publisher
                         <description>
                             <![CDATA[<?php echo wp_kses_post(get_the_content()); ?>]]>
                         </description>
-                        <<?php echo self::NS; ?>:data>
+                        <?php echo '<' . esc_html(self::NS) . ':data>'; ?>
                             <![CDATA[<?php echo wp_json_encode($meta); ?>]]>
-                        </<?php echo self::NS; ?>:data>
+                        <?php echo '</' . esc_html(self::NS) . ':data>'; ?>
                     </item>
                 <?php endwhile;
                 wp_reset_postdata(); ?>
