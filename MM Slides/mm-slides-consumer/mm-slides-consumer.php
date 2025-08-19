@@ -168,48 +168,76 @@ final class MM_Slides_Consumer
         $this->ensure_script('touchSwipe', 'https://cdn.jsdelivr.net/npm/jquery-touchswipe@1.6.19/jquery.touchswipe.min.js', ['jquery'], '1.6.19');
         $this->ensure_script('splitting', 'https://cdn.jsdelivr.net/npm/splitting@1.0.6/dist/splitting.min.js', [], '1.0.6');
 
-        $local_js_path = plugin_dir_path(__FILE__) . 'assets/mm-slider.js';
-        $local_css_path = plugin_dir_path(__FILE__) . 'assets/mm-slider.css';
+        $cache = get_option(self::OPT_CACHE);
+        $vars  = $cache['vars'] ?? [];
+        $base  = isset($vars['mm-assets-base']) ? rtrim($vars['mm-assets-base'], '/') : '';
+        $ver   = $vars['mm-assets-ver'] ?? '';
 
-        // Always prefer local if it exists
-        if (file_exists($local_js_path)) {
-            // If the theme registered a slider, remove it to avoid duplicates
+        $use_remote = !empty($base); // allow override
+        $use_remote = apply_filters('mm_use_remote_assets', $use_remote);
+
+        if ($use_remote) {
+            $js  = $base . '/mm-slider.js'  . ($ver ? '?v=' . rawurlencode($ver) : '');
+            $css = $base . '/mm-slider.css' . ($ver ? '?v=' . rawurlencode($ver) : '');
+
+            // Dequeue any theme slider to avoid doubles
             if ($theme = $this->find_registered_script_handle()) {
                 wp_dequeue_script($theme);
                 wp_deregister_script($theme);
             }
-            if ($theme_css = $this->find_registered_style_handle()) {
-                // optional: keep theme CSS, or dequeue it and use your own CSS
-                // wp_dequeue_style($theme_css);
-                // wp_deregister_style($theme_css);
-            }
 
-            // Enqueue your fixed slider
-            wp_enqueue_script(
-                'mm-slider',
-                plugins_url('assets/mm-slider.js', __FILE__),
-                ['jquery', 'gsap', 'touchSwipe', 'splitting'],
-                '1.0.1',
-                true
-            );
             $init_handle = 'mm-slider';
 
-            // Use your CSS if present (you can keep the theme CSS instead if you prefer)
-            if (file_exists($local_css_path)) {
-                wp_enqueue_style('mm-slider', plugins_url('assets/mm-slider.css', __FILE__), [], '1.0.0');
-            }
+            wp_enqueue_script('mm-slider', $js, ['jquery', 'gsap', 'touchSwipe', 'splitting'], null, true);
+            wp_enqueue_style('mm-slider', $css, [], null);
         } else {
-            // Fallback to theme’s assets
-            if ($theme_css = $this->find_registered_style_handle()) wp_enqueue_style($theme_css);
-            if ($theme_js  = $this->find_registered_script_handle()) {
-                wp_enqueue_script($theme_js);
-                $init_handle = $theme_js;
-            } else {
-                return; // neither local nor theme: nothing to init
-            }
-        }
+            $local_js_path = plugin_dir_path(__FILE__) . 'assets/mm-slider.js';
+            $local_css_path = plugin_dir_path(__FILE__) . 'assets/mm-slider.css';
 
-        wp_add_inline_script($init_handle, "jQuery(function($){ $('.master-slider').masterSlider(); });");
+            // Always prefer local if it exists
+            if (file_exists($local_js_path)) {
+                // If the theme registered a slider, remove it to avoid duplicates
+                if ($theme = $this->find_registered_script_handle()) {
+                    wp_dequeue_script($theme);
+                    wp_deregister_script($theme);
+                }
+                if ($theme_css = $this->find_registered_style_handle()) {
+                    // optional: keep theme CSS, or dequeue it and use your own CSS
+                    // wp_dequeue_style($theme_css);
+                    // wp_deregister_style($theme_css);
+                }
+
+                // Enqueue your fixed slider
+                wp_enqueue_script(
+                    'mm-slider',
+                    plugins_url('assets/mm-slider.js', __FILE__),
+                    ['jquery', 'gsap', 'touchSwipe', 'splitting'],
+                    '1.0.1',
+                    true
+                );
+                $init_handle = 'mm-slider';
+
+                // Use your CSS if present (you can keep the theme CSS instead if you prefer)
+                if (file_exists($local_css_path)) {
+                    wp_enqueue_style('mm-slider', plugins_url('assets/mm-slider.css', __FILE__), [], '1.0.0');
+                }
+            } else {
+                // Fallback to theme’s assets
+                if ($theme_css = $this->find_registered_style_handle()) wp_enqueue_style($theme_css);
+                if ($theme_js  = $this->find_registered_script_handle()) {
+                    wp_enqueue_script($theme_js);
+                    $init_handle = $theme_js;
+                } else {
+                    return; // neither local nor theme: nothing to init
+                }
+            }
+
+            $init_handle = isset($init_handle) ? $init_handle : 'mm-slider';
+        }
+        // init for both paths:
+        if (!empty($init_handle)) {
+            wp_add_inline_script($init_handle, "jQuery(function($){ $('.master-slider').masterSlider(); });");
+        }
     }
 
 

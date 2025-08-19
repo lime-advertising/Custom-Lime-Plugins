@@ -4,7 +4,7 @@
  * Plugin Name: MM Slides Publisher
  * Description: Central slide manager + RSS feed for remote consumption (with tabbed global style settings).
  * Version: 1.4.0
- */
+ */›
 
 if (!defined('ABSPATH')) exit;
 
@@ -217,6 +217,8 @@ final class MM_Slides_Publisher
     {
         return [
             'general' => [
+                'assets_base' => ['Assets base URL (JS/CSS)', 'https://cdn.example.com/mm-slider'],
+                'assets_ver'  => ['Assets version for cache-busting', '1.0.3'],
                 'ratio_tablet'  => ['Tablet size ratio (0–1)', '0.78'],
                 'ratio_mobile'  => ['Mobile size ratio (0–1)', '0.60'],
                 'slider_height' => ['Slider Height (e.g. 700px or 90vh)', '700px'],
@@ -408,6 +410,8 @@ final class MM_Slides_Publisher
         // 1) Defaults: ONLY CSS var => default value
         $def = [
             // general
+            'mm-assets-base' => '',
+            'mm-assets-ver'  => '',
             '--mm-slider-height'   => '700px',
             '--mm-slider-height-md' => '',
             '--mm-slider-height-sm' => '',
@@ -512,6 +516,8 @@ final class MM_Slides_Publisher
         // 2) Map: option key => CSS var (include md/sm)
         $map = [
             // general
+            'assets_base' => 'mm-assets-base',
+            'assets_ver'  => 'mm-assets-ver',
             'slider_height'  => '--mm-slider-height',
             'slider_height_md' => '--mm-slider-height-md',
             'slider_height_sm' => '--mm-slider-height-sm',
@@ -649,10 +655,9 @@ final class MM_Slides_Publisher
                 echo '<option value="' . esc_attr($val) . '" ' . selected($value, $val, false) . '>' . esc_html($label) . '</option>';
             }
             echo '</select>';
-            echo '</p>';
+            echo '</div>'; // <— was </p>
             return;
         }
-
         // Helpers
         $nameBase = esc_attr(self::OPT_STYLE . "[$key]");
         $val_md   = $opt[$key . '_md'] ?? '';
