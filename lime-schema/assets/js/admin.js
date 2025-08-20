@@ -156,6 +156,9 @@
         // Ensure current repeater names are up to date
         if (typeof renumber === 'function') renumber();
         var fd = new FormData(form);
+        if (window.LimeSchemaAdmin && LimeSchemaAdmin.ajaxNonce) {
+          fd.append('nonce', LimeSchemaAdmin.ajaxNonce);
+        }
         fd.append('action', 'lime_schema_preview');
         // admin ajax url is available in admin screens
         fetch((typeof ajaxurl !== 'undefined' ? ajaxurl : '/wp-admin/admin-ajax.php'), {

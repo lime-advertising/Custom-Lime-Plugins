@@ -11,6 +11,14 @@ class Lime_Schema_Admin
         add_action('add_meta_boxes',    [$this, 'add_meta_box']);
         add_action('save_post',         [$this, 'save_post_meta'], 10, 2);
         add_action('wp_ajax_lime_schema_preview', [$this, 'ajax_preview']);
+        // Author profile fields (sameAs)
+        add_action('show_user_profile', [$this, 'render_user_fields']);
+        add_action('edit_user_profile', [$this, 'render_user_fields']);
+        add_action('personal_options_update', [$this, 'save_user_fields']);
+        add_action('edit_user_profile_update', [$this, 'save_user_fields']);
+        // Admin notice for SEO plugin detection
+        add_action('admin_init',        [$this, 'handle_dismiss_seo_notice']);
+        add_action('admin_notices',     [$this, 'seo_notice']);
     }
 
     public function admin_assets($hook)
@@ -35,8 +43,38 @@ class Lime_Schema_Admin
             'optionKey' => LIME_SCHEMA_OPTION_KEY,
             'metaKey'   => LIME_SCHEMA_META_KEY,
             'rrtUrlBase' => 'https://search.google.com/test/rich-results',
+            'ajaxNonce' => wp_create_nonce('lime_schema_preview'),
         ]);
         wp_enqueue_script('lime-schema-admin');
+    }
+
+    public function handle_dismiss_seo_notice(): void
+    {
+        if (!current_user_can('manage_options')) return;
+        if (isset($_GET['lime_schema_dismiss_seo_notice']) && isset($_GET['_wpnonce'])) {
+            $nonce = sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) );
+            if (wp_verify_nonce($nonce, 'lime_schema_dismiss_seo_notice')) {
+                update_option('lime_schema_dismissed_seo_notice', 1);
+            }
+        }
+    }
+
+    public function seo_notice(): void
+    {
+        if (!current_user_can('manage_options')) return;
+        $opts = get_option(LIME_SCHEMA_OPTION_KEY, []);
+        if (empty($opts['auto_disable_with_seo'])) return;
+        if (get_option('lime_schema_dismissed_seo_notice')) return;
+        $det = Lime_Schema_Utils::detect_seo();
+        if (empty($det['active'])) return;
+        $which = $det['yoast'] ? 'Yoast SEO' : ($det['rankmath'] ? 'Rank Math' : 'SEO plugin');
+        $dismiss_url = wp_nonce_url(add_query_arg('lime_schema_dismiss_seo_notice', '1'), 'lime_schema_dismiss_seo_notice');
+        $settings_url = admin_url('options-general.php?page=' . LIME_SCHEMA_OPTION_KEY);
+        echo '<div class="notice notice-info is-dismissible">'
+            . '<p><strong>Lime Schema:</strong> ' . esc_html($which) . ' detected. To avoid duplicate structured data, Organization/WebSite/WebPage nodes are disabled by default. '
+            . 'You can change this in <a href="' . esc_url($settings_url) . '">Settings</a>. '
+            . '<a href="' . esc_url($dismiss_url) . '" style="margin-left:8px">Dismiss</a>'
+            . '</p></div>';
     }
 
     /* Settings */
@@ -63,6 +101,12 @@ class Lime_Schema_Admin
                 'locations'      => [],
                 'faqs'           => [],
                 'locations_json' => '[]',
+                // Feature toggles
+                'disable_org'    => 0,
+                'disable_website'=> 0,
+                'disable_webpage'=> 0,
+                'enable_article' => 0,
+                'auto_disable_with_seo' => 1,
             ]
         ]);
 
@@ -76,6 +120,11 @@ class Lime_Schema_Admin
             $out[$k] = isset($raw[$k]) ? wp_kses_post($raw[$k]) : '';
         }
         $out['enable_website'] = !empty($raw['enable_website']) ? 1 : 0;
+        $out['disable_org']     = !empty($raw['disable_org']) ? 1 : 0;
+        $out['disable_website'] = !empty($raw['disable_website']) ? 1 : 0;
+        $out['disable_webpage'] = !empty($raw['disable_webpage']) ? 1 : 0;
+        $out['enable_article']  = !empty($raw['enable_article']) ? 1 : 0;
+        $out['auto_disable_with_seo'] = !empty($raw['auto_disable_with_seo']) ? 1 : 0;
 
         $allowed = Lime_Schema_Utils::allowed_lb_types();
         $out['lb_type'] = in_array($out['lb_type'], $allowed, true) ? $out['lb_type'] : 'LocalBusiness';
@@ -172,11 +221,11 @@ class Lime_Schema_Admin
 
         echo '<div class="ls-tabs">';
         echo '<div class="ls-tab-nav">
-              <a href="#" class="active" data-target="#ls-org">' . esc_html__('Organization', LIME_SCHEMA_TEXT_DOMAIN) . '</a>
-              <a href="#" data-target="#ls-website">' . esc_html__('Website', LIME_SCHEMA_TEXT_DOMAIN) . '</a>
-              <a href="#" data-target="#ls-locations">' . esc_html__('Locations', LIME_SCHEMA_TEXT_DOMAIN) . '</a>
-              <a href="#" data-target="#ls-faqs">' . esc_html__('FAQs', LIME_SCHEMA_TEXT_DOMAIN) . '</a>
-              <a href="#" data-target="#ls-preview">' . esc_html__('Preview', LIME_SCHEMA_TEXT_DOMAIN) . '</a>
+              <a href="#" class="active" data-target="#ls-org">' . esc_html__('Organization', 'lime-schema') . '</a>
+              <a href="#" data-target="#ls-website">' . esc_html__('Website', 'lime-schema') . '</a>
+              <a href="#" data-target="#ls-locations">' . esc_html__('Locations', 'lime-schema') . '</a>
+              <a href="#" data-target="#ls-faqs">' . esc_html__('FAQs', 'lime-schema') . '</a>
+              <a href="#" data-target="#ls-preview">' . esc_html__('Preview', 'lime-schema') . '</a>
             </div>';
 
         echo '<div id="ls-org" class="ls-tab active">';
@@ -184,13 +233,16 @@ class Lime_Schema_Admin
         $this->field_url('site_url', 'Site URL (canonical)', $opts);
         $this->field_textarea('description', 'Short Description (1–2 sentences)', $opts);
         $this->field_url('logo', 'Logo URL (PNG/SVG)', $opts);
+        echo '<p class="description">' . esc_html__('Logo should be square, at least 112×112, PNG/SVG preferred.', 'lime-schema') . '</p>';
         $this->field_textarea('images', 'Brand Image URLs (comma-separated)', $opts);
+        echo '<p class="description">' . esc_html__('Use high-quality images (1200px width recommended for rich results).', 'lime-schema') . '</p>';
         $this->field_text('founding_date', 'Founding Date (YYYY-MM-DD)', $opts);
         $this->field_text('founder', 'Founder Name', $opts);
         $this->field_text('phone', 'Primary Phone (+1-xxx-xxx-xxxx)', $opts);
         $this->field_email('email', 'Contact Email', $opts);
         $this->field_text('languages', 'Languages (comma-separated, e.g., en-CA, fr-CA)', $opts);
         $this->field_textarea('sameas', 'Official Profiles (comma-separated URLs)', $opts);
+        $this->field_checkbox('disable_org', 'Disable Organization node globally?', $opts);
         $this->field_lb_select('lb_type','Default LocalBusiness subtype', $opts,
             'We use a vetted list of schema.org LocalBusiness subtypes to prevent typos and invalid values. Pick the closest match; search engines ignore unknown types.'
         );
@@ -199,6 +251,16 @@ class Lime_Schema_Admin
         echo '<div id="ls-website" class="ls-tab">';
         $this->field_checkbox('enable_website', 'Output WebSite/SearchAction?', $opts);
         $this->field_url('search_target', 'Search URL pattern (e.g., https://example.com/?s={search_term_string})', $opts);
+        $this->field_checkbox('disable_website', 'Disable WebSite node globally?', $opts);
+        $this->field_checkbox('disable_webpage', 'Disable WebPage node globally?', $opts);
+        $this->field_checkbox('enable_article', 'Enable Article schema for posts?', $opts);
+        $this->field_checkbox('auto_disable_with_seo', 'Automatically disable core nodes when Yoast or Rank Math is active', $opts);
+        // Detection status message
+        $det = Lime_Schema_Utils::detect_seo();
+        if (!empty($det['active'])) {
+            $which = $det['yoast'] ? 'Yoast SEO' : ($det['rankmath'] ? 'Rank Math' : 'SEO plugin');
+            echo '<p class="description">' . esc_html($which . ' detected. Core nodes (Organization/WebSite/WebPage) will be disabled by default to avoid duplicates. Uncheck the option above to force output.') . '</p>';
+        }
         echo '</div>';
 
         echo '<div id="ls-locations" class="ls-tab">';
@@ -213,19 +275,19 @@ class Lime_Schema_Admin
         echo '<template id="ls-location-proto">';
         $this->render_location_block([], true);
         echo '</template>';
-        echo '<input type="hidden" name="' . LIME_SCHEMA_OPTION_KEY . '[locations_json]" value="' . esc_attr($this->v($opts, 'locations_json', '[]')) . '">';
+        echo '<input type="hidden" name="' . esc_attr(LIME_SCHEMA_OPTION_KEY . '[locations_json]') . '" value="' . esc_attr($this->v($opts, 'locations_json', '[]')) . '">';
         echo '</div>'; // close #ls-locations
 
         // FAQs TAB (after Locations)
         echo '<div id="ls-faqs" class="ls-tab">';
-        echo '<p>' . esc_html__('Add site-wide FAQ questions and answers. You can include them on specific pages via the meta box.', LIME_SCHEMA_TEXT_DOMAIN) . '</p>';
+        echo '<p>' . esc_html__('Add site-wide FAQ questions and answers. You can include them on specific pages via the meta box.', 'lime-schema') . '</p>';
         echo '<div id="ls-faqs-wrap">';
         $faqs = isset($opts['faqs']) && is_array($opts['faqs']) ? $opts['faqs'] : [];
         foreach ($faqs as $faq) {
             $this->render_faq_block($faq);
         }
         echo '</div>';
-        echo '<p class="ls-actions"><a href="#" id="ls-add-faq" class="button">+ ' . esc_html__('Add FAQ', LIME_SCHEMA_TEXT_DOMAIN) . '</a></p>';
+        echo '<p class="ls-actions"><a href="#" id="ls-add-faq" class="button">+ ' . esc_html__('Add FAQ', 'lime-schema') . '</a></p>';
         echo '<template id="ls-faq-proto">';
         $this->render_faq_block([], true);
         echo '</template>';
@@ -233,11 +295,11 @@ class Lime_Schema_Admin
 
         // PREVIEW TAB (after FAQs)
         echo '<div id="ls-preview" class="ls-tab">';
-        echo '<p>' . esc_html__('This preview shows the JSON-LD payload that will be output on the homepage. Click Refresh to use the current, unsaved form values.', LIME_SCHEMA_TEXT_DOMAIN) . '</p>';
+        echo '<p>' . esc_html__('This preview shows the JSON-LD payload that will be output on the homepage. Click Refresh to use the current, unsaved form values.', 'lime-schema') . '</p>';
         echo '<p class="ls-preview-actions">'
-            . '<a href="#" class="button" id="ls-preview-refresh">' . esc_html__('Refresh', LIME_SCHEMA_TEXT_DOMAIN) . '</a> '
-            . '<a href="#" class="button" id="ls-preview-copy">' . esc_html__('Copy', LIME_SCHEMA_TEXT_DOMAIN) . '</a> '
-            . '<a href="#" class="button" id="ls-preview-validate">' . esc_html__('Validate in Rich Results Test', LIME_SCHEMA_TEXT_DOMAIN) . '</a>'
+            . '<a href="#" class="button" id="ls-preview-refresh">' . esc_html__('Refresh', 'lime-schema') . '</a> '
+            . '<a href="#" class="button" id="ls-preview-copy">' . esc_html__('Copy', 'lime-schema') . '</a> '
+            . '<a href="#" class="button" id="ls-preview-validate">' . esc_html__('Validate in Rich Results Test', 'lime-schema') . '</a>'
             . '</p>';
         $renderer = Lime_Schema::instance()->renderer();
         $payload  = method_exists($renderer, 'build_preview_payload') ? $renderer->build_preview_payload($opts) : [];
@@ -246,11 +308,11 @@ class Lime_Schema_Admin
         $issues = method_exists($renderer, 'build_preview_issues') ? $renderer->build_preview_issues($opts) : [];
         echo '<div id="ls-preview-hints" class="ls-hints">';
         if (!empty($issues)) {
-            echo '<p><strong>' . esc_html__('Recommendations', LIME_SCHEMA_TEXT_DOMAIN) . ':</strong></p><ul style="list-style:disc;padding-left:20px">';
+            echo '<p><strong>' . esc_html__('Recommendations', 'lime-schema') . ':</strong></p><ul style="list-style:disc;padding-left:20px">';
             foreach ($issues as $msg) echo '<li>' . esc_html($msg) . '</li>';
             echo '</ul>';
         } else {
-            echo '<p>' . esc_html__('All key fields look good.', LIME_SCHEMA_TEXT_DOMAIN) . '</p>';
+            echo '<p>' . esc_html__('All key fields look good.', 'lime-schema') . '</p>';
         }
         echo '</div>';
         echo '</div>';
@@ -263,7 +325,9 @@ class Lime_Schema_Admin
     public function ajax_preview()
     {
         if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'forbidden'], 403);
-        $posted = isset($_POST[LIME_SCHEMA_OPTION_KEY]) ? (array) $_POST[LIME_SCHEMA_OPTION_KEY] : [];
+        check_ajax_referer('lime_schema_preview', 'nonce');
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Raw form values are unslashed and passed to sanitize_options() immediately below.
+        $posted = isset($_POST[LIME_SCHEMA_OPTION_KEY]) ? (array) wp_unslash($_POST[LIME_SCHEMA_OPTION_KEY]) : [];
         // Reuse sanitize to normalize posted values
         $clean  = $this->sanitize_options($posted);
         $renderer = Lime_Schema::instance()->renderer();
@@ -294,10 +358,12 @@ class Lime_Schema_Admin
             'include_webpage'  => ['Include WebPage node?', 'checkbox'],
             'include_website'  => ['Include WebSite node?', 'checkbox'],
             'include_faq'      => ['Include FAQ (from Settings) on this page?', 'checkbox'],
+            'include_article'  => ['Include Article schema (this page)?', 'checkbox'],
             'override_lb_type' => ['LocalBusiness subtype override', 'select'],
             'override_name'    => ['Override Name (this page)', 'text'],
             'override_desc'    => ['Override Description (this page)', 'textarea'],
             'override_image'   => ['Primary Image URL (this page)', 'url'],
+            'override_lang'    => ['Language override (e.g., en-CA)', 'text'],
         ];
 
         foreach ($fields as $key => $info) {
@@ -306,22 +372,22 @@ class Lime_Schema_Admin
             echo '<label><strong>' . esc_html($info[0]) . '</strong></label><br>';
 
             if ($info[1] === 'checkbox') {
-                echo '<label><input type="checkbox" name="' . LIME_SCHEMA_META_KEY . '[' . $key . ']" value="1" ' . checked($val, 1, false) . '> Yes</label>';
+                echo '<label><input type="checkbox" name="' . esc_attr(LIME_SCHEMA_META_KEY . '[' . $key . ']') . '" value="1" ' . checked($val, 1, false) . '> Yes</label>';
             } elseif ($info[1] === 'textarea') {
-                echo '<textarea class="widefat" rows="2" name="' . LIME_SCHEMA_META_KEY . '[' . $key . ']">' . esc_textarea($val) . '</textarea>';
+                echo '<textarea class="widefat" rows="2" name="' . esc_attr(LIME_SCHEMA_META_KEY . '[' . $key . ']') . '">' . esc_textarea($val) . '</textarea>';
             } elseif ($key === 'override_lb_type') {
                 $this->meta_lb_select('override_lb_type', $val);
                 echo '<br><span class="description">Choose a valid schema.org subtype to avoid typos.</span>';
             } else {
-                echo '<input type="text" class="widefat" name="' . LIME_SCHEMA_META_KEY . '[' . $key . ']" value="' . esc_attr($val) . '">';
+                echo '<input type="text" class="widefat" name="' . esc_attr(LIME_SCHEMA_META_KEY . '[' . $key . ']') . '" value="' . esc_attr($val) . '">';
             }
             echo '</p>';
         }
 
         // Custom FAQs for this page
-        echo '<hr><p><strong>' . esc_html__('Per-page FAQs', LIME_SCHEMA_TEXT_DOMAIN) . '</strong></p>';
-        echo '<p class="description">' . esc_html__('Check “Include FAQ” above to output FAQ schema. If you add custom FAQs here and enable FAQ, these will be used instead of the site-wide FAQs.', LIME_SCHEMA_TEXT_DOMAIN) . '</p>';
-        echo '<p><label><input type="checkbox" name="' . LIME_SCHEMA_META_KEY . '[use_custom_faq]" value="1" ' . checked(!empty($meta['use_custom_faq']), 1, false) . '> ' . esc_html__('Use custom FAQs on this page', LIME_SCHEMA_TEXT_DOMAIN) . '</label></p>';
+        echo '<hr><p><strong>' . esc_html__('Per-page FAQs', 'lime-schema') . '</strong></p>';
+        echo '<p class="description">' . esc_html__('Check “Include FAQ” above to output FAQ schema. If you add custom FAQs here and enable FAQ, these will be used instead of the site-wide FAQs.', 'lime-schema') . '</p>';
+        echo '<p><label><input type="checkbox" name="' . esc_attr(LIME_SCHEMA_META_KEY . '[use_custom_faq]') . '" value="1" ' . checked(!empty($meta['use_custom_faq']), 1, false) . '> ' . esc_html__('Use custom FAQs on this page', 'lime-schema') . '</label></p>';
 
         $faqs = isset($meta['faqs']) && is_array($meta['faqs']) ? $meta['faqs'] : [];
         echo '<div id="ls-meta-faqs-wrap">';
@@ -331,21 +397,47 @@ class Lime_Schema_Admin
             }
         }
         echo '</div>';
-        echo '<p><a href="#" id="ls-meta-add-faq" class="button">+ ' . esc_html__('Add FAQ', LIME_SCHEMA_TEXT_DOMAIN) . '</a></p>';
+        echo '<p><a href="#" id="ls-meta-add-faq" class="button">+ ' . esc_html__('Add FAQ', 'lime-schema') . '</a></p>';
         echo '<template id="ls-meta-faq-proto">';
         $this->render_meta_faq_block([], true);
         echo '</template>';
 
-        echo '<p><em>Tip:</em> ' . esc_html__('On the homepage, include Organization + WebSite + WebPage. On other pages, WebPage plus (optionally) LocalBusiness is typical.', LIME_SCHEMA_TEXT_DOMAIN) . '</p>';
+        echo '<p><em>Tip:</em> ' . esc_html__('On the homepage, include Organization + WebSite + WebPage. On other pages, WebPage plus (optionally) LocalBusiness is typical.', 'lime-schema') . '</p>';
+    }
+
+    /* User profile: author sameAs */
+    public function render_user_fields($user)
+    {
+        if (!current_user_can('edit_user', $user->ID)) return;
+        $sameas = get_user_meta($user->ID, 'lime_author_sameas', true);
+        echo '<h2>' . esc_html__('Lime Schema', 'lime-schema') . '</h2>';
+        echo '<table class="form-table"><tr><th><label for="lime_author_sameas">' . esc_html__('Author sameAs URLs', 'lime-schema') . '</label></th>';
+        echo '<td><textarea name="lime_author_sameas" id="lime_author_sameas" rows="3" class="regular-text">' . esc_textarea($sameas) . '</textarea><p class="description">' . esc_html__('Comma-separated list of profile URLs for this author (e.g., Twitter, LinkedIn).', 'lime-schema') . '</p></td></tr></table>';
+    }
+    public function save_user_fields($user_id)
+    {
+        if (!current_user_can('edit_user', $user_id)) return;
+        // Verify the core user edit nonce and unslash input before sanitizing.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Using core-provided nonce for user profile updates.
+        if (!isset($_POST['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_wpnonce'])), 'update-user_' . $user_id)) {
+            return;
+        }
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Unslash then sanitize immediately below.
+        $raw = isset($_POST['lime_author_sameas']) ? wp_unslash($_POST['lime_author_sameas']) : '';
+        $val = wp_kses_post($raw);
+        update_user_meta($user_id, 'lime_author_sameas', $val);
     }
 
     public function save_post_meta($post_id, $post)
     {
-        if (!isset($_POST[LIME_SCHEMA_NONCE]) || !wp_verify_nonce($_POST[LIME_SCHEMA_NONCE], LIME_SCHEMA_NONCE)) return;
+        if (!isset($_POST[LIME_SCHEMA_NONCE])) return;
+        $nonce = sanitize_text_field( wp_unslash( $_POST[LIME_SCHEMA_NONCE] ) );
+        if (!wp_verify_nonce($nonce, LIME_SCHEMA_NONCE)) return;
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         if (!current_user_can('edit_post', $post_id)) return;
 
-        $raw = isset($_POST[LIME_SCHEMA_META_KEY]) ? (array)$_POST[LIME_SCHEMA_META_KEY] : [];
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Values are unslashed here and sanitized field-by-field below.
+        $raw = isset($_POST[LIME_SCHEMA_META_KEY]) ? (array) wp_unslash($_POST[LIME_SCHEMA_META_KEY]) : [];
         $clean = [];
         foreach ($raw as $k => $v) {
             if ($k === 'faqs' && is_array($v)) {
@@ -364,39 +456,39 @@ class Lime_Schema_Admin
 
     /* Field rendering helpers */
     private function field_text($key, $label, $opts)
-    { echo "<p><label><strong>$label</strong><br><input type='text' class='regular-text' name='" . LIME_SCHEMA_OPTION_KEY . "[$key]' value='" . esc_attr($this->v($opts, $key)) . "'></label></p>"; }
+    { echo '<p><label><strong>' . esc_html($label) . '</strong><br><input type="text" class="regular-text" name="' . esc_attr(LIME_SCHEMA_OPTION_KEY . "[$key]") . '" value="' . esc_attr($this->v($opts, $key)) . '"></label></p>'; }
     private function field_email($key, $label, $opts)
-    { echo "<p><label><strong>$label</strong><br><input type='email' class='regular-text' name='" . LIME_SCHEMA_OPTION_KEY . "[$key]' value='" . esc_attr($this->v($opts, $key)) . "'></label></p>"; }
+    { echo '<p><label><strong>' . esc_html($label) . '</strong><br><input type="email" class="regular-text" name="' . esc_attr(LIME_SCHEMA_OPTION_KEY . "[$key]") . '" value="' . esc_attr($this->v($opts, $key)) . '"></label></p>'; }
     private function field_url($key, $label, $opts)
-    { echo "<p><label><strong>$label</strong><br><input type='url' class='regular-text' name='" . LIME_SCHEMA_OPTION_KEY . "[$key]' value='" . esc_attr($this->v($opts, $key)) . "'></label></p>"; }
+    { echo '<p><label><strong>' . esc_html($label) . '</strong><br><input type="url" class="regular-text" name="' . esc_attr(LIME_SCHEMA_OPTION_KEY . "[$key]") . '" value="' . esc_attr($this->v($opts, $key)) . '"></label></p>'; }
     private function field_textarea($key, $label, $opts)
-    { echo "<p><label><strong>$label</strong><br><textarea rows='3' class='large-text' name='" . LIME_SCHEMA_OPTION_KEY . "[$key]'>" . esc_textarea($this->v($opts, $key)) . "</textarea></label></p>"; }
+    { echo '<p><label><strong>' . esc_html($label) . '</strong><br><textarea rows="3" class="large-text" name="' . esc_attr(LIME_SCHEMA_OPTION_KEY . "[$key]") . '">' . esc_textarea($this->v($opts, $key)) . '</textarea></label></p>'; }
     private function field_checkbox($key, $label, $opts)
-    { $v = !empty($opts[$key]) ? 1 : 0; echo "<p><label><input type='checkbox' name='" . LIME_SCHEMA_OPTION_KEY . "[$key]' value='1' " . checked($v, 1, false) . "> <strong>$label</strong></label></p>"; }
+    { $v = !empty($opts[$key]) ? 1 : 0; echo '<p><label><input type="checkbox" name="' . esc_attr(LIME_SCHEMA_OPTION_KEY . "[$key]") . '" value="1" ' . checked($v, 1, false) . '> <strong>' . esc_html($label) . '</strong></label></p>'; }
 
     private function field_lb_select($key, $label, $opts, $help = '')
     {
         $current = $this->v($opts, $key, 'LocalBusiness');
         $options = Lime_Schema_Utils::allowed_lb_types();
-        echo "<p><label><strong>{$label}</strong><br>";
-        echo "<select name='" . LIME_SCHEMA_OPTION_KEY . "[$key]' class='regular-text'>";
+        echo '<p><label><strong>' . esc_html($label) . '</strong><br>';
+        echo '<select name="' . esc_attr(LIME_SCHEMA_OPTION_KEY . "[$key]") . '" class="regular-text">';
         foreach ($options as $t) {
-            echo "<option value='" . esc_attr($t) . "'" . selected($current, $t, false) . ">$t</option>";
+            echo '<option value="' . esc_attr($t) . '"' . selected($current, $t, false) . '>' . esc_html($t) . '</option>';
         }
-        echo "</select></label>";
-        if ($help) echo "<br><span class='description'>{$help}</span>";
-        echo "</p>";
+        echo '</select></label>';
+        if ($help) echo '<br><span class="description">' . wp_kses_post($help) . '</span>';
+        echo '</p>';
     }
 
     private function meta_lb_select($name, $value)
     {
         $options = Lime_Schema_Utils::allowed_lb_types();
-        echo "<select class='widefat' name='" . LIME_SCHEMA_META_KEY . "[$name]'>";
-        echo "<option value=''>— Use default —</option>";
+        echo '<select class="widefat" name="' . esc_attr(LIME_SCHEMA_META_KEY . "[$name]") . '">';
+        echo '<option value="">— Use default —</option>';
         foreach ($options as $t) {
-            echo "<option value='" . esc_attr($t) . "'" . selected($value, $t, false) . ">$t</option>";
+            echo '<option value="' . esc_attr($t) . '"' . selected($value, $t, false) . '>' . esc_html($t) . '</option>';
         }
-        echo "</select>";
+        echo '</select>';
     }
 
     private function render_location_block($loc = [], $is_proto = false)
@@ -442,16 +534,16 @@ class Lime_Schema_Admin
     private function render_faq_block($faq = [], $is_proto = false)
     {
         echo '<div class="ls-loc">';
-        echo '<h4>' . esc_html__('FAQ', LIME_SCHEMA_TEXT_DOMAIN) . '</h4>';
+        echo '<h4>' . esc_html__('FAQ', 'lime-schema') . '</h4>';
         echo '<div class="ls-row">';
-        echo '<div><label><strong>' . esc_html__('Question', LIME_SCHEMA_TEXT_DOMAIN) . '</strong><br>';
+        echo '<div><label><strong>' . esc_html__('Question', 'lime-schema') . '</strong><br>';
         echo '<input type="text" data-name="question" value="' . esc_attr(isset($faq['question']) ? $faq['question'] : '') . '"></label></div>';
         echo '</div>';
         echo '<div class="ls-row">';
-        echo '<div><label><strong>' . esc_html__('Answer', LIME_SCHEMA_TEXT_DOMAIN) . '</strong><br>';
+        echo '<div><label><strong>' . esc_html__('Answer', 'lime-schema') . '</strong><br>';
         echo '<textarea rows="3" data-name="answer">' . esc_textarea(isset($faq['answer']) ? $faq['answer'] : '') . '</textarea></label></div>';
         echo '</div>';
-        echo '<p class="ls-actions"><a href="#" class="button-link-delete ls-remove">' . esc_html__('Remove', LIME_SCHEMA_TEXT_DOMAIN) . '</a></p>';
+        echo '<p class="ls-actions"><a href="#" class="button-link-delete ls-remove">' . esc_html__('Remove', 'lime-schema') . '</a></p>';
         echo '</div>';
     }
 
@@ -459,14 +551,14 @@ class Lime_Schema_Admin
     {
         echo '<div class="ls-loc">';
         echo '<div class="ls-row">';
-        echo '<div><label><strong>' . esc_html__('Question', LIME_SCHEMA_TEXT_DOMAIN) . '</strong><br>';
+        echo '<div><label><strong>' . esc_html__('Question', 'lime-schema') . '</strong><br>';
         echo '<input type="text" data-name="question" value="' . esc_attr(isset($faq['question']) ? $faq['question'] : '') . '"></label></div>';
         echo '</div>';
         echo '<div class="ls-row">';
-        echo '<div><label><strong>' . esc_html__('Answer', LIME_SCHEMA_TEXT_DOMAIN) . '</strong><br>';
+        echo '<div><label><strong>' . esc_html__('Answer', 'lime-schema') . '</strong><br>';
         echo '<textarea rows="3" data-name="answer">' . esc_textarea(isset($faq['answer']) ? $faq['answer'] : '') . '</textarea></label></div>';
         echo '</div>';
-        echo '<p class="ls-actions"><a href="#" class="button-link-delete ls-remove">' . esc_html__('Remove', LIME_SCHEMA_TEXT_DOMAIN) . '</a></p>';
+        echo '<p class="ls-actions"><a href="#" class="button-link-delete ls-remove">' . esc_html__('Remove', 'lime-schema') . '</a></p>';
         echo '</div>';
     }
 

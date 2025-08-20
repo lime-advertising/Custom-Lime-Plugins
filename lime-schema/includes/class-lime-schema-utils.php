@@ -35,5 +35,20 @@ class Lime_Schema_Utils
         ];
         return apply_filters('lime_schema_allowed_lb_types', $types);
     }
-}
 
+    /** Detect common SEO plugins that output core schema nodes. */
+    public static function detect_seo(): array
+    {
+        $yoast = defined('WPSEO_VERSION') || class_exists('WPSEO_Options') || function_exists('yoast_breadcrumb');
+        $rankmath = defined('RANK_MATH_VERSION') || class_exists('RankMath') || class_exists('RankMath\\Runner');
+        return [ 'yoast' => $yoast, 'rankmath' => $rankmath, 'active' => ($yoast || $rankmath) ];
+    }
+
+    /** Convenience: is any supported SEO plugin active? */
+    public static function seo_active(): bool
+    {
+        $d = self::detect_seo();
+        /** @noinspection PhpArrayWriteIsNotUsedInspection */
+        return !empty($d['active']);
+    }
+}

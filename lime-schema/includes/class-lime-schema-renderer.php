@@ -69,15 +69,15 @@ class Lime_Schema_Renderer
         $issues = [];
 
         // Organization
-        if (!$this->v($opts, 'org_name')) $issues[] = __('Organization name is missing.', LIME_SCHEMA_TEXT_DOMAIN);
-        if (!$this->v($opts, 'site_url')) $issues[] = __('Site URL (canonical) is missing.', LIME_SCHEMA_TEXT_DOMAIN);
-        if (!$this->v($opts, 'logo'))     $issues[] = __('Logo URL is recommended for Organization.', LIME_SCHEMA_TEXT_DOMAIN);
-        if (!$this->v($opts, 'description')) $issues[] = __('Short description is recommended for Organization.', LIME_SCHEMA_TEXT_DOMAIN);
-        if (!$this->first_lang($this->v($opts, 'languages'))) $issues[] = __('Primary language (e.g., en-CA) is recommended.', LIME_SCHEMA_TEXT_DOMAIN);
+        if (!$this->v($opts, 'org_name')) $issues[] = __('Organization name is missing.', 'lime-schema');
+        if (!$this->v($opts, 'site_url')) $issues[] = __('Site URL (canonical) is missing.', 'lime-schema');
+        if (!$this->v($opts, 'logo'))     $issues[] = __('Logo URL is recommended for Organization.', 'lime-schema');
+        if (!$this->v($opts, 'description')) $issues[] = __('Short description is recommended for Organization.', 'lime-schema');
+        if (!$this->first_lang($this->v($opts, 'languages'))) $issues[] = __('Primary language (e.g., en-CA) is recommended.', 'lime-schema');
 
         // Website
         if (!empty($opts['enable_website']) && !$this->v($opts, 'search_target')) {
-            $issues[] = __('Search URL pattern is recommended when WebSite is enabled.', LIME_SCHEMA_TEXT_DOMAIN);
+            $issues[] = __('Search URL pattern is recommended when WebSite is enabled.', 'lime-schema');
         }
 
         // Locations
@@ -87,20 +87,24 @@ class Lime_Schema_Renderer
             if (is_array($legacy)) $locations = $legacy;
         }
         if (empty($locations)) {
-            $issues[] = __('Consider adding at least one Location for LocalBusiness.', LIME_SCHEMA_TEXT_DOMAIN);
+            $issues[] = __('Consider adding at least one Location for LocalBusiness.', 'lime-schema');
         } else {
             foreach ($locations as $idx => $loc) {
-                $label = $this->v($loc, 'name', sprintf(__('Location %d', LIME_SCHEMA_TEXT_DOMAIN), $idx + 1));
+                /* translators: %d: location index starting at 1 */
+                $label = $this->v($loc, 'name', sprintf(__('Location %d', 'lime-schema'), $idx + 1));
                 $addr = isset($loc['address']) && is_array($loc['address']) ? $loc['address'] : [];
                 $geo  = isset($loc['geo']) && is_array($loc['geo']) ? $loc['geo'] : [];
-                if (!$this->v($loc, 'phone')) $issues[] = sprintf(__('Phone is recommended for %s.', LIME_SCHEMA_TEXT_DOMAIN), $label);
+                /* translators: %s: location label */
+                if (!$this->v($loc, 'phone')) $issues[] = sprintf(__('Phone is recommended for %s.', 'lime-schema'), $label);
                 if (!$this->v($addr, 'streetAddress') || !$this->v($addr, 'addressLocality') || !$this->v($addr, 'addressRegion') || !$this->v($addr, 'postalCode') || !$this->v($addr, 'addressCountry')) {
-                    $issues[] = sprintf(__('Complete address (street, city, region, postal, country) is recommended for %s.', LIME_SCHEMA_TEXT_DOMAIN), $label);
+                    /* translators: %s: location label */
+                    $issues[] = sprintf(__('Complete address (street, city, region, postal, country) is recommended for %s.', 'lime-schema'), $label);
                 }
                 $lat = isset($geo['latitude']) ? $geo['latitude'] : null;
                 $lng = isset($geo['longitude']) ? $geo['longitude'] : null;
                 if ($lat === null || $lng === null) {
-                    $issues[] = sprintf(__('Geo coordinates are recommended for %s (or include a Google Map link to auto-fill).', LIME_SCHEMA_TEXT_DOMAIN), $label);
+                    /* translators: %s: location label */
+                    $issues[] = sprintf(__('Geo coordinates are recommended for %s (or include a Google Map link to auto-fill).', 'lime-schema'), $label);
                 }
             }
         }
@@ -138,6 +142,31 @@ class Lime_Schema_Renderer
             $graph[] = $this->build_webpage_node($opts, $meta, $post, $website_id, $webpage_id, $site_url, $include_website);
         }
 
+        // Breadcrumbs via filter (optional)
+        $crumbs = apply_filters('lime_schema_breadcrumbs', null, $post);
+        if (is_array($crumbs) && !empty($crumbs)) {
+            $items = [];
+            $pos = 1;
+            foreach ($crumbs as $c) {
+                $name = isset($c['name']) ? (string)$c['name'] : '';
+                $item = isset($c['item']) ? (string)$c['item'] : '';
+                if (!$name || !$item) continue;
+                $items[] = [
+                    '@type' => 'ListItem',
+                    'position' => $pos++,
+                    'name' => $name,
+                    'item' => $item,
+                ];
+            }
+            if (!empty($items)) {
+                $graph[] = [
+                    '@type' => 'BreadcrumbList',
+                    '@id'   => rtrim($site_url, '/') . '#breadcrumbs',
+                    'itemListElement' => $items,
+                ];
+            }
+        }
+
         // FAQ schema (optional, attaches to the current WebPage via a dedicated FAQPage node)
         if (!empty($meta['include_faq'])) {
             $faqs = (!empty($meta['use_custom_faq']) && !empty($meta['faqs']) && is_array($meta['faqs'])) ? $meta['faqs'] : (isset($opts['faqs']) ? $opts['faqs'] : []);
@@ -156,6 +185,17 @@ class Lime_Schema_Renderer
             $graph = array_merge($graph, $this->build_localbusiness_nodes($opts, $meta, $site_url, $org_id));
         }
 
+        // Article schema for posts (optional; suppressed if SEO plugin auto-disable is active)
+        $suppress_article = !empty($opts['auto_disable_with_seo']) && Lime_Schema_Utils::seo_active();
+        if (is_singular('post') && !$suppress_article && (!empty($opts['enable_article']) || !empty($meta['include_article']))) {
+            $article = $this->build_article_node($post, $opts, $org_id, $site_url, $webpage_id);
+            if ($article) {
+                $graph[] = $article;
+                // Ensure Organization available as publisher by including it if not present
+                $graph[] = $this->build_organization_node($opts, $site_url, $org_id);
+            }
+        }
+
         $graph = array_values(array_filter(array_map([$this, 'clean'], $graph)));
         if (empty($graph)) return;
 
@@ -163,6 +203,13 @@ class Lime_Schema_Renderer
             '@context' => 'https://schema.org',
             '@graph'   => $graph
         ];
+
+        // Allow filters to modify or short-circuit
+        $payload = apply_filters('lime_schema_payload', $payload, $opts, $meta, $post);
+        $graph   = apply_filters('lime_schema_graph', $payload['@graph'], $opts, $meta, $post);
+        $payload['@graph'] = $graph;
+        $should_output = apply_filters('lime_schema_pre_output', true, $payload, $opts, $meta, $post);
+        if (!$should_output) return;
 
         echo "\n" . '<!-- Lime Schema Boilerplate -->' . "\n";
         echo '<script type="application/ld+json">' . wp_json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '</script>' . "\n";
@@ -172,13 +219,24 @@ class Lime_Schema_Renderer
     { return trailingslashit($this->v($opts, 'site_url', home_url('/'))); }
 
     private function should_include_org(array $meta, $post): bool
-    { return !empty($meta['include_org']) || (is_front_page() && !empty($post)); }
+    {
+        $opts = get_option(LIME_SCHEMA_OPTION_KEY, []);
+        if (!empty($opts['auto_disable_with_seo']) && Lime_Schema_Utils::seo_active()) return false;
+        return (empty($opts['disable_org']) && (!empty($meta['include_org']) || (is_front_page() && !empty($post))));
+    }
 
     private function should_include_website(array $opts, array $meta, $post): bool
-    { return !empty($opts['enable_website']) && (is_front_page() || !empty($meta['include_website'])); }
+    {
+        if (!empty($opts['auto_disable_with_seo']) && Lime_Schema_Utils::seo_active()) return false;
+        return empty($opts['disable_website']) && !empty($opts['enable_website']) && (is_front_page() || !empty($meta['include_website']));
+    }
 
     private function should_include_webpage(array $meta, $post): bool
-    { return !empty($meta['include_webpage']) || is_singular(); }
+    {
+        $opts = get_option(LIME_SCHEMA_OPTION_KEY, []);
+        if (!empty($opts['auto_disable_with_seo']) && Lime_Schema_Utils::seo_active()) return false;
+        return empty($opts['disable_webpage']) && (!empty($meta['include_webpage']) || is_singular());
+    }
 
     private function should_include_locations(array $meta, $post): bool
     { return !empty($meta['include_loc']) || (is_front_page() && !empty($post)); }
@@ -219,6 +277,7 @@ class Lime_Schema_Renderer
 
     private function build_webpage_node(array $opts, array $meta, $post, string $website_id, string $webpage_id, string $site_url, bool $include_website): ?array
     {
+        $lang = !empty($meta['override_lang']) ? $meta['override_lang'] : $this->first_lang($this->v($opts, 'languages'));
         return $this->clean([
             '@type' => 'WebPage',
             '@id'   => $webpage_id,
@@ -229,8 +288,55 @@ class Lime_Schema_Renderer
                 '@type' => 'ImageObject',
                 'url'   => $this->v($meta, 'override_image')
             ] : null,
-            'inLanguage' => $this->first_lang($this->v($opts, 'languages'))
+            'inLanguage' => $lang
         ]);
+    }
+
+    private function image_object_from_featured($post): ?array
+    {
+        $thumb_id = $post ? get_post_thumbnail_id($post) : 0;
+        if (!$thumb_id) return null;
+        $src = wp_get_attachment_image_src($thumb_id, 'full');
+        if (!$src) return null;
+        $obj = ['@type' => 'ImageObject', 'url' => $src[0]];
+        if (!empty($src[1]) && !empty($src[2])) { $obj['width'] = (int)$src[1]; $obj['height'] = (int)$src[2]; }
+        return $obj;
+    }
+
+    private function get_author_sameas($author_id): ?array
+    {
+        $csv = (string) get_user_meta($author_id, 'lime_author_sameas', true);
+        $arr = array_filter(array_map('trim', explode(',', $csv)));
+        return $arr ? array_values($arr) : null;
+    }
+
+    private function build_article_node($post, array $opts, string $org_id, string $site_url, string $webpage_id): ?array
+    {
+        if (!$post) return null;
+        $author_id = (int) $post->post_author;
+        $author = [
+            '@type' => 'Person',
+            'name'  => get_the_author_meta('display_name', $author_id),
+            'sameAs'=> $this->get_author_sameas($author_id),
+        ];
+        $publisher = [
+            '@type' => 'Organization',
+            '@id'   => $org_id,
+            'name'  => $this->v($opts, 'org_name'),
+            'logo'  => $this->v($opts, 'logo') ? ['@type'=>'ImageObject','url'=>$this->v($opts, 'logo')] : null,
+        ];
+        $node = [
+            '@type' => 'Article',
+            '@id'   => get_permalink($post) . '#article',
+            'headline' => get_the_title($post),
+            'image'    => $this->image_object_from_featured($post),
+            'datePublished' => get_the_date(DATE_W3C, $post),
+            'dateModified'  => get_the_modified_date(DATE_W3C, $post),
+            'author'   => $author,
+            'publisher'=> $publisher,
+            'mainEntityOfPage' => $this->node_ref($webpage_id),
+        ];
+        return $this->clean($node);
     }
 
     private function build_localbusiness_nodes(array $opts, array $meta, string $site_url, string $org_id): array

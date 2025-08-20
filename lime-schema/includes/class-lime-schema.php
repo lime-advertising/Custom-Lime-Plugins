@@ -15,9 +15,6 @@ class Lime_Schema
 
     private function __construct()
     {
-        // i18n
-        add_action('init', [$this, 'load_textdomain']);
-
         // Admin
         $this->admin = new Lime_Schema_Admin();
         $this->admin->hooks();
@@ -27,10 +24,7 @@ class Lime_Schema
         $this->renderer->hooks();
     }
 
-    public function load_textdomain(): void
-    {
-        load_plugin_textdomain(LIME_SCHEMA_TEXT_DOMAIN, false, dirname(plugin_basename(LIME_SCHEMA_FILE)) . '/languages');
-    }
+    // No explicit load_plugin_textdomain() call needed (WP loads translations automatically on WordPress.org since 4.6).
 
     public function renderer(): Lime_Schema_Renderer
     {

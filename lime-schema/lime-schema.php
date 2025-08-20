@@ -5,7 +5,10 @@
  * Version: 1.0.0
  * Author: Lime
  * Text Domain: lime-schema
- */
+ * Domain Path: /languages
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+*/
 
 if (!defined('ABSPATH')) exit;
 
@@ -35,7 +38,7 @@ add_action('plugins_loaded', function(){
 // Add Settings link on the Plugins screen
 add_filter('plugin_action_links_' . plugin_basename(LIME_SCHEMA_FILE), function ($links) {
     $url = admin_url('options-general.php?page=' . LIME_SCHEMA_OPTION_KEY);
-    $settings_link = '<a href="' . esc_url($url) . '">' . esc_html__('Settings', LIME_SCHEMA_TEXT_DOMAIN) . '</a>';
+    $settings_link = '<a href="' . esc_url($url) . '">' . esc_html__('Settings', 'lime-schema') . '</a>';
     array_unshift($links, $settings_link);
     return $links;
 });
