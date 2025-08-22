@@ -1,0 +1,158 @@
+/* CareerNest admin menu styling */
+
+/* Style non-clickable section headings in the CareerNest submenu */
+#toplevel_page_careernest .wp-submenu a[href*="page=careernest-section-"] {
+  pointer-events: none;
+  font-weight: 600;
+  color: #1d2327;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: default;
+  position: relative;
+  padding-left: 26px; /* space for icon */
+}
+
+#toplevel_page_careernest
+  .wp-submenu
+  a[href*="page=careernest-section-"]::before {
+  content: "";
+  display: block;
+  height: 1px;
+  background: #dcdcde;
+  margin: 8px 0 6px;
+}
+
+/* Tighten spacing for the heading-only items */
+#toplevel_page_careernest .wp-submenu li > a[href*="page=careernest-section-"] {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* Dashboard cards on CareerNest landing page */
+.careernest-dashboard .cn-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.careernest-dashboard .cn-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 8px;
+  padding: 16px 16px 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
+}
+.careernest-dashboard .cn-card .dashicons {
+  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  color: #fff;
+  background: #2271b1;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.careernest-dashboard .cn-card h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.careernest-dashboard .cn-card .cn-count {
+  margin: 0 10px 12px 0;
+  color: #2c3338;
+  font-size: 22px;
+}
+.careernest-dashboard .cn-card .button + .button { margin-left: 6px; }
+
+.careernest-dashboard .cn-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+  border-color: #c3c4c7;
+}
+
+/* Accent bar on the left side */
+.careernest-dashboard .cn-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  background: #2271b1; /* default */
+}
+
+/* Vary accents and icon backgrounds per card */
+.careernest-dashboard .cn-card:nth-child(1)::before { background: #2271b1; }
+.careernest-dashboard .cn-card:nth-child(1) .dashicons { background: #2271b1; }
+
+.careernest-dashboard .cn-card:nth-child(2)::before { background: #826eb4; }
+.careernest-dashboard .cn-card:nth-child(2) .dashicons { background: #826eb4; }
+
+.careernest-dashboard .cn-card:nth-child(3)::before { background: #1f8a51; }
+.careernest-dashboard .cn-card:nth-child(3) .dashicons { background: #1f8a51; }
+
+.careernest-dashboard .cn-card:nth-child(4)::before { background: #d9862c; }
+.careernest-dashboard .cn-card:nth-child(4) .dashicons { background: #d9862c; }
+
+/* Buttons: ensure consistent spacing and focus states */
+.careernest-dashboard .cn-card .button {
+  transition: transform .15s ease;
+}
+.careernest-dashboard .cn-card .button:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .careernest-dashboard .cn-card,
+  .careernest-dashboard .cn-card .button { transition: none; }
+}
+
+/* Icons for section headings using Dashicons */
+#toplevel_page_careernest
+  .wp-submenu
+  a[href*="page=careernest-section-"]::after {
+  font-family: dashicons;
+  font-size: 16px;
+  line-height: 1;
+  position: absolute;
+  left: 6px;
+  top: 22px;
+  color: #a7aaad;
+}
+
+/* Jobs section icon — admin-post */
+#toplevel_page_careernest
+  .wp-submenu
+  a[href$="careernest-section-jobs"]::after {
+  content: "\f109";
+}
+
+/* Employers section icon — admin-users */
+#toplevel_page_careernest
+  .wp-submenu
+  a[href$="careernest-section-employers"]::after {
+  content: "\f110";
+}
+
+/* Applicants section icon — groups */
+#toplevel_page_careernest
+  .wp-submenu
+  a[href$="careernest-section-applicants"]::after {
+  content: "\f307";
+}
+
+/* Settings section icon — admin-generic */
+#toplevel_page_careernest
+  .wp-submenu
+  a[href$="careernest-section-settings"]::after {
+  content: "\f111";
+}
