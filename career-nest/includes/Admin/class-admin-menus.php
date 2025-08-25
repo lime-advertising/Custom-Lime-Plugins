@@ -12,6 +12,8 @@ class Admin_Menus
     public function hooks(): void
     {
         add_action('admin_menu', [$this, 'register_menus']);
+        add_filter('parent_file', [$this, 'highlight_parent']);
+        add_filter('submenu_file', [$this, 'highlight_submenu'], 10, 2);
     }
 
     public function register_menus(): void
@@ -128,6 +130,86 @@ class Admin_Menus
             wp_die(__('You do not have sufficient permissions to access this page.', 'careernest'));
         }
         echo '<div class="wrap"><h1>' . esc_html__('CareerNest Settings', 'careernest') . '</h1>';
-        echo '<p>' . esc_html__('Settings UI will be implemented in a future milestone.', 'careernest') . '</p></div>';
+        echo '<form method="post" action="options.php">';
+        settings_fields('careernest_options_group');
+        do_settings_sections('careernest_settings');
+        submit_button();
+        echo '</form></div>';
+    }
+
+    /**
+     * Ensure the CareerNest top-level menu stays highlighted on CPT screens.
+     */
+    public function highlight_parent(string $parent_file): string
+    {
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if (! $screen) {
+            return $parent_file;
+        }
+        $cpts = ['job_listing', 'employer', 'applicant', 'job_application'];
+        $taxes = ['job_category', 'job_type'];
+
+        if (! empty($screen->post_type) && in_array($screen->post_type, $cpts, true)) {
+            return 'careernest';
+        }
+        if ($screen->base === 'edit-tags' || $screen->base === 'term') {
+            $tax = isset($_GET['taxonomy']) ? sanitize_key((string) $_GET['taxonomy']) : '';
+            if (in_array($tax, $taxes, true)) {
+                return 'careernest';
+            }
+        }
+        return $parent_file;
+    }
+
+    /**
+     * Ensure the correct CareerNest submenu item is highlighted.
+     */
+    public function highlight_submenu(?string $submenu_file, string $parent_file): ?string
+    {
+        if ($parent_file !== 'careernest') {
+            return $submenu_file;
+        }
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if (! $screen) {
+            return $submenu_file;
+        }
+
+        // Map post type screens
+        $pt = $screen->post_type ?? '';
+        if ($pt === 'job_listing') {
+            // Highlight Add New when creating, else All Jobs
+            if (in_array($screen->base, ['post-new'], true)) {
+                return 'post-new.php?post_type=job_listing';
+            }
+            return 'edit.php?post_type=job_listing';
+        }
+        if ($pt === 'employer') {
+            if (in_array($screen->base, ['post-new'], true)) {
+                return 'post-new.php?post_type=employer';
+            }
+            return 'edit.php?post_type=employer';
+        }
+        if ($pt === 'applicant') {
+            if (in_array($screen->base, ['post-new'], true)) {
+                return 'post-new.php?post_type=applicant';
+            }
+            return 'edit.php?post_type=applicant';
+        }
+        if ($pt === 'job_application') {
+            return 'edit.php?post_type=job_application';
+        }
+
+        // Map taxonomy screens under Jobs
+        if ($screen->base === 'edit-tags' || $screen->base === 'term') {
+            $tax = isset($_GET['taxonomy']) ? sanitize_key((string) $_GET['taxonomy']) : '';
+            if ($tax === 'job_category') {
+                return 'edit-tags.php?taxonomy=job_category&post_type=job_listing';
+            }
+            if ($tax === 'job_type') {
+                return 'edit-tags.php?taxonomy=job_type&post_type=job_listing';
+            }
+        }
+
+        return $submenu_file;
     }
 }

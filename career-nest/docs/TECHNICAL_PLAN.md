@@ -17,11 +17,11 @@ Scope: Standalone plugin; no third‑party plugins or libraries.
 
 ## 2. Deliverables and Milestones
 
-- M1: Scaffold plugin, activation/deactivation, options, rewrite flush.
-- M2: CPTs & taxonomies with labels, supports, rewrite rules.
-- M3: Roles & capabilities, admin access controls, menu structure.
-- M4: Meta boxes, save handlers, sanitization & nonces.
-- M5: Activation page creation and template routing; store page IDs in options.
+- M1: Scaffold plugin, activation/deactivation, options, rewrite flush. ✅ **Completed**
+- M2: CPTs & taxonomies with labels, supports, rewrite rules. ✅ **Completed**
+- M3: Roles & capabilities, admin access controls, menu structure. ✅ **Completed**
+- M4: Meta boxes, save handlers, sanitization & nonces. ✅ **Completed**
+- M5: Pages routing, template loader, guest applications, applicant dashboard. ✅ **Completed**
 - M6: Frontend job listing and single job display with filters and pagination.
 - M7: Registration flows (employer/applicant), user creation, and CPT linkage.
 - M8: Job application flow, `job_application` CPT, notifications.
@@ -82,11 +82,27 @@ Each milestone has acceptance criteria in Section 12.
   - Meta
     - `_website` (url)
 - CPT: `applicant`
-  - public: false; supports: title, editor.
+  - public: true; supports: title, editor. **Updated: Made public for profile viewing**
   - Meta
     - `_user_id` (int, linked WP user)
+    - `_professional_title` (text)
+    - `_phone` (text)
+    - `_location` (text)
+    - `_place_id` (text, Google Maps)
+    - `_latitude` (float)
+    - `_longitude` (float)
+    - `_right_to_work` (enum: foreign|australian)
+    - `_work_types` (array: full_time, part_time, contract, etc.)
+    - `_available_for_work` (bool)
+    - `_skills` (array)
+    - `_education` (array of objects: institution, certification, end_date, complete)
+    - `_experience` (array of objects: company, title, start_date, end_date, current, description)
+    - `_licenses` (array of objects: name, issuer, issue_date, expiry_date, credential_id)
+    - `_links` (array of objects: label, url)
+    - `_linkedin_url` (url)
     - `_resume_attachment_id` (int) [future]
 - CPT: `job_application`
+
   - public: false; supports: title, editor.
   - Meta
     - `_job_id` (int, job_listing ID)
@@ -123,6 +139,7 @@ Each milestone has acceptance criteria in Section 12.
   - Caps: `read`, `edit_own_jobs`, `view_applications` (custom mapped).
   - Ownership filtering via `pre_get_posts` using user meta `_employer_id`.
 - Applicant (`applicant`)
+
   - Caps: `read`, `edit_own_profile`, `apply_to_jobs`.
   - Redirect from `/wp-admin` using `admin_init` if attempting to access admin.
 
@@ -132,6 +149,7 @@ Each milestone has acceptance criteria in Section 12.
 ## 8. Admin UI & Menus
 
 - Top‑level: CareerNest (`manage_careernest`)
+
   - Job Listings
     - All Jobs, Add New, Job Categories, Job Types, Job Applications, Settings
   - Employers
@@ -158,6 +176,7 @@ Each milestone has acceptance criteria in Section 12.
 - Employer Details
   - Company website (URL)
 - Applicant Details (initial)
+
   - Resume upload (attachment) [future]
 
 - Save strategy
@@ -167,34 +186,61 @@ Each milestone has acceptance criteria in Section 12.
 
 ## 10. Frontend Templates & Flows
 
-- Template loader
+- Template loader ✅ **Implemented**
+
   - Hook `template_include` to load plugin templates based on page IDs from `careernest_pages` and CPT templates:
     - `templates/template-jobs.php`
     - `templates/single-job_listing.php`
+    - `templates/single-employer.php`
+    - `templates/single-applicant.php`
     - dashboards and forms templates under `templates/`.
+  - Conditional asset loading based on page type detection.
 
 - Job Listings
+
   - `WP_Query` with taxonomy filters (`job_category`, `job_type`), search, location string match, pagination.
   - Exclude filled jobs if `_position_filled` or `closing_date` passed.
 
 - Single Job
+
   - Show meta fields; render Apply button
   - If `_apply_externally`, present external URL/email; else internal application form.
 
+- Guest Application System ✅ **Implemented**
+
+  - Complete job application form with guest functionality in `templates/template-apply-job.php`.
+  - Automatic user account creation with sanitized data and role assignment.
+  - Email notifications with password reset links using `wp_new_user_notification_email` filter.
+  - File upload handling for resumes with validation (type, size, security).
+  - Application linking system via `user_register` hook to connect guest applications to new accounts.
+
+- Applicant Dashboard ✅ **Implemented**
+
+  - Comprehensive dashboard with application tracking, statistics cards, and profile management.
+  - In-place editing system with header-based controls ("View Public Profile", "Edit Profile", "Logout").
+  - Dynamic repeater fields for Education, Work Experience, Licenses & Certifications, and Websites & Social Profiles.
+  - Smart form logic (current job checkbox disables end date field).
+  - Professional responsive design with mobile-first approach.
+  - Form processing with array data handling and proper sanitization.
+
 - Dashboards
+
   - Employer: list own jobs, counts, quick actions, applications per job.
-  - Applicant: profile editor, resume upload (future), list applied jobs, withdraw.
+  - Applicant: ✅ **Completed** - profile editor with comprehensive sections, application tracking, job recommendations.
 
 - Registration
+
   - Employer/App forms create WP user with role; create linked CPT post and store relation (`_user_id` or employer mapping).
 
-- Applications
-  - POST creates `job_application` with links to job and applicant.
-  - Email notifications via `wp_mail()` with template tokens.
+- Applications ✅ **Partially Implemented**
+  - Guest application system creates `job_application` with links to job and user.
+  - Email notifications via `wp_mail()` with password reset functionality.
+  - Full internal application system pending M8.
 
 ## 11. Settings & Emails
 
 - Settings (Settings API)
+
   - General: page assignment (read‑only overview), misc toggles, uninstall behavior.
   - API Keys: Google Maps API key (`careernest_options[maps_api_key]`).
   - Emails: editable templates for events: new application, application status change, new employer registration.
@@ -268,48 +314,63 @@ Each milestone has acceptance criteria in Section 12.
 - M11
   - phpcs clean; docs updated; smoke tests pass.
 
-## 17. Folder Structure (proposed)
+## 17. Folder Structure (current implementation)
 
 ```
 careernest/
-  careernest.php
+  careernest.php ✅
   readme.txt
   /includes/
-    class-plugin.php
-    class-activator.php
-    class-deactivator.php
+    class-plugin.php ✅ (enhanced with template routing & asset loading)
+    class-activator.php ✅
+    class-deactivator.php ✅
     /Admin/
-      class-admin.php
-      class-admin-menus.php
+      class-admin.php ✅
+      class-admin-menus.php ✅
       class-admin-columns.php
-      class-meta-boxes.php
-      class-settings.php
-    /Frontend/
-      class-template-loader.php
-      class-forms.php
-      class-dashboards.php
+      class-meta-boxes.php ✅
+      class-settings.php ✅
+      class-users.php ✅
     /Data/
-      class-cpt.php
-      class-taxonomies.php
-      class-roles.php
-      class-applications.php
+      class-cpt.php ✅ (enhanced with applicant public visibility)
+      class-taxonomies.php ✅
+      class-roles.php ✅
     /Security/
-      class-caps.php
+      class-caps.php ✅
   /assets/
-    /css/ admin.css frontend.css
-    /js/  admin.js frontend.js maps.js
+    /css/
+      admin.css ✅
+      applicant-dashboard.css ✅ (comprehensive responsive design)
+    /js/
+      admin.js ✅
+      applicant-dashboard.js ✅ (interactive editing & repeater fields)
+      maps.js ✅
   /templates/
-    template-jobs.php
-    single-job_listing.php
-    template-employer-dashboard.php
-    template-applicant-dashboard.php
-    template-register-employer.php
-    template-register-applicant.php
-    template-apply-job.php
+    template-jobs.php ✅
+    single-job_listing.php ✅
+    single-employer.php ✅
+    single-applicant.php ✅
+    template-employer-dashboard.php ✅
+    template-applicant-dashboard.php ✅ (comprehensive dashboard with in-place editing)
+    template-register-employer.php ✅
+    template-register-applicant.php ✅
+    template-apply-job.php ✅ (guest application system)
   /docs/
-    TECHNICAL_PLAN.md
-    PROGRESS.md
+    TECHNICAL_PLAN.md ✅
+    PROGRESS.md ✅
+    MILESTONES.md ✅
+    QA_CHECKLIST.md ✅
 ```
+
+**Key Implementation Notes:**
+
+- Template routing system implemented in `includes/class-plugin.php` with `template_include` filter
+- Comprehensive applicant dashboard with professional UI/UX design
+- Guest application system with automatic account creation and email notifications
+- Dynamic repeater fields for unlimited profile entries
+- In-place editing system with header-based controls
+- Responsive design with mobile-first approach
+- All data structures use WordPress best practices with proper sanitization
 
 ## 18. Coding Standards & Conventions
 
@@ -328,4 +389,3 @@ careernest/
 
 - Approve plan structure and milestones.
 - Begin M1 implementation (bootstrap, activation logic, page creator, options seed).
-

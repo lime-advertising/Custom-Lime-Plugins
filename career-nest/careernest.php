@@ -30,6 +30,9 @@ require_once CAREERNEST_DIR . 'includes/Data/class-roles.php';
 require_once CAREERNEST_DIR . 'includes/Admin/class-admin.php';
 require_once CAREERNEST_DIR . 'includes/Admin/class-admin-menus.php';
 require_once CAREERNEST_DIR . 'includes/Admin/class-meta-boxes.php';
+require_once CAREERNEST_DIR . 'includes/Admin/class-admin-columns.php';
+require_once CAREERNEST_DIR . 'includes/Admin/class-users.php';
+require_once CAREERNEST_DIR . 'includes/Admin/class-settings.php';
 require_once CAREERNEST_DIR . 'includes/Security/class-caps.php';
 
 // Hooks.

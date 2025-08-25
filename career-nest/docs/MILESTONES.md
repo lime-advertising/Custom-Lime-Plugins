@@ -3,6 +3,7 @@
 Purpose: Track each milestone with clear What/Why/How notes for durable project knowledge. Update this file after completing each milestone.
 
 Conventions
+
 - Keep entries concise and factual; link files/paths.
 - Use past tense for completed work; present/future for planned follow‑ups.
 - Avoid duplication with `docs/PROGRESS.md`; this file captures the narrative of changes, not every micro‑step.
@@ -10,11 +11,13 @@ Conventions
 ---
 
 ## Milestone M1 — Bootstrap & Activation
+
 Date: 2025‑08‑22
 Owner: Grok
 Status: Completed
 
 - What
+
   - Scaffolded plugin structure and runtime bootstrap.
   - Implemented activation/deactivation routines and seeded default options.
   - Programmatically created required frontend pages and stored IDs.
@@ -22,12 +25,14 @@ Status: Completed
   - Added placeholder templates for key pages.
 
 - Why
+
   - Establish a stable foundation for subsequent milestones (CPTs, roles, templates).
   - Ensure required pages exist consistently across environments without manual setup.
   - Keep admin UI uncluttered by hiding system‑managed pages.
   - Prepare routing for future template loading logic.
 
 - How
+
   - Files
     - `careernest.php`: plugin header, constants, activation/deactivation hooks, bootstrap.
     - `includes/class-activator.php`: creates pages, seeds `careernest_options`, stores `careernest_pages`, flushes rewrites.
@@ -50,11 +55,13 @@ Status: Completed
 ---
 
 ## Milestone M2 — CPTs & Taxonomies
+
 Date: 2025‑08‑22
 Owner: Grok
 Status: Completed
 
 - What
+
   - Registered CPTs: `job_listing` (public, archive), `employer` (public profiles), `applicant` (private), `job_application` (private).
   - Registered taxonomies on jobs: `job_category` (hierarchical) and `job_type` (non‑hierarchical), both REST‑enabled.
   - Added admin `menu_icon` for each CPT for better UX.
@@ -62,10 +69,12 @@ Status: Completed
   - Ensured CPT/Tax registration runs during activation before `flush_rewrite_rules()`.
 
 - Why
+
   - Establish the core data model in line with the technical plan to support listings, organizations, profiles, and applications.
   - Improve admin usability (icons) and keep the editing experience stable and lightweight while we build meta boxes and flows.
 
 - How
+
   - Files
     - `includes/Data/class-cpt.php`: CPT definitions with labels, supports, archive/rewrite, and `menu_icon`.
     - `includes/Data/class-taxonomies.php`: Taxonomy definitions with REST and rewrite slugs.
@@ -86,11 +95,13 @@ Status: Completed
 ---
 
 ## Milestone M3 — Roles & Capabilities; Admin Menus
+
 Date: 2025‑08‑22
 Owner: Grok
 Status: Completed
 
 - What
+
   - Added roles and caps: `aes_admin`, `employer_team`, `applicant`; granted plugin caps to administrators.
   - Created top‑level “CareerNest” admin menu with submenus (Jobs, Add New, Categories, Types, Applications, Employers, Applicants, Settings).
   - Hid default CPT menus by setting `show_in_menu => false` and routing via CareerNest menu.
@@ -99,10 +110,12 @@ Status: Completed
   - Ensured dashboards are public pages and added runtime `ensure_caps()` for role capability drift.
 
 - Why
+
   - Provide least‑privilege access and a clear, unified admin navigation for plugin entities.
   - Keep low‑privilege users out of wp‑admin while giving them a dedicated dashboard experience.
 
 - How
+
   - Files
     - `includes/Data/class-roles.php`: add/remove roles; `ensure_caps()`; added `read_private_pages` earlier, then moved dashboards to public and kept ensure.
     - `includes/Admin/class-admin-menus.php`: top‑level CareerNest menu and submenus.
@@ -143,24 +156,125 @@ Status: Completed
 ---
 
 ## Milestone M4 — Meta Boxes & Saving
-Status: Pending
 
-- What: Meta boxes for Job, Employer, Applicant; nonce and sanitization; conditional UI via JS.
-- Why: Capture structured data securely.
-- How: `add_meta_box`, `save_post`, sanitizers, enqueued admin JS.
+Date: 2025‑08‑23
+Owner: Grok
+Status: Completed
+
+- What
+
+  - Implemented meta boxes and save handlers for Job, Employer, Applicant, and Application CPTs with nonces, capability checks, and sanitization.
+  - Location UX: Added Google Maps autocomplete + pick-on-map for Applicant, Employer, and Job Location fields, including hidden metadata (place_id/lat/lng), validation, and a "View on map" helper.
+  - Conditional admin UI via JS for salary mode toggle, resume pickers, repeaters (education/experience/licences), skills pills, and employer team selection via AJAX.
+
+- Why
+
+  - Capture structured, validated data for listings and profiles; improve editorial UX with dynamic controls.
+
+- How
+
+  - `add_meta_box` for all CPTs; save on `save_post` with nonce checks, autosave guards, and `current_user_can('edit_post')`.
+  - Location fields (Applicant/Employer/Job): hidden inputs populated via Maps autocomplete OR pick-on-map modal with reverse geocoding; server-side validation for lat [-90,90] and lng [-180,180]; safe storage of place_id.
+  - Admin JS enhances UX (media pickers, toggles, repeaters, map picker); Google Maps Places enqueued only on relevant screens and only when API key present.
+
+- Files
+
+  - `includes/Admin/class-meta-boxes.php`: render + save handlers; added hidden fields and "View/Pick on map" UI for Applicant/Employer/Job locations; comprehensive sanitization and validation.
+  - `includes/Admin/class-admin.php`: conditional enqueue for Maps on Applicant/Employer/Job screens; media and sortable as needed; AJAX for employer team.
+  - `assets/js/admin.js`: UI behaviors (toggles, repeaters, media pickers, AJAX).
+  - `assets/js/maps.js`: generalized to bind autocomplete and pick-on-map (with reverse geocoding) for Applicant/Employer/Job.
+  - `assets/css/admin.css`: modal styles for map picker.
+
+- Verification
+
+  - Editing Applicant/Employer/Job shows Location with hidden metadata; with a valid API key, autocomplete populates fields; "Pick on map" allows selecting via map and reverse geocodes address; "View on map" opens the expected location.
+  - Invalid/non-numeric lat/lng are discarded on save; place_id sanitized; location text persists.
+  - Job/Employer/Application meta fields save and persist; admin-only fields respect capabilities.
+
+- Notes
+  - Optional enhancement: live-update the map link client-side on place selection; current implementation updates after save.
 
 ---
 
 ## Milestone M5 — Pages Routing & Template Loader
-Status: Pending
 
-- What: `template_include` loader for created pages and `single-job_listing.php`.
-- Why: Ensure plugin templates render regardless of theme.
-- How: Map stored page IDs to plugin templates; provide filters for overrides.
+Date: 2025‑08‑25
+Owner: Cline
+Status: Completed
+
+- What
+
+  - Implemented comprehensive template routing system with `template_include` filter for all CareerNest pages and CPTs.
+  - Created complete guest job application system with automatic account creation and email notifications.
+  - Built full-featured applicant dashboard with application tracking, statistics, profile management, and comprehensive frontend editing.
+  - Added dynamic repeater fields for Education, Work Experience, Licenses & Certifications, and Websites & Social Profiles.
+  - Implemented in-place editing system with header-based controls and public profile viewing.
+
+- Why
+
+  - Ensure plugin templates render consistently regardless of active theme.
+  - Provide seamless user experience for job applications without requiring registration.
+  - Create professional applicant dashboard that rivals commercial job platforms.
+  - Enable comprehensive profile management with modern UX patterns.
+
+- How
+
+  - Template Routing
+
+    - `includes/class-plugin.php`: Added `template_include` filter with page detection logic and CPT template mapping.
+    - Created template hierarchy: page templates → CPT single templates → fallbacks.
+    - Implemented conditional asset loading based on page type detection.
+
+  - Guest Application System
+
+    - `templates/template-apply-job.php`: Complete job application form with guest functionality.
+    - Automatic user account creation with sanitized data and role assignment.
+    - Email notifications with password reset links using `wp_new_user_notification_email` filter.
+    - File upload handling for resumes with validation (type, size, security).
+    - Application linking system via `user_register` hook to connect guest applications to new accounts.
+
+  - Applicant Dashboard
+
+    - `templates/template-applicant-dashboard.php`: Comprehensive dashboard with application tracking, statistics cards, profile sections, and in-place editing.
+    - `assets/css/applicant-dashboard.css`: Professional responsive design with mobile-first approach.
+    - `assets/js/applicant-dashboard.js`: Interactive functionality for editing, repeater fields, and form validation.
+
+  - Profile Management System
+    - Dynamic repeater fields for unlimited Education, Work Experience, Licenses, and Links entries.
+    - Smart form logic (current job checkbox disables end date field).
+    - In-place editing that replaces display sections with comprehensive forms.
+    - Header-based controls with "View Public Profile", "Edit Profile", and "Logout" buttons.
+    - Form processing with array data handling and proper sanitization.
+
+- Files
+
+  - Core: `includes/class-plugin.php`
+  - Templates: `templates/template-apply-job.php`, `templates/template-applicant-dashboard.php`, `templates/single-job_listing.php`, `templates/single-employer.php`, `templates/single-applicant.php`
+  - Assets: `assets/css/applicant-dashboard.css`, `assets/js/applicant-dashboard.js`
+
+- Verification
+
+  - All CareerNest pages load with correct templates; CPT single pages display properly.
+  - Guest users can apply for jobs without registration; automatic account creation works.
+  - Email notifications sent with password reset links; file uploads validated and stored.
+  - Applications properly linked to user accounts via guest application system.
+  - Applicant dashboard displays applications, statistics, and profile sections correctly.
+  - In-place editing toggles between display and edit modes seamlessly.
+  - Repeater fields allow unlimited entries with proper add/remove functionality.
+  - Form validation and data persistence work correctly across all profile sections.
+  - Public profile button opens applicant profile in new tab.
+  - Responsive design works on mobile devices.
+
+- Notes
+  - System provides enterprise-level functionality with professional UX design.
+  - All data structures use WordPress best practices with proper sanitization and validation.
+  - Template system is extensible for future page types and customizations.
+  - Guest application system handles edge cases and provides comprehensive error messaging.
 
 ---
 
 ## Milestone M6 — Job Listings & Single View
+
 Status: Pending
 
 - What: Frontend listings with filters/pagination; single job details; apply button logic.
@@ -170,6 +284,7 @@ Status: Pending
 ---
 
 ## Milestone M7 — Registration Flows
+
 Status: Pending
 
 - What: Employer and Applicant registration forms; user creation; CPT linkage.
@@ -179,6 +294,7 @@ Status: Pending
 ---
 
 ## Milestone M8 — Applications & Notifications
+
 Status: Pending
 
 - What: Internal application form; `job_application` creation; email notifications.
@@ -188,6 +304,7 @@ Status: Pending
 ---
 
 ## Milestone M9 — Settings
+
 Status: Pending
 
 - What: Settings pages for API keys, email templates, general options.
@@ -197,6 +314,7 @@ Status: Pending
 ---
 
 ## Milestone M10 — Ownership & Admin Columns
+
 Status: Pending
 
 - What: Query filters to restrict data by owner; custom admin columns.
@@ -206,6 +324,7 @@ Status: Pending
 ---
 
 ## Milestone M11 — Hardening, Tests, Docs
+
 Status: Pending
 
 - What: Security passes, PHPCS, unit tests, and documentation updates.
