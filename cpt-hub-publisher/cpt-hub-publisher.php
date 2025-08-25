@@ -15,6 +15,7 @@ final class CPT_Hub_Publisher
     const OPTION_KEY   = 'cphub_types';        // array of CPT definitions
     const OPTION_FEED  = 'cphub_feed_settings'; // feed settings (secret key, default per_page)
     const OPTION_TAX   = 'cphub_taxonomies';    // array of taxonomy definitions
+    const OPTION_STYLES= 'cphub_styles';        // per-CPT style/layout config
     const OPTION_LOC_SEEDED = 'cphub_locations_seeded'; // one-time location seeding flag
     const NONCE_ACTION = 'cphub_manage_types';
 
@@ -25,6 +26,7 @@ final class CPT_Hub_Publisher
         add_action('admin_init',        [$this, 'handle_admin_post']);
         add_action('admin_init',        [$this, 'register_settings']);
         add_action('admin_init',        [$this, 'register_admin_columns']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
 
         // Register taxonomies then CPTs so bindings exist
         add_action('init',              [$this, 'register_dynamic_taxonomies'], 9);
@@ -349,6 +351,54 @@ final class CPT_Hub_Publisher
                     add_settings_error('cphub', 'loc_url_error', 'Invalid location term.', 'error');
                 }
             }
+
+            // Save Styles config per CPT
+            if ($_POST['cphub_action'] === 'styles_save') {
+                $cpt = sanitize_key($_POST['cpt'] ?? '');
+                if ($cpt && isset($types[$cpt])) {
+                    $supports = (array)($types[$cpt]['supports'] ?? []);
+                    $fields   = (array)($types[$cpt]['fields'] ?? []);
+                    $has_meta = !empty($fields);
+                    $allowed  = [];
+                    if (in_array('title', $supports, true))    $allowed[] = 'title';
+                    if (in_array('thumbnail', $supports, true))$allowed[] = 'image';
+                    if (in_array('excerpt', $supports, true))  $allowed[] = 'excerpt';
+                    if (in_array('editor', $supports, true))   $allowed[] = 'content';
+                    if ($has_meta) array_push($allowed, 'meta1','meta2','meta3');
+                    $allowed[] = 'button';
+
+                    $order = array_map('sanitize_key', (array)($_POST['layout']['order'] ?? []));
+                    // keep only allowed and unique
+                    $order = array_values(array_unique(array_filter($order, function($k) use ($allowed){ return in_array($k, $allowed, true); })));
+
+                    $enabled_raw = (array)($_POST['layout']['enabled'] ?? []);
+                    $enabled = [];
+                    foreach (['title','image','excerpt','content','meta1','meta2','meta3','button'] as $el) {
+                        if (!in_array($el, $allowed, true)) { $enabled[$el] = false; continue; }
+                        $enabled[$el] = !empty($enabled_raw[$el]) ? true : false;
+                    }
+                    $meta_keys = [];
+                    if ($has_meta) {
+                        foreach (['meta1','meta2','meta3'] as $m) {
+                            $meta_keys[$m] = sanitize_key($_POST['layout']['meta_keys'][$m] ?? '');
+                        }
+                    } else {
+                        $meta_keys = ['meta1'=>'','meta2'=>'','meta3'=>''];
+                    }
+                    $styles = [
+                        'primary'   => sanitize_hex_color($_POST['styles']['primary'] ?? '#0d6efd') ?: '#0d6efd',
+                        'text'      => sanitize_hex_color($_POST['styles']['text'] ?? '#111111') ?: '#111111',
+                        'font_size' => max(10, intval($_POST['styles']['font_size'] ?? 16)),
+                        'spacing'   => max(0, intval($_POST['styles']['spacing'] ?? 12)),
+                        'radius'    => max(0, intval($_POST['styles']['radius'] ?? 8)),
+                    ];
+                    $cfg = [ 'layout' => ['order'=>$order,'enabled'=>$enabled,'meta_keys'=>$meta_keys], 'styles'=>$styles ];
+                    $saved = $this->set_styles_config($cpt, $cfg);
+                    add_settings_error('cphub', 'styles_saved', 'Styles saved (version ' . substr($saved['version'],0,7) . ').', 'updated');
+                } else {
+                    add_settings_error('cphub', 'styles_error', 'Invalid CPT for styles.', 'error');
+                }
+            }
         }
     }
 
@@ -376,7 +426,7 @@ final class CPT_Hub_Publisher
         <div class="wrap">
             <h1>CPT Hub – Publisher</h1>
             <h2 class="nav-tab-wrapper">
-                <?php $tabs = ['types' => 'Content Types', 'tax' => 'Taxonomies', 'feed' => 'Feed Settings', 'docs' => 'Documentation'];
+                <?php $tabs = ['types' => 'Content Types', 'tax' => 'Taxonomies', 'feed' => 'Feed Settings', 'styles' => 'Styles', 'docs' => 'Documentation'];
                 foreach ($tabs as $t_key => $t_label):
                     $url = esc_url(add_query_arg(['page' => 'cphub', 'tab' => $t_key], admin_url('admin.php')));
                     $class = 'nav-tab' . ($tab === $t_key ? ' nav-tab-active' : ''); ?>
@@ -391,6 +441,9 @@ final class CPT_Hub_Publisher
                         break;
                     case 'feed':
                         include $base . 'views/admin/tab-feed.php';
+                        break;
+                    case 'styles':
+                        include $base . 'views/admin/tab-styles.php';
                         break;
                     case 'docs':
                         include $base . 'views/admin/tab-docs.php';
@@ -871,6 +924,15 @@ final class CPT_Hub_Publisher
                 'key' => [ 'type' => 'string', 'required' => false ],
             ],
         ]);
+        register_rest_route('cphub/v1', '/assets', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'rest_assets'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'cpt' => [ 'type' => 'string', 'required' => true ],
+                'key' => [ 'type' => 'string', 'required' => false ],
+            ],
+        ]);
     }
 
     public function rest_items(WP_REST_Request $request)
@@ -941,6 +1003,76 @@ final class CPT_Hub_Publisher
         $response = new WP_REST_Response($payload, 200);
         $response->header('Cache-Control', 'public, max-age=300');
         return $response;
+    }
+
+    public function rest_assets(WP_REST_Request $request)
+    {
+        $feed_settings = get_option(self::OPTION_FEED, []);
+        $secret = $feed_settings['secret_key'] ?? '';
+        $req_key = sanitize_text_field($request->get_param('key'));
+        if ($secret && $req_key !== $secret) {
+            return new WP_Error('cphub_forbidden', 'Forbidden: invalid or missing key', ['status' => 403]);
+        }
+        $cpt = sanitize_key((string)$request->get_param('cpt'));
+        $types = get_option(self::OPTION_KEY, []);
+        if (!$cpt || !isset($types[$cpt])) {
+            return new WP_Error('cphub_bad_cpt', 'Unknown CPT: ' . $cpt, ['status' => 400]);
+        }
+        $cfg = $this->get_styles_config($cpt);
+        $css = $this->build_styles_css($cfg['styles']);
+        $payload = [
+            'version' => $cfg['version'],
+            'layout'  => $cfg['layout'],
+            'css'     => $css,
+        ];
+        $response = new WP_REST_Response($payload, 200);
+        $response->header('Cache-Control', 'public, max-age=300');
+        return $response;
+    }
+
+    private function get_styles_config($cpt)
+    {
+        $all = get_option(self::OPTION_STYLES, []);
+        $cfg = $all[$cpt] ?? [];
+        $defaults = [
+            'layout' => [
+                'order'     => ['title','image','excerpt','content','meta1','meta2','meta3','button'],
+                'enabled'   => ['title'=>true,'image'=>true,'excerpt'=>true,'content'=>false,'meta1'=>false,'meta2'=>false,'meta3'=>false,'button'=>true],
+                'meta_keys' => ['meta1'=>'','meta2'=>'','meta3'=>''],
+            ],
+            'styles' => [ 'primary'=>'#0d6efd','text'=>'#111111','font_size'=>16,'spacing'=>12,'radius'=>8 ],
+            'version' => '0'
+        ];
+        return array_replace_recursive($defaults, $cfg);
+    }
+
+    private function set_styles_config($cpt, array $cfg)
+    {
+        $all = get_option(self::OPTION_STYLES, []);
+        $cfg['version'] = md5(wp_json_encode([$cfg['layout'] ?? [], $cfg['styles'] ?? []]));
+        $all[$cpt] = $cfg;
+        update_option(self::OPTION_STYLES, $all);
+        return $cfg;
+    }
+
+    private function build_styles_css(array $styles)
+    {
+        $primary = sanitize_hex_color($styles['primary'] ?? '#0d6efd') ?: '#0d6efd';
+        $text    = sanitize_hex_color($styles['text'] ?? '#111111') ?: '#111111';
+        $fs      = max(10, intval($styles['font_size'] ?? 16));
+        $sp      = max(0, intval($styles['spacing'] ?? 12));
+        $rad     = max(0, intval($styles['radius'] ?? 8));
+        $css = ".cphub-card{font-size:{$fs}px;color:{$text};margin:{$sp}px 0;padding:{$sp}px;border:1px solid #e5e7eb;border-radius:{$rad}px} .cphub-card .cphub-title a{color:{$primary};text-decoration:none} .cphub-btn{display:inline-block;background:{$primary};color:#fff;padding:8px 12px;border-radius:".$rad."px;text-decoration:none} .cphub-meta{color:#555;font-size:".max(10,$fs-2)."px} .cphub-excerpt{color:#333} .cphub-img{display:block;max-width:100%;height:auto;border-radius:".$rad."px}";
+        return $css;
+    }
+
+    public function enqueue_admin_assets($hook)
+    {
+        if ($hook !== 'toplevel_page_cphub') return;
+        $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'types';
+        if ($tab === 'styles') {
+            wp_enqueue_script('jquery-ui-sortable');
+        }
     }
 
     public function render_feed()
