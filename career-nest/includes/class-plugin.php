@@ -393,10 +393,11 @@ class Plugin
      */
     public function enqueue_frontend_assets(): void
     {
-        // Check if we're on the applicant dashboard page
         $pages = get_option('careernest_pages', []);
         $applicant_dashboard_id = isset($pages['applicant-dashboard']) ? (int) $pages['applicant-dashboard'] : 0;
+        $employer_dashboard_id = isset($pages['employer-dashboard']) ? (int) $pages['employer-dashboard'] : 0;
 
+        // Check if we're on the applicant dashboard page
         if ($applicant_dashboard_id && is_page($applicant_dashboard_id)) {
             // Enqueue applicant dashboard specific assets
             wp_enqueue_style(
@@ -409,6 +410,25 @@ class Plugin
             wp_enqueue_script(
                 'careernest-applicant-dashboard',
                 CAREERNEST_URL . 'assets/js/applicant-dashboard.js',
+                ['jquery'],
+                CAREERNEST_VERSION,
+                true
+            );
+        }
+
+        // Check if we're on the employer dashboard page
+        if ($employer_dashboard_id && is_page($employer_dashboard_id)) {
+            // Enqueue employer dashboard specific assets
+            wp_enqueue_style(
+                'careernest-employer-dashboard',
+                CAREERNEST_URL . 'assets/css/employer-dashboard.css',
+                [],
+                CAREERNEST_VERSION
+            );
+
+            wp_enqueue_script(
+                'careernest-employer-dashboard',
+                CAREERNEST_URL . 'assets/js/employer-dashboard.js',
                 ['jquery'],
                 CAREERNEST_VERSION,
                 true

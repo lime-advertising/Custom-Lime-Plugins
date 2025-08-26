@@ -225,7 +225,7 @@ Each milestone has acceptance criteria in Section 12.
 
 - Dashboards
 
-  - Employer: list own jobs, counts, quick actions, applications per job.
+  - Employer: ✅ **Completed** - job listings with statistics, application tracking, personal profile management, company information display.
   - Applicant: ✅ **Completed** - profile editor with comprehensive sections, application tracking, job recommendations.
 
 - Registration

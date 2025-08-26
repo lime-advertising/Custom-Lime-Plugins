@@ -97,6 +97,49 @@ Important: This file is updated only when requested by the project owner. Do not
 - Verification: All profile sections display correctly with proper data formatting; edit mode replaces display sections with comprehensive forms; repeater fields allow unlimited entries with proper indexing; current job checkbox disables end date field; public profile button opens in new tab; form validation and data persistence work correctly.
 - Notes: System provides professional-grade profile management with intuitive UX; all data structures are properly sanitized and stored as post meta arrays; responsive design ensures mobile compatibility.
 
+### 2025-08-26 — M5 Update: Job Application Status Detection
+
+- Summary: Enhanced single job listing template to detect if current user has already applied for a job; added "already applied" messaging and hid apply button for users who have submitted applications; implemented professional status indicators with links to applicant dashboard.
+- Files: `templates/single-job_listing.php`
+- Verification: Users who have applied see "You already applied for this job" message in header; apply button is hidden and replaced with application status notice; application date is displayed; "View Your Applications" link directs to applicant dashboard.
+- Notes: Prevents duplicate applications while providing clear user feedback and navigation to application tracking.
+
+### 2025-08-26 — Employer Dashboard Implementation
+
+- Summary: Created comprehensive employer dashboard for employer_team users with job management, application tracking, and personal profile editing; implemented proper employer-user relationship handling; added complete admin integration for personal profile fields; designed frontend-first architecture with modal placeholders for future functionality.
+- Files: `templates/template-employer-dashboard.php`, `assets/css/employer-dashboard.css`, `assets/js/employer-dashboard.js`, `includes/class-plugin.php`, `includes/Admin/class-users.php`
+- Verification: Dashboard displays correct job statistics and listings for employer team members; company information shows in sidebar (read-only); personal profile editing works in main content area; all personal data saves to user meta and displays in admin; modal system provides professional placeholders for future job posting and application management features.
+- Notes: Employer team members are linked to employers via user meta `_employer_id`; personal profile data stored in user meta fields; company information is read-only for team members; admin integration allows oversight of all personal profile data.
+
+#### Detailed Employer Dashboard Features:
+
+**Statistics & Job Management:**
+
+- Real-time statistics cards showing Total Jobs, Active Jobs, Total Applications, and New Applications
+- Job listings display with status badges (Active/Filled/Expired), application counts, and action buttons
+- Application tracking with applicant names, job titles, status badges, and resume download links
+- Frontend-first design with modal placeholders for job posting and application management
+
+**Personal Profile Management:**
+
+- In-place editing system for personal information (name, job title, email, phone, bio)
+- Personal profile display in main content area with professional formatting
+- Form validation and secure data processing for personal information updates
+- Email address editing capability for team members
+
+**Company Information Display:**
+
+- Read-only company information in sidebar (company name, website, location, employee count, description)
+- Professional layout with clickable website links and formatted company description
+- Employee count display with fallback to existing company_size field for backward compatibility
+
+**Admin Integration:**
+
+- Personal profile fields added to WordPress user admin screen for employer_team users
+- Dynamic field visibility based on user role selection
+- Complete save functionality for job title, phone number, and bio fields
+- Proper data storage in user meta with sanitization and validation
+
 #### Detailed Feature Implementation:
 
 **Profile Display Sections:**
