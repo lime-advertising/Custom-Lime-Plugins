@@ -7,11 +7,12 @@ This document provides comprehensive documentation of all implemented features i
 1. [Template Routing System](#template-routing-system)
 2. [Guest Job Application System](#guest-job-application-system)
 3. [Applicant Dashboard](#applicant-dashboard)
-4. [Profile Management System](#profile-management-system)
-5. [Frontend Editing Experience](#frontend-editing-experience)
-6. [Data Structures](#data-structures)
-7. [Asset Management](#asset-management)
-8. [Security Implementation](#security-implementation)
+4. [Employer Dashboard](#employer-dashboard)
+5. [Profile Management System](#profile-management-system)
+6. [Frontend Editing Experience](#frontend-editing-experience)
+7. [Data Structures](#data-structures)
+8. [Asset Management](#asset-management)
+9. [Security Implementation](#security-implementation)
 
 ---
 
@@ -172,6 +173,128 @@ Comprehensive applicant dashboard providing application tracking, profile manage
 
 - **No Applications**: Encouraging message with "Browse Jobs" link
 - **Professional Design**: Clean, user-friendly empty state messaging
+
+---
+
+## Employer Dashboard
+
+### Overview
+
+Comprehensive employer dashboard providing job management, application tracking, and personal profile management for employer team members.
+
+### Implementation
+
+- **File**: `templates/template-employer-dashboard.php`
+- **Assets**: `assets/css/employer-dashboard.css`, `assets/js/employer-dashboard.js`
+- **Admin Integration**: `includes/Admin/class-users.php`
+
+### Features
+
+#### 1. Dashboard Header
+
+- **Company Information**: Displays company name and location
+- **Action Buttons**: View Public Profile, Edit My Profile, Logout
+- **Professional Layout**: Clean, modern header design
+
+#### 2. Statistics Cards
+
+- **Total Jobs**: Count of all job listings posted by the employer
+- **Active Jobs**: Currently open positions accepting applications
+- **Total Applications**: All applications received across all jobs
+- **New Applications**: Unreviewed applications requiring attention
+
+#### 3. Job Management
+
+- **Job Listings Display**: Shows all employer's job postings with:
+  - Job title (linked to public view)
+  - Location information with emoji icons
+  - Status badges (Active/Filled/Expired) with color coding
+  - Posted date and closing date
+  - Application count per job
+- **Job Actions**:
+  - "View Job" - See public job listing
+  - "Edit" - Frontend edit functionality (placeholder)
+  - "View Applications" - Review applications (placeholder)
+
+#### 4. Application Tracking
+
+- **Recent Applications**: Shows latest 5 applications with:
+  - Applicant name
+  - Job applied for
+  - Application date
+  - Status badges with color coding
+  - Resume download links
+- **Application Actions**: "Review Application" with frontend functionality
+
+#### 5. Personal Profile Management
+
+- **Profile Display**: Shows team member's personal information
+- **In-Place Editing**: Edit form replaces display when editing
+- **Personal Fields**:
+  - Full Name (required)
+  - Job Title (e.g., HR Manager, Recruiter)
+  - Email Address (editable by users)
+  - Phone Number
+  - Bio (personal description)
+
+#### 6. Company Information (Sidebar)
+
+- **Read-Only Display**: Company information in sidebar
+- **Company Details**:
+  - Company name, website (clickable)
+  - Contact information, location
+  - Employee count, company description
+- **Access Control**: Team members cannot edit company information
+
+#### 7. Quick Actions
+
+- **Post New Job**: Frontend job creation (placeholder)
+- **Manage Jobs**: Job management interface (placeholder)
+- **View Applications**: Application management (placeholder)
+- **Professional Icons**: SVG icons for visual clarity
+
+### Data Relationships
+
+#### Employer-User Relationship
+
+```php
+// Employer team members linked via user meta
+$employer_id = get_user_meta($user_id, '_employer_id', true);
+
+// Jobs belonging to employer
+$jobs_query = new WP_Query([
+    'meta_query' => [['key' => '_employer_id', 'value' => $employer_id]]
+]);
+```
+
+#### Personal Profile Storage
+
+```php
+// Personal data stored in user meta
+update_user_meta($user_id, '_job_title', $job_title);
+update_user_meta($user_id, '_personal_phone', $phone);
+update_user_meta($user_id, '_bio', $bio);
+```
+
+### Admin Integration
+
+#### User Profile Fields
+
+- **Automatic Display**: Shows for employer_team users only
+- **Dynamic Visibility**: Fields show/hide based on user role
+- **Admin Fields**:
+  - Employer Link (dropdown)
+  - Job Title (text field)
+  - Phone Number (tel field)
+  - Bio (textarea)
+- **Save Integration**: All fields save when user profile updated
+
+### Access Control
+
+- **Role Verification**: Only employer_team users can access
+- **Company Protection**: Company information is read-only
+- **Personal Editing**: Users can only edit their own information
+- **Admin Oversight**: All data visible and editable in admin
 
 ---
 
