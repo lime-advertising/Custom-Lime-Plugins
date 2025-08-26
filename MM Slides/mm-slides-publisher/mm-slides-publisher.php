@@ -148,6 +148,8 @@ final class MM_Slides_Publisher
         wp_enqueue_style('wp-color-picker');
         wp_enqueue_script('wp-color-picker');
 
+        wp_enqueue_media();
+
         wp_add_inline_style('wp-admin', '
             .mm-tabs{margin-top:20px}
             .mm-tabs .nav-tab-wrapper{margin-bottom:0}
@@ -204,6 +206,22 @@ final class MM_Slides_Publisher
                         $(this).attr('placeholder', $(this).attr('placeholder') || 'Auto');
                     }
                 });
+
+                // Media picker
+                $(document).on('click','.mm-media-pick',function(e){
+                    e.preventDefault();
+                    const input = $(this).prev('.mm-media-url');
+                    const frame = wp.media({ title:'Select Image', button:{text:'Use this image'}, multiple:false });
+                    frame.on('select', function(){
+                        const att = frame.state().get('selection').first().toJSON();
+                        input.val(att.url).trigger('change');
+                    });
+                    frame.open();
+                });
+                $(document).on('click','.mm-media-clear',function(e){
+                    e.preventDefault();
+                    $(this).siblings('.mm-media-url').val('');
+                });
             });
         ");
     }
@@ -255,6 +273,12 @@ final class MM_Slides_Publisher
                 'align_h_md'       => ['Horizontal Align (≤1024px)', ''],
                 'align_h_sm'       => ['Horizontal Align (≤640px)', ''],
                 'anim_preset' => ['Animation (reveal|fade)', 'reveal'],
+                'badge_enable' => ['Show Badge Image (yes|no)', 'no'],
+                'badge_image'  => ['Badge Image (URL)', ''],
+                'badge_width'  => ['Badge Max-Width (e.g. 180px)', ''],
+                'badge_margin' => ['Badge Margin (CSS shorthand)', '0 0 16px 0'],
+                'badge_position' => ['Badge Position', 'absolute'],
+                'badge_top_offset' => ['Badge Top Offset', '30px'],
 
             ],
             'title' => [
@@ -446,6 +470,12 @@ final class MM_Slides_Publisher
             '--mm-content-pad-md'  => '',
             '--mm-content-pad-sm'  => '',
             'mm-anim' => 'reveal',
+            'mm-badge-enable' => 'no',
+            'mm-badge-src'    => '',
+            '--mm-badge-width'  => '',
+            '--mm-badge-margin' => '0 0 16px 0',
+            '--mm-badge-position' => 'absolute',
+            '--mm-badge-top-offset' => '30px',
 
             // subtitle
             '--mm-sub-color'       => '#fff',
@@ -552,6 +582,12 @@ final class MM_Slides_Publisher
             'content_pad_md' => '--mm-content-pad-md',
             'content_pad_sm' => '--mm-content-pad-sm',
             'anim_preset' => 'mm-anim',
+            'badge_enable' => 'mm-badge-enable',
+            'badge_image'  => 'mm-badge-src',
+            'badge_width'  => '--mm-badge-width',
+            'badge_margin' => '--mm-badge-margin',
+            'badge_position' => '--mm-badge-position',
+            'badge_top_offset' => '--mm-badge-top-offset',
 
             // subtitle
             'sub_color'      => '--mm-sub-color',
@@ -656,6 +692,20 @@ final class MM_Slides_Publisher
         return $def;
     }
 
+
+    private function render_media_input($key, $label, $value)
+    {
+        $name = self::OPT_STYLE . "[$key]";
+        echo '<div class="mm-field">';
+        echo '<label for="' . esc_attr($key) . '"><strong>' . esc_html($label) . '</strong></label><br>';
+        echo '<input type="text" id="' . esc_attr($key) . '" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '" class="regular-text mm-media-url" placeholder="https://...">';
+        echo ' <button class="button mm-media-pick">Choose</button>';
+        echo ' <button class="button mm-media-clear">Clear</button>';
+        if ($value) {
+            echo '<div style="margin-top:8px"><img src="' . esc_url($value) . '" alt="" style="max-width:220px;height:auto;border:1px solid #ddd;padding:2px;background:#fff"></div>';
+        }
+        echo '</div>';
+    }
 
 
     /** Render input helper */
@@ -781,6 +831,31 @@ final class MM_Slides_Publisher
                     $render_group('description');
                     $render_group('button1');
                     $render_group('button2');
+                    $render_group = function ($tabKey) use ($groups, $opt) {
+                        $fields = $groups[$tabKey];
+                        echo '<div id="mm-' . esc_attr($tabKey) . '" class="mm-tab-panel"><div class="mm-two">';
+                        foreach ($fields as $key => $meta) {
+                            if (preg_match('/_(md|sm)$/', $key)) continue;
+
+                            $val = $opt[$key] ?? $meta[1];
+                            $is_color = $this->is_color_key($key);
+                            $is_font  = (bool) preg_match('/_font$/', $key);
+
+                            // NEW: special-case the media picker
+                            if ($key === 'badge_image') {
+                                $this->render_media_input($key, $meta[0], $val);
+                                continue;
+                            }
+
+                            $has_md = array_key_exists($key . '_md', $fields);
+                            $has_sm = array_key_exists($key . '_sm', $fields);
+                            $is_responsive = ($has_md || $has_sm) && !$is_color && !$is_font;
+
+                            $this->render_input($key, $meta[0], $val, $is_color, $is_font, $opt, $is_responsive);
+                        }
+                        echo '</div></div>';
+                    };
+
                     ?>
 
                     <?php submit_button('Save Styles'); ?>
@@ -830,7 +905,7 @@ final class MM_Slides_Publisher
                 <lastBuildDate><?php echo esc_html(mysql2date(DATE_RSS, current_time('mysql'))); ?></lastBuildDate>
 
                 <?php echo '<' . esc_html(self::NS) . ':vars>'; ?>
-                    <![CDATA[<?php echo wp_json_encode($vars); ?>]]>
+                <![CDATA[<?php echo wp_json_encode($vars); ?>]]>
                 <?php echo '</' . esc_html(self::NS) . ':vars>'; ?>
 
                 <?php while ($q->have_posts()): $q->the_post();
@@ -855,7 +930,7 @@ final class MM_Slides_Publisher
                             <![CDATA[<?php echo wp_kses_post(get_the_content()); ?>]]>
                         </description>
                         <?php echo '<' . esc_html(self::NS) . ':data>'; ?>
-                            <![CDATA[<?php echo wp_json_encode($meta); ?>]]>
+                        <![CDATA[<?php echo wp_json_encode($meta); ?>]]>
                         <?php echo '</' . esc_html(self::NS) . ':data>'; ?>
                     </item>
                 <?php endwhile;

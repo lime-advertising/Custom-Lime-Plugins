@@ -14,27 +14,56 @@ This guide explains how to connect a location site (Consumer) to the corporate P
    - Secret Key: provided by the Publisher admin (if required)
    - Location Slug: matches your site’s term (or leave empty to consume only global/all-locations)
    - Enable the CPTs you want to display locally
-3. Save settings, then click “Test Connection” to verify all endpoints.
+   - Use Publisher Styles: enable to enqueue CSS shipped from Publisher
+3. Save settings. Use “Open Health” to view the Publisher’s health JSON, or “Check Health” on this page to fetch a summary (status, base URLs, and known CPTs).
 
 ## Rendering Content
 - List of items (shortcode):
-  - `[cphub_list cpt="slides" n="10" paged="1" location="nyc"]`
-  - Attributes: `cpt` (required), `n`, `paged`, `location` (overrides default), `template` (optional)
+  - `[cphub_list cpt="slides" n="10" paged="1"]`
+  - Attributes: `cpt` (required), `n`, `paged` (pagination against local cache)
 - Single item (shortcode):
   - `[cphub_item cpt="slides" id="123"]`
-- Block editor: use the “CPT Hub List” or “CPT Hub Item” blocks (if enabled by the plugin) and configure via sidebar controls.
+- Renderer honors Publisher layout per CPT:
+  - Order and enabled flags for elements (`image`, `title`, `excerpt`, `content`, `meta1..3`, `button`)
+  - Meta mapping and placement (thumb/content)
+  - Button overlay markup if the Publisher CSS includes `.cphub-btn.has-hover`
+- Grid vs List: Consumer uses `layout_type` (or detects from CSS) to choose `.cphub-grid` or `.cphub-list` wrappers.
 
-Fields and meta from the Publisher are mapped 1:1 and available to templates. Media fields expose `_id`, `_url`, `_mime` companions.
+Fields and meta from the Publisher are mapped 1:1. For media fields, the feed includes companions:
+- `{key}_id`, `{key}_url`, `{key}_mime`
+  - If `mime` starts with `image/`, Consumer renders an `<img>`; else a download link.
+
+For media meta fields:
+- If the field is configured as Image, render `<img src="{meta.key_url}" alt="" />` when available; otherwise fall back to a link.
+- For non‑image media, render `<a href="{meta.key_url}">Download</a>` (and consider using `{meta.key_mime}` for icons/labels).
 
 ## Styles & Scripts
-- The Consumer fetches a per‑CPT manifest from the Publisher: `{ version, css[], js[] }` and enqueues assets.
-- Toggle: “Use Publisher Styles” in settings. When enabled, remote CSS/JS is cached and loaded by version.
+- The Consumer fetches a per‑CPT assets payload from the Publisher: `{ version, layout, layout_type, css }`.
+- Toggle: “Use Publisher Styles” in settings. When enabled, the remote CSS string is cached by version and enqueued per CPT.
+- The `layout` object includes:
+  - `order` and `enabled` maps for element sequencing/visibility
+  - `meta_keys` mapping for Meta1–Meta3
+  - `meta_wrap` placement per meta slot: `thumb` or `content`
+  - responsive visibility maps (`enabled_tab`, `enabled_mob`)
+- Markup conventions expected by Publisher CSS:
+  - Card container: `<div class="cphub-card">`
+  - Thumb/content wrappers: `<div class="cphub-thumb-wrap"></div>` and `<div class="cphub-content-wrap"></div>`
+  - Element classes: `.cphub-img`, `.cphub-title`, `.cphub-excerpt`, `.cphub-content`, `.cphub-meta`, `.cphub-btn`
 - You can override styling by disabling Publisher styles and applying local theme CSS.
 
+Animations implemented (CSS‑only):
+- Entrance stagger for cards (optional). No JS required.
+- Thumbnail hover reveal with Solid or Sheen style. No JS required.
+- Image hover zoom (optional).
+- Button ripple (CSS background ripple; center‑origin by default). Optional overlay markup is supported for more complex effects, but is not required.
+
+Button alignment:
+- Optional “Stick to bottom” setting makes cards flex columns and pushes `.cphub-btn` to the bottom of the card for consistent alignment across a row.
+
 ## Caching & Sync
-- Content is cached locally with conditional GET (ETag/Last‑Modified) and refreshed by WP‑Cron (e.g., every 5–15 minutes).
-- Manual refresh: click “Refresh Now” in settings.
-- If the Publisher is unreachable, cached data continues to render; errors appear in the health status panel.
+- Content is cached locally with conditional GET (ETag/Last-Modified) and refreshed by WP‑Cron (every 10 minutes). Requests cap `n` at 100 items.
+- Manual refresh: click “Refresh Now” in settings. Use “Clear Cache” to wipe local items/assets.
+- If the Publisher is unreachable, cached data continues to render; recent HTTP status/error are shown in the cache table.
 
 ## Location Targeting
 - By default, the Consumer requests content for its configured `location` plus `all-locations` from the Publisher.

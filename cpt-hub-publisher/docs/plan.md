@@ -24,7 +24,7 @@ Out of scope (initially): editorial workflow/approvals, advanced permissions, an
 - Consumers (Locations)
   - Configure Publisher base URL, secret key, and `location` slug.
   - Enable CPTs to ingest; render via shortcodes/blocks/templates.
-  - Cache content and assets locally with versioned invalidation.
+  - Cache content and assets locally with versioned invalidation; cron refresh; conditional GET (ETag/Last‑Modified).
 
 ## Location Strategy (Recommended)
 - Add a `location` taxonomy on the Publisher with terms for each location plus a special `all-locations` term.
@@ -34,20 +34,22 @@ Out of scope (initially): editorial workflow/approvals, advanced permissions, an
 Alternative: Allow Consumers to add local-only items of the same CPT and merge during render (optional add-on after core flow).
 
 ## Style Sets Strategy
-- Maintain versioned style/script sets per CPT on the Publisher.
-- Expose a manifest endpoint: `{ version, css: [urls], js: [urls] }`.
-- Consumers fetch and cache assets by version and enqueue per CPT. Optional toggle to use Publisher styles vs. site theme.
+- Maintain a versioned per‑CPT style config on the Publisher.
+- Expose an assets endpoint: `{ version, layout, layout_type, css }` where `css` is a stylesheet string generated from the saved config.
+- Consumers fetch and cache CSS by version and inject/enqueue per CPT. Optional toggle to use Publisher styles vs. site theme.
 
 ## APIs & Contracts
 - RSS: continue to expose `/feed/cphub` and per‑CPT `/feed/cphub/{slug}` including meta fields, media URLs, and taxonomy terms.
-- REST (proposed):
+- REST (implemented):
   - Items: `/wp-json/cphub/v1/items?cpt=slides&location=nyc&n=20&paged=1&modified_since=YYYY-MM-DD`
-  - Assets: `/wp-json/cphub/v1/assets?cpt=slides` → `{ version, css[], js[] }`
+  - Assets: `/wp-json/cphub/v1/assets?cpt=slides` → `{ version, layout, layout_type, css }`
+  - Health: `/wp-json/cphub/v1/health` → status, base URLs, feed cache stats, styles versions
 - Security: Optional `key` query param (shared or per-consumer); rotateable.
-- Caching: ETag/Last-Modified for REST; transients on Publisher; local caching on Consumer; conditional GETs.
+- Caching: ETag/Last-Modified for REST and RSS (implemented) with 304 handling; 5‑minute transients on Publisher; local caching on Consumer; conditional GETs. Page size `n` is capped at 100.
+  - Items include `tax_terms` for the `location` taxonomy to aid debugging of location filtering.
 
 ## Performance & Reliability
-- Cap page size (`n`) on Publisher to safe defaults (e.g., <= 100).
+- Cap page size (`n`) on Publisher to safe defaults (<= 100) — implemented.
 - 5–15 minute caches with cache-busting on relevant CPT changes.
 - Background cron refresh on Consumers; render from cache with graceful degradation if the network fails.
 
@@ -65,7 +67,7 @@ Alternative: Allow Consumers to add local-only items of the same CPT and merge d
 ## Open Decisions
 - Asset delivery: reference vs. local caching (recommend local caching for resilience).
 - REST format details and pagination envelope.
-- Additional field types/validation requirements.
+- Additional field types/validation requirements. Optional JS delivery for UI polish (currently CSS‑only animations; JS not shipped by default).
 
 ## Timeline (Suggested)
 - Week 1: Publisher location targeting + style sets v1.
@@ -76,4 +78,3 @@ Alternative: Allow Consumers to add local-only items of the same CPT and merge d
 ---
 
 Document maintained in `docs/`. Update alongside implementation.
-

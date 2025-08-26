@@ -377,6 +377,16 @@ final class CPT_Hub_Publisher
                         if (!in_array($el, $allowed, true)) { $enabled[$el] = false; continue; }
                         $enabled[$el] = !empty($enabled_raw[$el]) ? true : false;
                     }
+                    // Responsive visibility
+                    $enabled_tab_raw = (array)($_POST['layout']['enabled_tab'] ?? []);
+                    $enabled_mob_raw = (array)($_POST['layout']['enabled_mob'] ?? []);
+                    $groups = ['title','image','excerpt','content','meta','button'];
+                    $enabled_tab = [];
+                    $enabled_mob = [];
+                    foreach ($groups as $g) {
+                        $enabled_tab[$g] = !empty($enabled_tab_raw[$g]) ? true : false;
+                        $enabled_mob[$g] = !empty($enabled_mob_raw[$g]) ? true : false;
+                    }
                     $meta_keys = [];
                     if ($has_meta) {
                         foreach (['meta1','meta2','meta3'] as $m) {
@@ -385,14 +395,152 @@ final class CPT_Hub_Publisher
                     } else {
                         $meta_keys = ['meta1'=>'','meta2'=>'','meta3'=>''];
                     }
+                    // Meta placement (wrap)
+                    $meta_wrap = ['meta1'=>'content','meta2'=>'content','meta3'=>'content'];
+                    if ($has_meta) {
+                        $wrap_in = isset($_POST['layout']['meta_wrap']) && is_array($_POST['layout']['meta_wrap']) ? $_POST['layout']['meta_wrap'] : [];
+                        foreach (['meta1','meta2','meta3'] as $m) {
+                            $val = isset($wrap_in[$m]) ? sanitize_key($wrap_in[$m]) : 'content';
+                            $meta_wrap[$m] = in_array($val, ['thumb','content'], true) ? $val : 'content';
+                        }
+                    }
+                    // Styles (global + per-element)
+                    $styles_in = isset($_POST['styles']) && is_array($_POST['styles']) ? $_POST['styles'] : [];
                     $styles = [
-                        'primary'   => sanitize_hex_color($_POST['styles']['primary'] ?? '#0d6efd') ?: '#0d6efd',
-                        'text'      => sanitize_hex_color($_POST['styles']['text'] ?? '#111111') ?: '#111111',
-                        'font_size' => max(10, intval($_POST['styles']['font_size'] ?? 16)),
-                        'spacing'   => max(0, intval($_POST['styles']['spacing'] ?? 12)),
-                        'radius'    => max(0, intval($_POST['styles']['radius'] ?? 8)),
+                        // layout presets
+                        'layout_type'  => in_array(($styles_in['layout_type'] ?? 'list'), ['list','grid'], true) ? $styles_in['layout_type'] : 'list',
+                        'grid_cols'    => max(1, intval($styles_in['grid_cols'] ?? 3)),
+                        'grid_gap'     => isset($styles_in['grid_gap']) && $styles_in['grid_gap'] !== '' ? max(0, intval($styles_in['grid_gap'])) : null,
+                        'grid_cols_tab'=> isset($styles_in['grid_cols_tab']) && $styles_in['grid_cols_tab'] !== '' ? max(1, intval($styles_in['grid_cols_tab'])) : 2,
+                        'grid_cols_mob'=> isset($styles_in['grid_cols_mob']) && $styles_in['grid_cols_mob'] !== '' ? max(1, intval($styles_in['grid_cols_mob'])) : 1,
+                        // legacy/globals
+                        'primary'      => sanitize_hex_color($styles_in['primary'] ?? '#0d6efd') ?: '#0d6efd',
+                        'text'         => sanitize_hex_color($styles_in['text'] ?? '#111111') ?: '#111111',
+                        'font_size'    => max(10, intval($styles_in['font_size'] ?? 16)),
+                        'spacing'      => max(0, intval($styles_in['spacing'] ?? 12)),
+                        'radius'       => max(0, intval($styles_in['radius'] ?? 8)),
+                        // animations
+                        'anim_enable'  => !empty($styles_in['anim_enable']) ? true : false,
+                        'anim_stagger_enable'     => !empty($styles_in['anim_stagger_enable']) ? true : false,
+                        'anim_stagger_duration'   => isset($styles_in['anim_stagger_duration']) && $styles_in['anim_stagger_duration'] !== '' ? max(50, intval($styles_in['anim_stagger_duration'])) : 400,
+                        'anim_stagger_delay_step' => isset($styles_in['anim_stagger_delay_step']) && $styles_in['anim_stagger_delay_step'] !== '' ? max(0, intval($styles_in['anim_stagger_delay_step'])) : 80,
+                        'anim_stagger_offset'     => isset($styles_in['anim_stagger_offset']) && $styles_in['anim_stagger_offset'] !== '' ? max(0, intval($styles_in['anim_stagger_offset'])) : 8,
+                        'anim_stagger_ease'       => ($styles_in['anim_stagger_ease'] ?? '') !== '' ? sanitize_text_field($styles_in['anim_stagger_ease']) : 'ease-out',
+                        // card
+                        'card_bg'      => sanitize_hex_color($styles_in['card_bg'] ?? '#ffffff') ?: '#ffffff',
+                        'card_border'  => sanitize_hex_color($styles_in['card_border'] ?? '#e5e7eb') ?: '#e5e7eb',
+                        'card_shadow'  => !empty($styles_in['card_shadow']) ? true : false,
+                        'card_padding' => isset($styles_in['card_padding']) && $styles_in['card_padding'] !== '' ? max(0, intval($styles_in['card_padding'])) : null,
+                        'card_margin_y'=> isset($styles_in['card_margin_y']) && $styles_in['card_margin_y'] !== '' ? max(0, intval($styles_in['card_margin_y'])) : null,
+                        // title
+                        'title_color'  => sanitize_hex_color($styles_in['title_color'] ?? '') ?: null,
+                        'title_size'   => isset($styles_in['title_size']) && $styles_in['title_size'] !== '' ? max(10, intval($styles_in['title_size'])) : null,
+                        'title_weight' => isset($styles_in['title_weight']) && $styles_in['title_weight'] !== '' ? max(100, min(900, intval($styles_in['title_weight']))) : 600,
+                        'title_mt'     => isset($styles_in['title_mt']) && $styles_in['title_mt'] !== '' ? max(0, intval($styles_in['title_mt'])) : null,
+                        'title_mb'     => isset($styles_in['title_mb']) && $styles_in['title_mb'] !== '' ? max(0, intval($styles_in['title_mb'])) : null,
+                        'title_pad_v'  => isset($styles_in['title_pad_v']) && $styles_in['title_pad_v'] !== '' ? max(0, intval($styles_in['title_pad_v'])) : null,
+                        'title_pad_h'  => isset($styles_in['title_pad_h']) && $styles_in['title_pad_h'] !== '' ? max(0, intval($styles_in['title_pad_h'])) : null,
+                        'title_lh'     => isset($styles_in['title_lh']) && $styles_in['title_lh'] !== '' ? max(0.8, min(3.0, floatval($styles_in['title_lh']))) : null,
+                        'title_align'  => in_array(($styles_in['title_align'] ?? ''), ['left','center','right'], true) ? $styles_in['title_align'] : null,
+                        'title_w'      => ($styles_in['title_w'] ?? '') !== '' ? sanitize_text_field($styles_in['title_w']) : null,
+                        'title_min_w'  => ($styles_in['title_min_w'] ?? '') !== '' ? sanitize_text_field($styles_in['title_min_w']) : null,
+                        'title_max_w'  => ($styles_in['title_max_w'] ?? '') !== '' ? sanitize_text_field($styles_in['title_max_w']) : null,
+                        // excerpt
+                        'excerpt_color'=> sanitize_hex_color($styles_in['excerpt_color'] ?? '#333333') ?: '#333333',
+                        'excerpt_size' => isset($styles_in['excerpt_size']) && $styles_in['excerpt_size'] !== '' ? max(10, intval($styles_in['excerpt_size'])) : null,
+                        'excerpt_mt'   => isset($styles_in['excerpt_mt']) && $styles_in['excerpt_mt'] !== '' ? max(0, intval($styles_in['excerpt_mt'])) : null,
+                        'excerpt_mb'   => isset($styles_in['excerpt_mb']) && $styles_in['excerpt_mb'] !== '' ? max(0, intval($styles_in['excerpt_mb'])) : null,
+                        'excerpt_pad_v'=> isset($styles_in['excerpt_pad_v']) && $styles_in['excerpt_pad_v'] !== '' ? max(0, intval($styles_in['excerpt_pad_v'])) : null,
+                        'excerpt_pad_h'=> isset($styles_in['excerpt_pad_h']) && $styles_in['excerpt_pad_h'] !== '' ? max(0, intval($styles_in['excerpt_pad_h'])) : null,
+                        'excerpt_lh'   => isset($styles_in['excerpt_lh']) && $styles_in['excerpt_lh'] !== '' ? max(0.8, min(3.0, floatval($styles_in['excerpt_lh']))) : null,
+                        'excerpt_align'=> in_array(($styles_in['excerpt_align'] ?? ''), ['left','center','right'], true) ? $styles_in['excerpt_align'] : null,
+                        'excerpt_w'    => ($styles_in['excerpt_w'] ?? '') !== '' ? sanitize_text_field($styles_in['excerpt_w']) : null,
+                        'excerpt_min_w'=> ($styles_in['excerpt_min_w'] ?? '') !== '' ? sanitize_text_field($styles_in['excerpt_min_w']) : null,
+                        'excerpt_max_w'=> ($styles_in['excerpt_max_w'] ?? '') !== '' ? sanitize_text_field($styles_in['excerpt_max_w']) : null,
+                        // content
+                        'content_color'=> sanitize_hex_color($styles_in['content_color'] ?? '#333333') ?: '#333333',
+                        'content_size' => isset($styles_in['content_size']) && $styles_in['content_size'] !== '' ? max(10, intval($styles_in['content_size'])) : null,
+                        'content_mt'   => isset($styles_in['content_mt']) && $styles_in['content_mt'] !== '' ? max(0, intval($styles_in['content_mt'])) : null,
+                        'content_mb'   => isset($styles_in['content_mb']) && $styles_in['content_mb'] !== '' ? max(0, intval($styles_in['content_mb'])) : null,
+                        'content_pad_v'=> isset($styles_in['content_pad_v']) && $styles_in['content_pad_v'] !== '' ? max(0, intval($styles_in['content_pad_v'])) : null,
+                        'content_pad_h'=> isset($styles_in['content_pad_h']) && $styles_in['content_pad_h'] !== '' ? max(0, intval($styles_in['content_pad_h'])) : null,
+                        'content_lh'   => isset($styles_in['content_lh']) && $styles_in['content_lh'] !== '' ? max(0.8, min(3.0, floatval($styles_in['content_lh']))) : null,
+                        'content_align'=> in_array(($styles_in['content_align'] ?? ''), ['left','center','right'], true) ? $styles_in['content_align'] : null,
+                        'content_w'    => ($styles_in['content_w'] ?? '') !== '' ? sanitize_text_field($styles_in['content_w']) : null,
+                        'content_min_w'=> ($styles_in['content_min_w'] ?? '') !== '' ? sanitize_text_field($styles_in['content_min_w']) : null,
+                        'content_max_w'=> ($styles_in['content_max_w'] ?? '') !== '' ? sanitize_text_field($styles_in['content_max_w']) : null,
+                        // meta
+                        'meta_color'   => sanitize_hex_color($styles_in['meta_color'] ?? '#555555') ?: '#555555',
+                        'meta_size'    => isset($styles_in['meta_size']) && $styles_in['meta_size'] !== '' ? max(10, intval($styles_in['meta_size'])) : null,
+                        'meta_mt'      => isset($styles_in['meta_mt']) && $styles_in['meta_mt'] !== '' ? max(0, intval($styles_in['meta_mt'])) : null,
+                        'meta_mb'      => isset($styles_in['meta_mb']) && $styles_in['meta_mb'] !== '' ? max(0, intval($styles_in['meta_mb'])) : null,
+                        'meta_pad_v'   => isset($styles_in['meta_pad_v']) && $styles_in['meta_pad_v'] !== '' ? max(0, intval($styles_in['meta_pad_v'])) : null,
+                        'meta_pad_h'   => isset($styles_in['meta_pad_h']) && $styles_in['meta_pad_h'] !== '' ? max(0, intval($styles_in['meta_pad_h'])) : null,
+                        'meta_lh'      => isset($styles_in['meta_lh']) && $styles_in['meta_lh'] !== '' ? max(0.8, min(3.0, floatval($styles_in['meta_lh']))) : null,
+                        'meta_align'   => in_array(($styles_in['meta_align'] ?? ''), ['left','center','right'], true) ? $styles_in['meta_align'] : null,
+                        'meta_w'       => ($styles_in['meta_w'] ?? '') !== '' ? sanitize_text_field($styles_in['meta_w']) : null,
+                        'meta_min_w'   => ($styles_in['meta_min_w'] ?? '') !== '' ? sanitize_text_field($styles_in['meta_min_w']) : null,
+                        'meta_max_w'   => ($styles_in['meta_max_w'] ?? '') !== '' ? sanitize_text_field($styles_in['meta_max_w']) : null,
+                        'meta_bg'      => isset($styles_in['meta_bg']) ? sanitize_text_field($styles_in['meta_bg']) : '',
+                        'meta_pos'     => isset($styles_in['meta_pos']) ? sanitize_text_field($styles_in['meta_pos']) : '',
+                        'meta_top'     => isset($styles_in['meta_top']) ? sanitize_text_field($styles_in['meta_top']) : '',
+                        'meta_right'   => isset($styles_in['meta_right']) ? sanitize_text_field($styles_in['meta_right']) : '',
+                        'meta_bottom'  => isset($styles_in['meta_bottom']) ? sanitize_text_field($styles_in['meta_bottom']) : '',
+                        'meta_left'    => isset($styles_in['meta_left']) ? sanitize_text_field($styles_in['meta_left']) : '',
+                        // image
+                        'image_radius' => isset($styles_in['image_radius']) && $styles_in['image_radius'] !== '' ? max(0, intval($styles_in['image_radius'])) : null,
+                        'image_mt'     => isset($styles_in['image_mt']) && $styles_in['image_mt'] !== '' ? max(0, intval($styles_in['image_mt'])) : null,
+                        'image_mb'     => isset($styles_in['image_mb']) && $styles_in['image_mb'] !== '' ? max(0, intval($styles_in['image_mb'])) : null,
+                        'image_pad_v'  => isset($styles_in['image_pad_v']) && $styles_in['image_pad_v'] !== '' ? max(0, intval($styles_in['image_pad_v'])) : null,
+                        'image_pad_h'  => isset($styles_in['image_pad_h']) && $styles_in['image_pad_h'] !== '' ? max(0, intval($styles_in['image_pad_h'])) : null,
+                        'image_align'  => in_array(($styles_in['image_align'] ?? ''), ['left','center','right'], true) ? $styles_in['image_align'] : null,
+                        'image_w'      => ($styles_in['image_w'] ?? '') !== '' ? sanitize_text_field($styles_in['image_w']) : null,
+                        'image_min_w'  => ($styles_in['image_min_w'] ?? '') !== '' ? sanitize_text_field($styles_in['image_min_w']) : null,
+                        'image_max_w'  => ($styles_in['image_max_w'] ?? '') !== '' ? sanitize_text_field($styles_in['image_max_w']) : null,
+                        // image hover scale
+                        'image_hover_scale_enable' => !empty($styles_in['image_hover_scale_enable']) ? true : false,
+                        'image_hover_scale'        => isset($styles_in['image_hover_scale']) && $styles_in['image_hover_scale'] !== '' ? max(1.0, min(2.0, floatval($styles_in['image_hover_scale']))) : 1.05,
+                        'image_hover_duration'     => isset($styles_in['image_hover_duration']) && $styles_in['image_hover_duration'] !== '' ? max(0, intval($styles_in['image_hover_duration'])) : 300,
+                        'image_hover_ease'         => ($styles_in['image_hover_ease'] ?? '') !== '' ? sanitize_text_field($styles_in['image_hover_ease']) : 'ease',
+                        // responsive scaling factors
+                        'scale_tab'    => isset($styles_in['scale_tab']) && $styles_in['scale_tab'] !== '' ? max(0.1, min(3.0, floatval($styles_in['scale_tab']))) : 1.0,
+                        'scale_mob'    => isset($styles_in['scale_mob']) && $styles_in['scale_mob'] !== '' ? max(0.1, min(3.0, floatval($styles_in['scale_mob']))) : 1.0,
+                        // button
+                        'button_bg'    => sanitize_hex_color($styles_in['button_bg'] ?? '') ?: null,
+                        'button_text'  => sanitize_hex_color($styles_in['button_text'] ?? '#ffffff') ?: '#ffffff',
+                        'button_radius'=> isset($styles_in['button_radius']) && $styles_in['button_radius'] !== '' ? max(0, intval($styles_in['button_radius'])) : null,
+                        'button_pad_v' => max(0, intval($styles_in['button_pad_v'] ?? 8)),
+                        'button_pad_h' => max(0, intval($styles_in['button_pad_h'] ?? 12)),
+                        'button_mt'    => isset($styles_in['button_mt']) && $styles_in['button_mt'] !== '' ? max(0, intval($styles_in['button_mt'])) : null,
+                        'button_mb'    => isset($styles_in['button_mb']) && $styles_in['button_mb'] !== '' ? max(0, intval($styles_in['button_mb'])) : null,
+                        'button_lh'    => isset($styles_in['button_lh']) && $styles_in['button_lh'] !== '' ? max(0.8, min(3.0, floatval($styles_in['button_lh']))) : null,
+                        'button_shadow'=> !empty($styles_in['button_shadow']) ? true : false,
+                        'button_shadow_css' => isset($styles_in['button_shadow_css']) ? sanitize_text_field($styles_in['button_shadow_css']) : '',
+                        'button_full'  => !empty($styles_in['button_full']) ? true : false,
+                        'button_align' => in_array(($styles_in['button_align'] ?? ''), ['left','center','right'], true) ? $styles_in['button_align'] : null,
+                        'button_w'     => ($styles_in['button_w'] ?? '') !== '' ? sanitize_text_field($styles_in['button_w']) : null,
+                        'button_min_w' => ($styles_in['button_min_w'] ?? '') !== '' ? sanitize_text_field($styles_in['button_min_w']) : null,
+                        'button_max_w' => ($styles_in['button_max_w'] ?? '') !== '' ? sanitize_text_field($styles_in['button_max_w']) : null,
+                        'button_stick_bottom' => !empty($styles_in['button_stick_bottom']) ? true : false,
+                        // button ripple
+                        'button_ripple_enable'   => !empty($styles_in['button_ripple_enable']) ? true : false,
+                        'button_ripple_color'    => sanitize_hex_color($styles_in['button_ripple_color'] ?? '') ?: null,
+                        'button_ripple_opacity'  => isset($styles_in['button_ripple_opacity']) && $styles_in['button_ripple_opacity'] !== '' ? max(0.0, min(1.0, floatval($styles_in['button_ripple_opacity']))) : 0.7,
+                        'button_ripple_scale'    => isset($styles_in['button_ripple_scale']) && $styles_in['button_ripple_scale'] !== '' ? max(1.0, min(4.0, floatval($styles_in['button_ripple_scale']))) : 2.25,
+                        'button_ripple_duration' => isset($styles_in['button_ripple_duration']) && $styles_in['button_ripple_duration'] !== '' ? max(0, intval($styles_in['button_ripple_duration'])) : 500,
+                        'button_ripple_ease'     => ($styles_in['button_ripple_ease'] ?? '') !== '' ? sanitize_text_field($styles_in['button_ripple_ease']) : 'ease',
+                        // hover reveal
+                        'hover_reveal_enable'   => !empty($styles_in['hover_reveal_enable']) ? true : false,
+                        'hover_reveal_style'    => in_array(($styles_in['hover_reveal_style'] ?? 'solid'), ['solid','sheen'], true) ? $styles_in['hover_reveal_style'] : 'solid',
+                        'hover_reveal_color'    => sanitize_hex_color($styles_in['hover_reveal_color'] ?? '#ffffff') ?: '#ffffff',
+                        'hover_reveal_opacity'  => isset($styles_in['hover_reveal_opacity']) && $styles_in['hover_reveal_opacity'] !== '' ? max(0.0, min(1.0, floatval($styles_in['hover_reveal_opacity']))) : 0.15,
+                        'hover_reveal_duration' => isset($styles_in['hover_reveal_duration']) && $styles_in['hover_reveal_duration'] !== '' ? max(0, intval($styles_in['hover_reveal_duration'])) : 400,
+                        'hover_reveal_ease'     => ($styles_in['hover_reveal_ease'] ?? '') !== '' ? sanitize_text_field($styles_in['hover_reveal_ease']) : 'ease',
+                        'hover_reveal_angle'    => isset($styles_in['hover_reveal_angle']) && $styles_in['hover_reveal_angle'] !== '' ? intval($styles_in['hover_reveal_angle']) : 20,
+                        'hover_reveal_thickness'=> ($styles_in['hover_reveal_thickness'] ?? '') !== '' ? sanitize_text_field($styles_in['hover_reveal_thickness']) : '20%',
+                        'hover_reveal_direction'=> in_array(($styles_in['hover_reveal_direction'] ?? 'tl-br'), ['tl-br','br-tl'], true) ? $styles_in['hover_reveal_direction'] : 'tl-br',
                     ];
-                    $cfg = [ 'layout' => ['order'=>$order,'enabled'=>$enabled,'meta_keys'=>$meta_keys], 'styles'=>$styles ];
+                    $cfg = [ 'layout' => ['order'=>$order,'enabled'=>$enabled,'enabled_tab'=>$enabled_tab,'enabled_mob'=>$enabled_mob,'meta_keys'=>$meta_keys,'meta_wrap'=>$meta_wrap], 'styles'=>$styles ];
                     $saved = $this->set_styles_config($cpt, $cfg);
                     add_settings_error('cphub', 'styles_saved', 'Styles saved (version ' . substr($saved['version'],0,7) . ').', 'updated');
                 } else {
@@ -933,6 +1081,11 @@ final class CPT_Hub_Publisher
                 'key' => [ 'type' => 'string', 'required' => false ],
             ],
         ]);
+        register_rest_route('cphub/v1', '/health', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'rest_health'],
+            'permission_callback' => '__return_true',
+        ]);
     }
 
     public function rest_items(WP_REST_Request $request)
@@ -948,6 +1101,8 @@ final class CPT_Hub_Publisher
         $types = get_option(self::OPTION_KEY, []);
         $cpt   = sanitize_key((string)$request->get_param('cpt'));
         $per   = intval($request->get_param('n')) ?: intval($feed_settings['items_per_feed'] ?? 20);
+        // Cap page size to a safe maximum
+        $per   = max(1, min(100, $per));
         $paged = max(1, intval($request->get_param('paged')));
         $modified_since = sanitize_text_field((string)$request->get_param('modified_since'));
         $location = sanitize_key((string)$request->get_param('location'));
@@ -993,14 +1148,62 @@ final class CPT_Hub_Publisher
             $payload = [
                 'paged'       => (int)$paged,
                 'per_page'    => (int)$per,
-                'total'       => (int)$q->found_posts,
-                'total_pages' => (int)$q->max_num_pages,
+                'total'       => isset($q) ? (int)$q->found_posts : 0,
+                'total_pages' => isset($q) ? (int)$q->max_num_pages : 0,
                 'items'       => $items,
             ];
             set_transient($cache_key, $payload, 60 * 5);
         }
 
+        // Compute Last-Modified from items (max of item.modified)
+        $last_mod_ts = 0;
+        if (!empty($payload['items']) && is_array($payload['items'])) {
+            foreach ($payload['items'] as $it) {
+                if (!empty($it['modified'])) {
+                    $ts = strtotime($it['modified']);
+                    if ($ts && $ts > $last_mod_ts) $last_mod_ts = $ts;
+                }
+            }
+        }
+        $last_modified_http = $last_mod_ts ? gmdate('D, d M Y H:i:s', $last_mod_ts) . ' GMT' : '';
+
+        // Build an ETag from args + last modified + total
+        $etag_raw = md5(wp_json_encode([
+            'cpt' => $cpt,
+            'per' => $per,
+            'paged' => $paged,
+            'modified_since' => $modified_since,
+            'location' => $location,
+            'last' => $last_mod_ts,
+            'total' => (int)($payload['total'] ?? 0),
+            'v' => 1,
+        ]));
+        $etag = '"' . $etag_raw . '"';
+
+        // Conditional request handling
+        $if_none_match    = trim((string)$request->get_header('if-none-match'));
+        $if_modified_since= trim((string)$request->get_header('if-modified-since'));
+        $if_none_match    = $if_none_match !== '' ? $if_none_match : '';
+
+        $send_304 = false;
+        if ($if_none_match && $if_none_match === $etag) {
+            $send_304 = true;
+        } elseif ($last_mod_ts && $if_modified_since) {
+            $ims_ts = strtotime($if_modified_since);
+            if ($ims_ts && $ims_ts >= $last_mod_ts) $send_304 = true;
+        }
+
+        if ($send_304) {
+            $resp = new WP_REST_Response(null, 304);
+            $resp->header('ETag', $etag);
+            if ($last_modified_http) $resp->header('Last-Modified', $last_modified_http);
+            $resp->header('Cache-Control', 'public, max-age=300');
+            return $resp;
+        }
+
         $response = new WP_REST_Response($payload, 200);
+        $response->header('ETag', $etag);
+        if ($last_modified_http) $response->header('Last-Modified', $last_modified_http);
         $response->header('Cache-Control', 'public, max-age=300');
         return $response;
     }
@@ -1019,13 +1222,61 @@ final class CPT_Hub_Publisher
             return new WP_Error('cphub_bad_cpt', 'Unknown CPT: ' . $cpt, ['status' => 400]);
         }
         $cfg = $this->get_styles_config($cpt);
-        $css = $this->build_styles_css($cfg['styles']);
+        // Inject responsive visibility maps into styles for CSS builder
+        $styles = $cfg['styles'];
+        $enabled_tab = isset($cfg['layout']['enabled_tab']) ? (array)$cfg['layout']['enabled_tab'] : [];
+        $enabled_mob = isset($cfg['layout']['enabled_mob']) ? (array)$cfg['layout']['enabled_mob'] : [];
+        // Fallbacks: if not set, inherit desktop enabled
+        if (!$enabled_tab) {
+            $enabled_tab = [
+                'title' => !empty($cfg['layout']['enabled']['title']),
+                'image' => !empty($cfg['layout']['enabled']['image']),
+                'excerpt' => !empty($cfg['layout']['enabled']['excerpt']),
+                'content' => !empty($cfg['layout']['enabled']['content']),
+                'meta' => (!empty($cfg['layout']['enabled']['meta1']) || !empty($cfg['layout']['enabled']['meta2']) || !empty($cfg['layout']['enabled']['meta3'])),
+                'button' => !empty($cfg['layout']['enabled']['button']),
+            ];
+        }
+        if (!$enabled_mob) {
+            $enabled_mob = $enabled_tab;
+        }
+        $styles['__vis_tab'] = $enabled_tab;
+        $styles['__vis_mob'] = $enabled_mob;
+        // ETag from style version; Last-Modified from saved modified time
+        $etag = '"' . (string)($cfg['version'] ?? '0') . '"';
+        $mod_ts = isset($cfg['modified']) ? intval($cfg['modified']) : 0;
+        $last_modified_http = $mod_ts ? gmdate('D, d M Y H:i:s', $mod_ts) . ' GMT' : '';
+
+        // Conditional headers
+        $if_none_match     = trim((string)$request->get_header('if-none-match'));
+        $if_modified_since = trim((string)$request->get_header('if-modified-since'));
+        $send_304 = false;
+        if ($if_none_match && $if_none_match === $etag) {
+            $send_304 = true;
+        } elseif ($mod_ts && $if_modified_since) {
+            $ims_ts = strtotime($if_modified_since);
+            if ($ims_ts && $ims_ts >= $mod_ts) $send_304 = true;
+        }
+
+        if ($send_304) {
+            $resp = new WP_REST_Response(null, 304);
+            $resp->header('ETag', $etag);
+            if ($last_modified_http) $resp->header('Last-Modified', $last_modified_http);
+            $resp->header('Cache-Control', 'public, max-age=300');
+            return $resp;
+        }
+
+        // Build CSS only if needed to return 200
+        $css = $this->build_styles_css($styles);
         $payload = [
-            'version' => $cfg['version'],
-            'layout'  => $cfg['layout'],
-            'css'     => $css,
+            'version'     => $cfg['version'],
+            'layout'      => $cfg['layout'],
+            'layout_type' => isset($cfg['styles']['layout_type']) && $cfg['styles']['layout_type'] === 'grid' ? 'grid' : 'list',
+            'css'         => $css,
         ];
         $response = new WP_REST_Response($payload, 200);
+        $response->header('ETag', $etag);
+        if ($last_modified_http) $response->header('Last-Modified', $last_modified_http);
         $response->header('Cache-Control', 'public, max-age=300');
         return $response;
     }
@@ -1038,10 +1289,151 @@ final class CPT_Hub_Publisher
             'layout' => [
                 'order'     => ['title','image','excerpt','content','meta1','meta2','meta3','button'],
                 'enabled'   => ['title'=>true,'image'=>true,'excerpt'=>true,'content'=>false,'meta1'=>false,'meta2'=>false,'meta3'=>false,'button'=>true],
+                // responsive visibility (tablet/mobile) — per group key
+                'enabled_tab' => ['title'=>true,'image'=>true,'excerpt'=>true,'content'=>false,'meta'=>false,'button'=>true],
+                'enabled_mob' => ['title'=>true,'image'=>true,'excerpt'=>true,'content'=>false,'meta'=>false,'button'=>true],
                 'meta_keys' => ['meta1'=>'','meta2'=>'','meta3'=>''],
+                // placement of meta elements: 'thumb' or 'content'
+                'meta_wrap' => ['meta1'=>'content','meta2'=>'content','meta3'=>'content'],
             ],
-            'styles' => [ 'primary'=>'#0d6efd','text'=>'#111111','font_size'=>16,'spacing'=>12,'radius'=>8 ],
-            'version' => '0'
+            // Back-compat global styles + new per-element/card styles
+            'styles' => [
+                // layout presets
+                'layout_type'  => 'list', // 'list' or 'grid'
+                'grid_cols'    => 3,
+                'grid_gap'     => null, // null = derive from spacing
+                'grid_cols_tab' => 2,
+                'grid_cols_mob' => 1,
+                // legacy globals
+                'primary'    => '#0d6efd',
+                'text'       => '#111111',
+                'font_size'  => 16,
+                'spacing'    => 12,
+                'radius'     => 8,
+                // animations
+                'anim_enable'  => false,
+                // entrance stagger
+                'anim_stagger_enable'     => false,
+                'anim_stagger_duration'   => 400,
+                'anim_stagger_delay_step' => 80,
+                'anim_stagger_offset'     => 8,
+                'anim_stagger_ease'       => 'ease-out',
+                // card
+                'card_bg'        => '#ffffff',
+                'card_border'    => '#e5e7eb',
+                'card_shadow'    => false,
+                'card_padding'   => null,   // null = derive from spacing
+                'card_margin_y'  => null,   // null = derive from spacing
+                // title
+                'title_color'    => null,   // null = derive from primary
+                'title_size'     => null,   // null = derive from font_size
+                'title_weight'   => 600,
+                'title_mt'       => null,
+                'title_mb'       => null,
+                'title_pad_v'    => null,
+                'title_pad_h'    => null,
+                'title_lh'       => null,
+                'title_align'    => null,
+                'title_w'        => null,
+                'title_min_w'    => null,
+                'title_max_w'    => null,
+                // excerpt
+                'excerpt_color'  => '#333333',
+                'excerpt_size'   => null,
+                'excerpt_mt'     => null,
+                'excerpt_mb'     => null,
+                'excerpt_pad_v'  => null,
+                'excerpt_pad_h'  => null,
+                'excerpt_lh'     => null,
+                'excerpt_align'  => null,
+                'excerpt_w'      => null,
+                'excerpt_min_w'  => null,
+                'excerpt_max_w'  => null,
+                // content
+                'content_color'  => '#333333',
+                'content_size'   => null,
+                'content_mt'     => null,
+                'content_mb'     => null,
+                'content_pad_v'  => null,
+                'content_pad_h'  => null,
+                'content_lh'     => null,
+                'content_align'  => null,
+                'content_w'      => null,
+                'content_min_w'  => null,
+                'content_max_w'  => null,
+                // meta
+                'meta_color'     => '#555555',
+                'meta_size'      => null,
+                'meta_mt'        => null,
+                'meta_mb'        => null,
+                'meta_pad_v'     => null,
+                'meta_pad_h'     => null,
+                'meta_lh'        => null,
+                'meta_align'     => null,
+                'meta_w'         => null,
+                'meta_min_w'     => null,
+                'meta_max_w'     => null,
+                'meta_bg'        => '',
+                'meta_pos'       => '',
+                'meta_top'       => '',
+                'meta_right'     => '',
+                'meta_bottom'    => '',
+                'meta_left'      => '',
+                // image
+                'image_radius'   => null,   // null = derive from radius
+                'image_mt'       => null,
+                'image_mb'       => null,
+                'image_pad_v'    => null,
+                'image_pad_h'    => null,
+                'image_align'    => null,
+                'image_w'        => null,
+                'image_min_w'    => null,
+                'image_max_w'    => null,
+                // image hover scale
+                'image_hover_scale_enable' => false,
+                'image_hover_scale'        => 1.05,
+                'image_hover_duration'     => 300,
+                'image_hover_ease'         => 'ease',
+                // responsive scaling factors
+                'scale_tab'      => 1.0,
+                'scale_mob'      => 1.0,
+                // button
+                'button_bg'      => null,   // null = derive from primary
+                'button_text'    => '#ffffff',
+                'button_radius'  => null,   // null = derive from radius
+                'button_pad_v'   => 8,
+                'button_pad_h'   => 12,
+                'button_mt'      => null,
+                'button_mb'      => null,
+                'button_lh'      => null,
+                'button_shadow'  => false,
+                'button_shadow_css' => '',
+                'button_full'    => false,
+                'button_align'   => null,
+                'button_w'       => null,
+                'button_min_w'   => null,
+                'button_max_w'   => null,
+                'button_stick_bottom' => false,
+                // button ripple hover
+                'button_ripple_enable'   => false,
+                'button_ripple_color'    => null, // null = derive from primary or button_bg
+                'button_ripple_opacity'  => 0.7,
+                'button_ripple_scale'    => 2.25,
+                'button_ripple_duration' => 500,
+                'button_ripple_ease'     => 'ease',
+                // hover reveal overlay on thumbnail
+                'hover_reveal_enable'   => false,
+                'hover_reveal_style'    => 'solid',
+                'hover_reveal_color'    => '#ffffff',
+                'hover_reveal_opacity'  => 0.15,
+                'hover_reveal_duration' => 400,
+                'hover_reveal_ease'     => 'ease',
+                'hover_reveal_angle'    => 20,
+                'hover_reveal_thickness'=> '20%',
+                'hover_reveal_direction'=> 'tl-br',
+            ],
+            'version' => '0',
+            'modified' => 0,
         ];
         return array_replace_recursive($defaults, $cfg);
     }
@@ -1050,19 +1442,493 @@ final class CPT_Hub_Publisher
     {
         $all = get_option(self::OPTION_STYLES, []);
         $cfg['version'] = md5(wp_json_encode([$cfg['layout'] ?? [], $cfg['styles'] ?? []]));
+        $cfg['modified'] = time();
         $all[$cpt] = $cfg;
         update_option(self::OPTION_STYLES, $all);
         return $cfg;
     }
 
+    public function rest_health(WP_REST_Request $request)
+    {
+        global $wpdb;
+        $types = get_option(self::OPTION_KEY, []);
+        $styles_all = get_option(self::OPTION_STYLES, []);
+
+        // Feed cache stats
+        $cache_count = (int)$wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s",
+            '_transient_cphub_feed_%', '_transient_timeout_cphub_feed_%'
+        ));
+        $timeout_min = (int)$wpdb->get_var($wpdb->prepare(
+            "SELECT MIN(option_value) FROM {$wpdb->options} WHERE option_name LIKE %s",
+            '_transient_timeout_cphub_feed_%'
+        ));
+        $now = time();
+        $ttl_remaining = $timeout_min ? max(0, $timeout_min - $now) : null;
+
+        $example_cpt = $types ? key($types) : '';
+        $feed_base = home_url('/feed/cphub');
+        $rest_base = rest_url('cphub/v1');
+
+        $styles = [];
+        foreach ($styles_all as $cpt => $cfg) {
+            $styles[$cpt] = [
+                'version'  => isset($cfg['version']) ? (string)$cfg['version'] : '0',
+                'modified' => isset($cfg['modified']) ? (int)$cfg['modified'] : 0,
+            ];
+        }
+
+        $payload = [
+            'status' => 'ok',
+            'time' => gmdate('c', $now),
+            'feed' => [
+                'base' => (string)$feed_base,
+                'example' => $example_cpt ? trailingslashit($feed_base) . $example_cpt : (string)$feed_base,
+                'cache_entries' => $cache_count,
+                'cache_ttl_seconds' => 300,
+                'any_cache_expires_in' => $ttl_remaining,
+            ],
+            'rest' => [
+                'base' => (string)$rest_base,
+                'items_example' => (string)rest_url('cphub/v1/items') . ($example_cpt ? '?cpt=' . $example_cpt : ''),
+                'assets_example' => (string)rest_url('cphub/v1/assets') . ($example_cpt ? '?cpt=' . $example_cpt : ''),
+            ],
+            'styles' => $styles,
+        ];
+        $resp = new WP_REST_Response($payload, 200);
+        $resp->header('Cache-Control', 'no-store');
+        return $resp;
+    }
+
+    private function hex_to_rgba($hex, $alpha = 1.0)
+    {
+        $hex = trim((string)$hex);
+        if ($hex === '') return 'rgba(0,0,0,0)';
+        if ($hex[0] === '#') $hex = substr($hex, 1);
+        if (strlen($hex) === 3) {
+            $r = hexdec(str_repeat($hex[0], 2));
+            $g = hexdec(str_repeat($hex[1], 2));
+            $b = hexdec(str_repeat($hex[2], 2));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        $a = max(0.0, min(1.0, (float)$alpha));
+        return 'rgba(' . $r . ',' . $g . ',' . $b . ',' . $a . ')';
+    }
+
     private function build_styles_css(array $styles)
     {
+        // Base legacy globals
         $primary = sanitize_hex_color($styles['primary'] ?? '#0d6efd') ?: '#0d6efd';
         $text    = sanitize_hex_color($styles['text'] ?? '#111111') ?: '#111111';
         $fs      = max(10, intval($styles['font_size'] ?? 16));
         $sp      = max(0, intval($styles['spacing'] ?? 12));
         $rad     = max(0, intval($styles['radius'] ?? 8));
-        $css = ".cphub-card{font-size:{$fs}px;color:{$text};margin:{$sp}px 0;padding:{$sp}px;border:1px solid #e5e7eb;border-radius:{$rad}px} .cphub-card .cphub-title a{color:{$primary};text-decoration:none} .cphub-btn{display:inline-block;background:{$primary};color:#fff;padding:8px 12px;border-radius:".$rad."px;text-decoration:none} .cphub-meta{color:#555;font-size:".max(10,$fs-2)."px} .cphub-excerpt{color:#333} .cphub-img{display:block;max-width:100%;height:auto;border-radius:".$rad."px}";
+
+        // Card
+        $card_bg      = sanitize_hex_color($styles['card_bg'] ?? '#ffffff') ?: '#ffffff';
+        $card_border  = sanitize_hex_color($styles['card_border'] ?? '#e5e7eb') ?: '#e5e7eb';
+        $card_shadow  = !empty($styles['card_shadow']);
+        $card_pad     = isset($styles['card_padding']) ? max(0, intval($styles['card_padding'])) : $sp;
+        $card_my      = isset($styles['card_margin_y']) ? max(0, intval($styles['card_margin_y'])) : $sp;
+
+        // Title
+        $title_color  = sanitize_hex_color($styles['title_color'] ?? '') ?: $primary;
+        $title_size   = isset($styles['title_size']) ? max(10, intval($styles['title_size'])) : $fs + 2;
+        $title_weight = isset($styles['title_weight']) ? max(100, min(900, intval($styles['title_weight']))) : 600;
+
+        // Excerpt
+        $excerpt_color = sanitize_hex_color($styles['excerpt_color'] ?? '#333333') ?: '#333333';
+        $excerpt_size  = isset($styles['excerpt_size']) ? max(10, intval($styles['excerpt_size'])) : $fs;
+
+        // Content
+        $content_color = sanitize_hex_color($styles['content_color'] ?? '#333333') ?: '#333333';
+        $content_size  = isset($styles['content_size']) ? max(10, intval($styles['content_size'])) : $fs;
+
+        // Meta
+        $meta_color = sanitize_hex_color($styles['meta_color'] ?? '#555555') ?: '#555555';
+        $meta_size  = isset($styles['meta_size']) ? max(10, intval($styles['meta_size'])) : max(10, $fs - 2);
+
+        // Image
+        $image_radius = isset($styles['image_radius']) ? max(0, intval($styles['image_radius'])) : $rad;
+
+        // Button
+        $btn_bg     = sanitize_hex_color($styles['button_bg'] ?? '') ?: $primary;
+        $btn_text   = sanitize_hex_color($styles['button_text'] ?? '#ffffff') ?: '#ffffff';
+        $btn_rad    = isset($styles['button_radius']) ? max(0, intval($styles['button_radius'])) : $rad;
+        $btn_pv     = max(0, intval($styles['button_pad_v'] ?? 8));
+        $btn_ph     = max(0, intval($styles['button_pad_h'] ?? 12));
+
+        $shadow_css = $card_shadow ? 'box-shadow:0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.10);' : '';
+
+        $css = '';
+        // Collection presets (list/grid)
+        $layout_type = ($styles['layout_type'] ?? 'list') === 'grid' ? 'grid' : 'list';
+        $grid_cols   = max(1, intval($styles['grid_cols'] ?? 3));
+        $grid_gap    = isset($styles['grid_gap']) ? max(0, intval($styles['grid_gap'])) : $sp;
+        if ($layout_type === 'grid') {
+            $css .= ".cphub-grid{display:grid;grid-template-columns:repeat({$grid_cols},minmax(0,1fr));gap:{$grid_gap}px}";
+        } else {
+            $css .= ".cphub-list{display:block}";
+        }
+        $css .= ".cphub-card{font-size:{$fs}px;color:{$text};margin:{$card_my}px 0;padding:{$card_pad}px;background:{$card_bg};border:1px solid {$card_border};border-radius:{$rad}px;{$shadow_css}}";
+        // Animations — basic fade OR stagger if enabled
+        $stagger_enable = !empty($styles['anim_stagger_enable']);
+        if (!empty($styles['anim_enable']) && !$stagger_enable) {
+            $css .= '@keyframes cphubFadeIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:none}}';
+            $css .= '.cphub-card{animation:cphubFadeIn .4s ease-out both}';
+        }
+        // Button hover transitions stay when anims enabled
+        if (!empty($styles['anim_enable'])) {
+            $css .= '.cphub-card .cphub-btn{transition:transform .2s ease, box-shadow .2s ease, background-color .2s ease}';
+            $css .= '.cphub-card .cphub-btn:hover{transform:translateY(-1px)}';
+        }
+        // Staggered entrance animation
+        if ($stagger_enable) {
+            $dur  = max(50, intval($styles['anim_stagger_duration'] ?? 400));
+            $step = max(0, intval($styles['anim_stagger_delay_step'] ?? 80));
+            $off  = max(0, intval($styles['anim_stagger_offset'] ?? 8));
+            $ease = trim((string)($styles['anim_stagger_ease'] ?? 'ease-out'));
+            if ($ease === '') $ease = 'ease-out';
+            $css .= '@keyframes cphubStaggerIn{0%{opacity:0;transform:translateY(' . $off . 'px)}100%{opacity:1;transform:none}}';
+            $css .= '.cphub-card{opacity:0;transform:translateY(' . $off . 'px);animation:cphubStaggerIn ' . $dur . 'ms ' . $ease . ' forwards}';
+            // nth-child delays for first N items (list and grid)
+            $max = 12;
+            for ($i = 1; $i <= $max; $i++) {
+                $delay = ($i - 1) * $step;
+                $css .= '.cphub-list .cphub-card:nth-child(' . $i . '){animation-delay:' . $delay . 'ms}';
+                $css .= '.cphub-grid > .cphub-card:nth-child(' . $i . '){animation-delay:' . $delay . 'ms}';
+            }
+        }
+        // Reduced motion guard
+        if (!empty($styles['anim_enable']) || $stagger_enable) {
+            $css .= '@media (prefers-reduced-motion: reduce){.cphub-card{animation:none}.cphub-card .cphub-btn{transition:none}}';
+        }
+
+        // Thumb/content wrappers and optional hover reveal overlay
+        $css .= ".cphub-thumb-wrap,.cphub-content-wrap{position:relative}";
+        if (!empty($styles['hover_reveal_enable'])) {
+            $angle = intval($styles['hover_reveal_angle'] ?? 20);
+            $thick = trim((string)($styles['hover_reveal_thickness'] ?? '20%'));
+            if ($thick === '') $thick = '20%';
+            $durHR = max(0, intval($styles['hover_reveal_duration'] ?? 400));
+            $easeHR = trim((string)($styles['hover_reveal_ease'] ?? 'ease'));
+            if ($easeHR === '') $easeHR = 'ease';
+            $color = sanitize_hex_color($styles['hover_reveal_color'] ?? '#ffffff') ?: '#ffffff';
+            $op    = max(0.0, min(1.0, (float)($styles['hover_reveal_opacity'] ?? 0.15)));
+            $rgba  = $this->hex_to_rgba($color, $op);
+            $dir   = in_array(($styles['hover_reveal_direction'] ?? 'tl-br'), ['tl-br','br-tl'], true) ? $styles['hover_reveal_direction'] : 'tl-br';
+            $start = $dir === 'tl-br' ? '-150%' : '150%';
+            $end   = $dir === 'tl-br' ? '150%' : '-150%';
+            $style = in_array(($styles['hover_reveal_style'] ?? 'solid'), ['solid','sheen'], true) ? $styles['hover_reveal_style'] : 'solid';
+            $css .= '.cphub-thumb-wrap{overflow:hidden}';
+            if ($style === 'sheen') {
+                // gradient sheen: width uses thickness, skew across
+                $grad = 'linear-gradient(to right, rgba(255,255,255,0) 0%,' . $rgba . ' 100%)';
+                $css .= '.cphub-thumb-wrap::before{content:"";position:absolute;top:0;left:0;width:' . $thick . ';height:100%;pointer-events:none;background:' . $grad . ';transform:translateX(' . $start . ') skewX(' . $angle . 'deg);transition:transform ' . $durHR . 'ms ' . $easeHR . ';z-index: 1;}';
+                $css .= '.cphub-card:hover .cphub-thumb-wrap::before{transform:translateX(' . $end . ') skewX(' . $angle . 'deg);}';
+            } else {
+                // solid overlay: inset thickness, diagonal sweep via rotate
+                $css .= '.cphub-thumb-wrap::before{content:"";position:absolute;inset:calc(-1 * ' . $thick . ');pointer-events:none;background:' . $rgba . ';transform:translateX(' . $start . ') rotate(' . $angle . 'deg);transition:transform ' . $durHR . 'ms ' . $easeHR . ';}';
+                $css .= '.cphub-card:hover .cphub-thumb-wrap::before{transform:translateX(' . $end . ') rotate(' . $angle . 'deg);}';
+            }
+        }
+        // Title spacing
+        $title_mt = isset($styles['title_mt']) ? max(0, intval($styles['title_mt'])) : null;
+        $title_mb = isset($styles['title_mb']) ? max(0, intval($styles['title_mb'])) : max(4, intval($sp/2));
+        $title_pad_v = isset($styles['title_pad_v']) ? max(0, intval($styles['title_pad_v'])) : null;
+        $title_pad_h = isset($styles['title_pad_h']) ? max(0, intval($styles['title_pad_h'])) : null;
+        $title_box = '';
+        if ($title_mt !== null) $title_box .= 'margin-top:'.$title_mt.'px;';
+        if ($title_mb !== null) $title_box .= 'margin-bottom:'.$title_mb.'px;';
+        if ($title_pad_v !== null || $title_pad_h !== null) {
+            $pv = $title_pad_v !== null ? $title_pad_v : 0;
+            $ph = $title_pad_h !== null ? $title_pad_h : 0;
+            $title_box .= 'padding:'.$pv.'px '.$ph.'px;';
+        }
+        $title_align = isset($styles['title_align']) && in_array($styles['title_align'], ['left','center','right'], true) ? $styles['title_align'] : null;
+        if ($title_align) $title_box .= 'text-align:'.$title_align.';';
+        $tw = trim((string)($styles['title_w'] ?? ''));
+        $tmin = trim((string)($styles['title_min_w'] ?? ''));
+        $tmax = trim((string)($styles['title_max_w'] ?? ''));
+        if ($tw !== '') $title_box .= 'width:'.$tw.';';
+        if ($tmin !== '') $title_box .= 'min-width:'.$tmin.';';
+        if ($tmax !== '') $title_box .= 'max-width:'.$tmax.';';
+        $t_lh = isset($styles['title_lh']) ? max(0.8, floatval($styles['title_lh'])) : null;
+        if ($t_lh !== null) $title_box .= 'line-height:'.$t_lh.';';
+        $css .= ".cphub-card .cphub-title{ {$title_box} font-size:{$title_size}px; font-weight:{$title_weight};box-sizing:border-box;max-width:100%;}";
+        $css .= ".cphub-card .cphub-title a{color:{$title_color};text-decoration:none}";
+        // Excerpt spacing
+        $excerpt_mt = isset($styles['excerpt_mt']) ? max(0, intval($styles['excerpt_mt'])) : null;
+        $excerpt_mb = isset($styles['excerpt_mb']) ? max(0, intval($styles['excerpt_mb'])) : null;
+        $excerpt_pv = isset($styles['excerpt_pad_v']) ? max(0, intval($styles['excerpt_pad_v'])) : null;
+        $excerpt_ph = isset($styles['excerpt_pad_h']) ? max(0, intval($styles['excerpt_pad_h'])) : null;
+        $excerpt_box = '';
+        if ($excerpt_mt !== null) $excerpt_box .= 'margin-top:'.$excerpt_mt.'px;';
+        if ($excerpt_mb !== null) $excerpt_box .= 'margin-bottom:'.$excerpt_mb.'px;';
+        if ($excerpt_pv !== null || $excerpt_ph !== null) $excerpt_box .= 'padding:'.($excerpt_pv?:0).'px '.($excerpt_ph?:0).'px;';
+        $ex_align = isset($styles['excerpt_align']) && in_array($styles['excerpt_align'], ['left','center','right'], true) ? $styles['excerpt_align'] : null;
+        if ($ex_align) $excerpt_box .= 'text-align:'.$ex_align.';';
+        $ex_w = trim((string)($styles['excerpt_w'] ?? ''));
+        $ex_min = trim((string)($styles['excerpt_min_w'] ?? ''));
+        $ex_max = trim((string)($styles['excerpt_max_w'] ?? ''));
+        if ($ex_w !== '') $excerpt_box .= 'width:'.$ex_w.';';
+        if ($ex_min !== '') $excerpt_box .= 'min-width:'.$ex_min.';';
+        if ($ex_max !== '') $excerpt_box .= 'max-width:'.$ex_max.';';
+        $ex_lh = isset($styles['excerpt_lh']) ? max(0.8, floatval($styles['excerpt_lh'])) : null;
+        if ($ex_lh !== null) $excerpt_box .= 'line-height:'.$ex_lh.';';
+        $css .= ".cphub-card .cphub-excerpt{ {$excerpt_box} color:{$excerpt_color}; font-size:{$excerpt_size}px;box-sizing:border-box;max-width:100%;}";
+
+        // Content spacing
+        $content_mt = isset($styles['content_mt']) ? max(0, intval($styles['content_mt'])) : null;
+        $content_mb = isset($styles['content_mb']) ? max(0, intval($styles['content_mb'])) : null;
+        $content_pv = isset($styles['content_pad_v']) ? max(0, intval($styles['content_pad_v'])) : null;
+        $content_ph = isset($styles['content_pad_h']) ? max(0, intval($styles['content_pad_h'])) : null;
+        $content_box = '';
+        if ($content_mt !== null) $content_box .= 'margin-top:'.$content_mt.'px;';
+        if ($content_mb !== null) $content_box .= 'margin-bottom:'.$content_mb.'px;';
+        if ($content_pv !== null || $content_ph !== null) $content_box .= 'padding:'.($content_pv?:0).'px '.($content_ph?:0).'px;';
+        $co_align = isset($styles['content_align']) && in_array($styles['content_align'], ['left','center','right'], true) ? $styles['content_align'] : null;
+        if ($co_align) $content_box .= 'text-align:'.$co_align.';';
+        $co_w = trim((string)($styles['content_w'] ?? ''));
+        $co_min = trim((string)($styles['content_min_w'] ?? ''));
+        $co_max = trim((string)($styles['content_max_w'] ?? ''));
+        if ($co_w !== '') $content_box .= 'width:'.$co_w.';';
+        if ($co_min !== '') $content_box .= 'min-width:'.$co_min.';';
+        if ($co_max !== '') $content_box .= 'max-width:'.$co_max.';';
+        $co_lh = isset($styles['content_lh']) ? max(0.8, floatval($styles['content_lh'])) : null;
+        if ($co_lh !== null) $content_box .= 'line-height:'.$co_lh.';';
+        $css .= ".cphub-card .cphub-content{ {$content_box} color:{$content_color}; font-size:{$content_size}px;box-sizing:border-box;max-width:100%;}";
+
+        // Meta spacing
+        $meta_mt = isset($styles['meta_mt']) ? max(0, intval($styles['meta_mt'])) : null;
+        $meta_mb = isset($styles['meta_mb']) ? max(0, intval($styles['meta_mb'])) : null;
+        $meta_pv = isset($styles['meta_pad_v']) ? max(0, intval($styles['meta_pad_v'])) : null;
+        $meta_ph = isset($styles['meta_pad_h']) ? max(0, intval($styles['meta_pad_h'])) : null;
+        $meta_box = '';
+        if ($meta_mt !== null) $meta_box .= 'margin-top:'.$meta_mt.'px;';
+        if ($meta_mb !== null) $meta_box .= 'margin-bottom:'.$meta_mb.'px;';
+        if ($meta_pv !== null || $meta_ph !== null) $meta_box .= 'padding:'.($meta_pv?:0).'px '.($meta_ph?:0).'px;';
+        $me_align = isset($styles['meta_align']) && in_array($styles['meta_align'], ['left','center','right'], true) ? $styles['meta_align'] : null;
+        if ($me_align) $meta_box .= 'text-align:'.$me_align.';';
+        $me_w = trim((string)($styles['meta_w'] ?? ''));
+        $me_min = trim((string)($styles['meta_min_w'] ?? ''));
+        $me_max = trim((string)($styles['meta_max_w'] ?? ''));
+        if ($me_w !== '') $meta_box .= 'width:'.$me_w.';';
+        if ($me_min !== '') $meta_box .= 'min-width:'.$me_min.';';
+        if ($me_max !== '') $meta_box .= 'max-width:'.$me_max.';';
+        $me_lh = isset($styles['meta_lh']) ? max(0.8, floatval($styles['meta_lh'])) : null;
+        if ($me_lh !== null) $meta_box .= 'line-height:'.$me_lh.';';
+        $meta_bg = trim((string)($styles['meta_bg'] ?? ''));
+        $meta_pos = trim((string)($styles['meta_pos'] ?? ''));
+        $meta_top = trim((string)($styles['meta_top'] ?? ''));
+        $meta_right = trim((string)($styles['meta_right'] ?? ''));
+        $meta_bottom = trim((string)($styles['meta_bottom'] ?? ''));
+        $meta_left = trim((string)($styles['meta_left'] ?? ''));
+        if ($meta_bg !== '') $meta_box .= 'background:'.$meta_bg.';';
+        if ($meta_pos !== '') $meta_box .= 'position:'.$meta_pos.';';
+        if ($meta_top !== '') $meta_box .= 'top:'.$meta_top.';';
+        if ($meta_right !== '') $meta_box .= 'right:'.$meta_right.';';
+        if ($meta_bottom !== '') $meta_box .= 'bottom:'.$meta_bottom.';';
+        if ($meta_left !== '') $meta_box .= 'left:'.$meta_left.';';
+        $css .= ".cphub-card .cphub-meta{ {$meta_box} color:{$meta_color};font-size:{$meta_size}px;box-sizing:border-box;}";
+
+        // Image spacing
+        $image_mt = isset($styles['image_mt']) ? max(0, intval($styles['image_mt'])) : null;
+        $image_mb = isset($styles['image_mb']) ? max(0, intval($styles['image_mb'])) : null;
+        $image_pv = isset($styles['image_pad_v']) ? max(0, intval($styles['image_pad_v'])) : null;
+        $image_ph = isset($styles['image_pad_h']) ? max(0, intval($styles['image_pad_h'])) : null;
+        $image_box = '';
+        if ($image_mt !== null) $image_box .= 'margin-top:'.$image_mt.'px;';
+        if ($image_mb !== null) $image_box .= 'margin-bottom:'.$image_mb.'px;';
+        if ($image_pv !== null || $image_ph !== null) $image_box .= 'padding:'.($image_pv?:0).'px '.($image_ph?:0).'px;';
+        $im_align = isset($styles['image_align']) && in_array($styles['image_align'], ['left','center','right'], true) ? $styles['image_align'] : null;
+        if ($im_align === 'center') $image_box .= 'margin-left:auto;margin-right:auto;display:block;';
+        if ($im_align === 'right') $image_box .= 'margin-left:auto;display:block;';
+        $im_w = trim((string)($styles['image_w'] ?? ''));
+        $im_min = trim((string)($styles['image_min_w'] ?? ''));
+        $im_max = trim((string)($styles['image_max_w'] ?? ''));
+        if ($im_w !== '') $image_box .= 'width:'.$im_w.';';
+        if ($im_min !== '') $image_box .= 'min-width:'.$im_min.';';
+        if ($im_max !== '') $image_box .= 'max-width:'.$im_max.';';
+        $css .= ".cphub-card .cphub-img{ {$image_box} display:block;width:100%;max-width:100%;height:auto;border-radius:{$image_radius}px;box-sizing:border-box;}";
+        if (!empty($styles['image_hover_scale_enable'])) {
+            $scale = max(1.0, (float)($styles['image_hover_scale'] ?? 1.05));
+            $durI  = max(0, intval($styles['image_hover_duration'] ?? 300));
+            $easeI = trim((string)($styles['image_hover_ease'] ?? 'ease'));
+            if ($easeI === '') $easeI = 'ease';
+            // ensure the image clips within thumb wrap when scaling
+            $css .= '.cphub-thumb-wrap{overflow:hidden}';
+            $css .= '.cphub-card .cphub-img{transition:transform ' . $durI . 'ms ' . $easeI . ';will-change:transform}';
+            $css .= '.cphub-card:hover .cphub-img{transform:scale(' . $scale . ')}';
+        }
+
+        // Button spacing
+        $button_mt = isset($styles['button_mt']) ? max(0, intval($styles['button_mt'])) : null;
+        $button_mb = isset($styles['button_mb']) ? max(0, intval($styles['button_mb'])) : null;
+        $btn_box = '';
+        if ($button_mt !== null) $btn_box .= 'margin-top:'.$button_mt.'px;';
+        if ($button_mb !== null) $btn_box .= 'margin-bottom:'.$button_mb.'px;';
+        $btn_align = isset($styles['button_align']) && in_array($styles['button_align'], ['left','center','right'], true) ? $styles['button_align'] : null;
+        if ($btn_align === 'center') $btn_box .= 'display:block;margin-left:auto;margin-right:auto;text-align:center;';
+        if ($btn_align === 'right') $btn_box .= 'display:block;margin-left:auto;text-align:right;';
+        $bt_w = trim((string)($styles['button_w'] ?? ''));
+        $bt_min = trim((string)($styles['button_min_w'] ?? ''));
+        $bt_max = trim((string)($styles['button_max_w'] ?? ''));
+        if ($bt_w !== '') $btn_box .= 'width:'.$bt_w.';';
+        if ($bt_min !== '') $btn_box .= 'min-width:'.$bt_min.';';
+        if ($bt_max !== '') $btn_box .= 'max-width:'.$bt_max.';';
+        $btn_lh = isset($styles['button_lh']) ? max(0.8, floatval($styles['button_lh'])) : null;
+        $shadow_custom = trim((string)($styles['button_shadow_css'] ?? ''));
+        if ($shadow_custom !== '') {
+            $btn_shadow_css = 'box-shadow:'.$shadow_custom.';';
+        } else {
+            $btn_shadow_css = !empty($styles['button_shadow']) ? 'box-shadow:0 1px 2px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.12);' : '';
+        }
+        $css .= ".cphub-card .cphub-btn{ {$btn_box} background:{$btn_bg};color:{$btn_text};padding:{$btn_pv}px {$btn_ph}px;border-radius:{$btn_rad}px;box-sizing:border-box;".($btn_lh!==null?'line-height:'.$btn_lh.';':'').$btn_shadow_css."text-decoration:none}";
+        if (!empty($styles['button_stick_bottom'])) {
+            $css .= '.cphub-card{display:flex;flex-direction:column;}';
+            $css .= '.cphub-content-wrap{display:flex;flex-direction:column;flex:1;}';
+            $css .= '.cphub-card .cphub-btn{margin-top:auto;}';
+        }
+
+        // Button ripple hover via layered background (center by default, can follow cursor in preview)
+        if (!empty($styles['button_ripple_enable'])) {
+            $rip_color = isset($styles['button_ripple_color']) && $styles['button_ripple_color'] ? $styles['button_ripple_color'] : ($styles['button_bg'] ?: $primary);
+            $rip_rgba  = $this->hex_to_rgba($rip_color, max(0.0, min(1.0, (float)($styles['button_ripple_opacity'] ?? 0.7))));
+            $rip_scale = max(1.0, (float)($styles['button_ripple_scale'] ?? 2.25));
+            $rip_dur   = max(0, intval($styles['button_ripple_duration'] ?? 500));
+            $rip_ease  = trim((string)($styles['button_ripple_ease'] ?? 'ease')) ?: 'ease';
+            // Background ripple method (fallback) only when element does not have overlay child
+            $css .= '.cphub-card .cphub-btn:not(.has-hover){position:relative;overflow:hidden;background-image:radial-gradient(circle at var(--cphub-btn-x,50%) var(--cphub-btn-y,50%), ' . $rip_rgba . ' 0%,' . $rip_rgba . ' 60%, transparent 61%), linear-gradient(' . $btn_bg . ',' . $btn_bg . ');}';
+            $css .= '.cphub-card .cphub-btn:not(.has-hover){background-repeat:no-repeat;background-size:0 0, auto;transition:background-size ' . $rip_dur . 'ms ' . $rip_ease . ';}';
+            $css .= '.cphub-card .cphub-btn:not(.has-hover):hover{background-size:calc(100% * ' . $rip_scale . ') calc(100% * ' . $rip_scale . '), auto;}';
+            // Overlay ripple method (matches reference markup) when .cphub-btn-hover child exists
+            $css .= '.cphub-card .cphub-btn.has-hover{position:relative;overflow:hidden}';
+            $css .= '.cphub-card .cphub-btn .cphub-btn-inner{position:relative;display:inline-block;z-index:1}';
+            $css .= '.cphub-card .cphub-btn .cphub-btn-base{display:flex;align-items:center;position:relative;color:' . $btn_text . ';transition:all ' . max(200, $rip_dur) . 'ms ' . $rip_ease . ';z-index:1}';
+            $css .= '.cphub-card .cphub-btn .cphub-btn-hover{position:absolute;display:inline-block;top:0;left:0;width:0;height:0;transform:translate(-50%,-50%);border-radius:50%;z-index:0;opacity:' . max(0.0, min(1.0, (float)($styles['button_ripple_opacity'] ?? 0.7))) . ';background-color:' . $rip_color . ';transition:all ' . $rip_dur . 'ms ' . $rip_ease . ';}';
+            $css .= '.cphub-card .cphub-btn:hover .cphub-btn-hover{width:calc(100% * ' . $rip_scale . ');padding-top:calc(100% * ' . $rip_scale . ');opacity:1}';
+        }
+
+        // Responsive toggles and scaling
+        $tab_break = 1024; // px
+        $mob_break = 640;  // px
+        // Default visibility fallbacks (if not present, keep visible)
+        $vis_tab = isset($styles['__vis_tab']) && is_array($styles['__vis_tab']) ? $styles['__vis_tab'] : [];
+        $vis_mob = isset($styles['__vis_mob']) && is_array($styles['__vis_mob']) ? $styles['__vis_mob'] : [];
+        $css_tab = '';
+        if (isset($vis_tab['title']) && !$vis_tab['title']) $css_tab .= '.cphub-card .cphub-title{display:none !important;}';
+        if (isset($vis_tab['image']) && !$vis_tab['image']) $css_tab .= '.cphub-card .cphub-img{display:none !important;}';
+        if (isset($vis_tab['excerpt']) && !$vis_tab['excerpt']) $css_tab .= '.cphub-card .cphub-excerpt{display:none !important;}';
+        if (isset($vis_tab['content']) && !$vis_tab['content']) $css_tab .= '.cphub-card .cphub-content{display:none !important;}';
+        if (isset($vis_tab['meta']) && !$vis_tab['meta']) $css_tab .= '.cphub-card .cphub-meta{display:none !important;}';
+        if (isset($vis_tab['button']) && !$vis_tab['button']) $css_tab .= '.cphub-card .cphub-btn{display:none !important;}';
+        // Scaling tablet
+        $s_tab = isset($styles['scale_tab']) ? max(0.1, floatval($styles['scale_tab'])) : 1.0;
+        if ($s_tab !== 1.0) {
+            $fs_t = max(10, intval(round($fs * $s_tab)));
+            $sp_t = max(0, intval(round($sp * $s_tab)));
+            $rad_t = max(0, intval(round($rad * $s_tab)));
+            $title_size_t = max(10, intval(round($title_size * $s_tab)));
+            $excerpt_size_t = max(10, intval(round($excerpt_size * $s_tab)));
+            $content_size_t = max(10, intval(round($content_size * $s_tab)));
+            $meta_size_t = max(10, intval(round($meta_size * $s_tab)));
+            $btn_pv_t = max(0, intval(round($btn_pv * $s_tab)));
+            $btn_ph_t = max(0, intval(round($btn_ph * $s_tab)));
+            $card_pad_t = max(0, intval(round($card_pad * $s_tab)));
+            $card_my_t  = max(0, intval(round($card_my * $s_tab)));
+            $image_radius_t = max(0, intval(round($image_radius * $s_tab)));
+            $css_tab .= '.cphub-card{font-size:'.$fs_t.'px;margin:'.$card_my_t.'px 0;padding:'.$card_pad_t.'px;border-radius:'.$rad_t.'px;}';
+            $css_tab .= '.cphub-card .cphub-title{font-size:'.$title_size_t.'px;}';
+            $css_tab .= '.cphub-card .cphub-excerpt{font-size:'.$excerpt_size_t.'px;}';
+            $css_tab .= '.cphub-card .cphub-content{font-size:'.$content_size_t.'px;}';
+            $css_tab .= '.cphub-card .cphub-meta{font-size:'.$meta_size_t.'px;}';
+            $css_tab .= '.cphub-card .cphub-img{border-radius:'.$image_radius_t.'px;}';
+            $css_tab .= '.cphub-card .cphub-btn{padding:'.$btn_pv_t.'px '.$btn_ph_t.'px;border-radius:'.max(0, intval(round($btn_rad * $s_tab))).'px;}';
+            // Scale margins/padding when explicitly set
+            if ($title_mt !== null || $title_mb !== null) {
+                if ($title_mt !== null) $css_tab .= '.cphub-card .cphub-title{margin-top:'.max(0, intval(round($title_mt * $s_tab))).'px;}';
+                if ($title_mb !== null) $css_tab .= '.cphub-card .cphub-title{margin-bottom:'.max(0, intval(round($title_mb * $s_tab))).'px;}';
+            }
+            if ($title_pad_v !== null || $title_pad_h !== null) $css_tab .= '.cphub-card .cphub-title{padding:'.max(0, intval(round(($title_pad_v?:0) * $s_tab))).'px '.max(0, intval(round(($title_pad_h?:0) * $s_tab))).'px;}';
+            if ($excerpt_mt !== null) $css_tab .= '.cphub-card .cphub-excerpt{margin-top:'.max(0, intval(round($excerpt_mt * $s_tab))).'px;}';
+            if ($excerpt_mb !== null) $css_tab .= '.cphub-card .cphub-excerpt{margin-bottom:'.max(0, intval(round($excerpt_mb * $s_tab))).'px;}';
+            if ($excerpt_pv !== null || $excerpt_ph !== null) $css_tab .= '.cphub-card .cphub-excerpt{padding:'.max(0, intval(round(($excerpt_pv?:0) * $s_tab))).'px '.max(0, intval(round(($excerpt_ph?:0) * $s_tab))).'px;}';
+            if ($content_mt !== null) $css_tab .= '.cphub-card .cphub-content{margin-top:'.max(0, intval(round($content_mt * $s_tab))).'px;}';
+            if ($content_mb !== null) $css_tab .= '.cphub-card .cphub-content{margin-bottom:'.max(0, intval(round($content_mb * $s_tab))).'px;}';
+            if ($content_pv !== null || $content_ph !== null) $css_tab .= '.cphub-card .cphub-content{padding:'.max(0, intval(round(($content_pv?:0) * $s_tab))).'px '.max(0, intval(round(($content_ph?:0) * $s_tab))).'px;}';
+            if ($meta_mt !== null) $css_tab .= '.cphub-card .cphub-meta{margin-top:'.max(0, intval(round($meta_mt * $s_tab))).'px;}';
+            if ($meta_mb !== null) $css_tab .= '.cphub-card .cphub-meta{margin-bottom:'.max(0, intval(round($meta_mb * $s_tab))).'px;}';
+            if ($meta_pv !== null || $meta_ph !== null) $css_tab .= '.cphub-card .cphub-meta{padding:'.max(0, intval(round(($meta_pv?:0) * $s_tab))).'px '.max(0, intval(round(($meta_ph?:0) * $s_tab))).'px;}';
+            if ($image_mt !== null) $css_tab .= '.cphub-card .cphub-img{margin-top:'.max(0, intval(round($image_mt * $s_tab))).'px;}';
+            if ($image_mb !== null) $css_tab .= '.cphub-card .cphub-img{margin-bottom:'.max(0, intval(round($image_mb * $s_tab))).'px;}';
+            if ($image_pv !== null || $image_ph !== null) $css_tab .= '.cphub-card .cphub-img{padding:'.max(0, intval(round(($image_pv?:0) * $s_tab))).'px '.max(0, intval(round(($image_ph?:0) * $s_tab))).'px;}';
+            if ($button_mt !== null) $css_tab .= '.cphub-card .cphub-btn{margin-top:'.max(0, intval(round($button_mt * $s_tab))).'px;}';
+            if ($button_mb !== null) $css_tab .= '.cphub-card .cphub-btn{margin-bottom:'.max(0, intval(round($button_mb * $s_tab))).'px;}';
+        }
+        // Grid columns at tablet breakpoint
+        if ($layout_type === 'grid') {
+            $gc_t = max(1, intval($styles['grid_cols_tab'] ?? 2));
+            $css_tab .= '.cphub-grid{grid-template-columns:repeat('.$gc_t.',minmax(0,1fr));}';
+        }
+        if ($css_tab !== '') $css .= '@media (max-width: '.$tab_break.'px){'.$css_tab.'}';
+
+        $css_mob = '';
+        if (isset($vis_mob['title']) && !$vis_mob['title']) $css_mob .= '.cphub-card .cphub-title{display:none !important;}';
+        if (isset($vis_mob['image']) && !$vis_mob['image']) $css_mob .= '.cphub-card .cphub-img{display:none !important;}';
+        if (isset($vis_mob['excerpt']) && !$vis_mob['excerpt']) $css_mob .= '.cphub-card .cphub-excerpt{display:none !important;}';
+        if (isset($vis_mob['content']) && !$vis_mob['content']) $css_mob .= '.cphub-card .cphub-content{display:none !important;}';
+        if (isset($vis_mob['meta']) && !$vis_mob['meta']) $css_mob .= '.cphub-card .cphub-meta{display:none !important;}';
+        if (isset($vis_mob['button']) && !$vis_mob['button']) $css_mob .= '.cphub-card .cphub-btn{display:none !important;}';
+        // Scaling mobile
+        $s_mob = isset($styles['scale_mob']) ? max(0.1, floatval($styles['scale_mob'])) : 1.0;
+        if ($s_mob !== 1.0) {
+            $fs_m = max(10, intval(round($fs * $s_mob)));
+            $sp_m = max(0, intval(round($sp * $s_mob)));
+            $rad_m = max(0, intval(round($rad * $s_mob)));
+            $title_size_m = max(10, intval(round($title_size * $s_mob)));
+            $excerpt_size_m = max(10, intval(round($excerpt_size * $s_mob)));
+            $content_size_m = max(10, intval(round($content_size * $s_mob)));
+            $meta_size_m = max(10, intval(round($meta_size * $s_mob)));
+            $btn_pv_m = max(0, intval(round($btn_pv * $s_mob)));
+            $btn_ph_m = max(0, intval(round($btn_ph * $s_mob)));
+            $card_pad_m = max(0, intval(round($card_pad * $s_mob)));
+            $card_my_m  = max(0, intval(round($card_my * $s_mob)));
+            $image_radius_m = max(0, intval(round($image_radius * $s_mob)));
+            $css_mob .= '.cphub-card{font-size:'.$fs_m.'px;margin:'.$card_my_m.'px 0;padding:'.$card_pad_m.'px;border-radius:'.$rad_m.'px;}';
+            $css_mob .= '.cphub-card .cphub-title{font-size:'.$title_size_m.'px;}';
+            $css_mob .= '.cphub-card .cphub-excerpt{font-size:'.$excerpt_size_m.'px;}';
+            $css_mob .= '.cphub-card .cphub-content{font-size:'.$content_size_m.'px;}';
+            $css_mob .= '.cphub-card .cphub-meta{font-size:'.$meta_size_m.'px;}';
+            $css_mob .= '.cphub-card .cphub-img{border-radius:'.$image_radius_m.'px;}';
+            $css_mob .= '.cphub-card .cphub-btn{padding:'.$btn_pv_m.'px '.$btn_ph_m.'px;border-radius:'.max(0, intval(round($btn_rad * $s_mob))).'px;}';
+            if ($title_mt !== null) $css_mob .= '.cphub-card .cphub-title{margin-top:'.max(0, intval(round($title_mt * $s_mob))).'px;}';
+            if ($title_mb !== null) $css_mob .= '.cphub-card .cphub-title{margin-bottom:'.max(0, intval(round($title_mb * $s_mob))).'px;}';
+            if ($title_pad_v !== null || $title_pad_h !== null) $css_mob .= '.cphub-card .cphub-title{padding:'.max(0, intval(round(($title_pad_v?:0) * $s_mob))).'px '.max(0, intval(round(($title_pad_h?:0) * $s_mob))).'px;}';
+            if ($excerpt_mt !== null) $css_mob .= '.cphub-card .cphub-excerpt{margin-top:'.max(0, intval(round($excerpt_mt * $s_mob))).'px;}';
+            if ($excerpt_mb !== null) $css_mob .= '.cphub-card .cphub-excerpt{margin-bottom:'.max(0, intval(round($excerpt_mb * $s_mob))).'px;}';
+            if ($excerpt_pv !== null || $excerpt_ph !== null) $css_mob .= '.cphub-card .cphub-excerpt{padding:'.max(0, intval(round(($excerpt_pv?:0) * $s_mob))).'px '.max(0, intval(round(($excerpt_ph?:0) * $s_mob))).'px;}';
+            if ($content_mt !== null) $css_mob .= '.cphub-card .cphub-content{margin-top:'.max(0, intval(round($content_mt * $s_mob))).'px;}';
+            if ($content_mb !== null) $css_mob .= '.cphub-card .cphub-content{margin-bottom:'.max(0, intval(round($content_mb * $s_mob))).'px;}';
+            if ($content_pv !== null || $content_ph !== null) $css_mob .= '.cphub-card .cphub-content{padding:'.max(0, intval(round(($content_pv?:0) * $s_mob))).'px '.max(0, intval(round(($content_ph?:0) * $s_mob))).'px;}';
+            if ($meta_mt !== null) $css_mob .= '.cphub-card .cphub-meta{margin-top:'.max(0, intval(round($meta_mt * $s_mob))).'px;}';
+            if ($meta_mb !== null) $css_mob .= '.cphub-card .cphub-meta{margin-bottom:'.max(0, intval(round($meta_mb * $s_mob))).'px;}';
+            if ($meta_pv !== null || $meta_ph !== null) $css_mob .= '.cphub-card .cphub-meta{padding:'.max(0, intval(round(($meta_pv?:0) * $s_mob))).'px '.max(0, intval(round(($meta_ph?:0) * $s_mob))).'px;}';
+            if ($image_mt !== null) $css_mob .= '.cphub-card .cphub-img{margin-top:'.max(0, intval(round($image_mt * $s_mob))).'px;}';
+            if ($image_mb !== null) $css_mob .= '.cphub-card .cphub-img{margin-bottom:'.max(0, intval(round($image_mb * $s_mob))).'px;}';
+            if ($image_pv !== null || $image_ph !== null) $css_mob .= '.cphub-card .cphub-img{padding:'.max(0, intval(round(($image_pv?:0) * $s_mob))).'px '.max(0, intval(round(($image_ph?:0) * $s_mob))).'px;}';
+            if ($button_mt !== null) $css_mob .= '.cphub-card .cphub-btn{margin-top:'.max(0, intval(round($button_mt * $s_mob))).'px;}';
+            if ($button_mb !== null) $css_mob .= '.cphub-card .cphub-btn{margin-bottom:'.max(0, intval(round($button_mb * $s_mob))).'px;}';
+        }
+        // Grid columns at mobile breakpoint
+        if ($layout_type === 'grid') {
+            $gc_m = max(1, intval($styles['grid_cols_mob'] ?? 1));
+            $css_mob .= '.cphub-grid{grid-template-columns:repeat('.$gc_m.',minmax(0,1fr));}';
+        }
+        if ($css_mob !== '') $css .= '@media (max-width: '.$mob_break.'px){'.$css_mob.'}';
         return $css;
     }
 
@@ -1091,6 +1957,8 @@ final class CPT_Hub_Publisher
         $types = get_option(self::OPTION_KEY, []);
         $cpt   = sanitize_key(get_query_var('cpt'));
         $per   = intval(get_query_var('n')) ?: intval($feed_settings['items_per_feed'] ?? 20);
+        // Cap page size to a safe maximum
+        $per   = max(1, min(100, $per));
         $paged = max(1, intval(get_query_var('paged')));
         $modified_since = sanitize_text_field(get_query_var('modified_since'));
         $location = sanitize_key(get_query_var('location'));
@@ -1143,6 +2011,52 @@ final class CPT_Hub_Publisher
             set_transient($cache_key, $items, 60 * 5); // 5 mins
         }
 
+        // Compute Last-Modified across items and build ETag
+        $last_mod_ts = 0;
+        if (is_array($items)) {
+            foreach ($items as $it) {
+                if (!empty($it['modified'])) {
+                    $ts = strtotime($it['modified']);
+                    if ($ts && $ts > $last_mod_ts) $last_mod_ts = $ts;
+                }
+            }
+        }
+        $last_modified_http = $last_mod_ts ? gmdate('D, d M Y H:i:s', $last_mod_ts) . ' GMT' : '';
+        $etag_raw = md5(wp_json_encode([
+            'cpt' => $cpt,
+            'per' => $per,
+            'paged' => $paged,
+            'modified_since' => $modified_since,
+            'location' => $location,
+            'last' => $last_mod_ts,
+            'count' => is_array($items) ? count($items) : 0,
+            'v' => 1,
+        ]));
+        $etag = '"' . $etag_raw . '"';
+
+        // Conditional request handling
+        $if_none_match = isset($_SERVER['HTTP_IF_NONE_MATCH']) ? trim($_SERVER['HTTP_IF_NONE_MATCH']) : '';
+        $if_modified_since = isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? trim($_SERVER['HTTP_IF_MODIFIED_SINCE']) : '';
+        $send_304 = false;
+        if ($if_none_match && $if_none_match === $etag) {
+            $send_304 = true;
+        } elseif ($last_mod_ts && $if_modified_since) {
+            $ims_ts = strtotime($if_modified_since);
+            if ($ims_ts && $ims_ts >= $last_mod_ts) $send_304 = true;
+        }
+
+        if ($send_304) {
+            status_header(304);
+            if ($last_modified_http) header('Last-Modified: ' . $last_modified_http);
+            header('ETag: ' . $etag);
+            header('Cache-Control: public, max-age=300');
+            return;
+        }
+
+        // Normal RSS output with caching headers
+        if ($last_modified_http) header('Last-Modified: ' . $last_modified_http);
+        header('ETag: ' . $etag);
+        header('Cache-Control: public, max-age=300');
         $this->output_rss($items, $cpt, $paged);
     }
 
@@ -1182,9 +2096,11 @@ final class CPT_Hub_Publisher
             }
         }
 
-        // Collect custom taxonomy terms for this post type
+        // Collect custom taxonomy terms for this post type (include 'location' explicitly for visibility)
         $tax_terms = [];
         $assigned_tax = $def && is_array($def) ? (array)($def['taxonomies'] ?? []) : [];
+        if (taxonomy_exists('location')) $assigned_tax[] = 'location';
+        $assigned_tax = array_values(array_unique(array_filter($assigned_tax)));
         foreach ($assigned_tax as $tax) {
             $terms = get_the_terms($p, $tax);
             if (is_array($terms)) {

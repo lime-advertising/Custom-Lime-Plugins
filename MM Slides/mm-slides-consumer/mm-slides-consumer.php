@@ -322,6 +322,10 @@ final class MM_Slides_Consumer
         $slides = $cache['slides'] ?? [];
         $vars   = $cache['vars'] ?? [];
 
+        $badge_enable = (isset($vars['mm-badge-enable']) && $vars['mm-badge-enable'] === 'yes');
+        $badge_src    = $vars['mm-badge-src'] ?? '';
+        $badge_show   = ($badge_enable && !empty($badge_src));
+
         if (!$slides) {
             return $atts['debug'] === '1'
                 ? '<pre>mm_remote_slider: no slides cached. Feed=' . esc_html(get_option(self::OPT_FEED_URL)) . '</pre>'
@@ -398,6 +402,14 @@ final class MM_Slides_Consumer
                         $active = ($s['active'] === 'yes' && !$foundActive) ? ' active' : '';
                         if ($active) $foundActive = true; ?>
                         <div class="slide<?php echo esc_attr($active); ?>">
+                            <?php if ($badge_show): ?>
+                                <div class="badge-wrap">
+                                    <img class="mm-badge"
+                                        src="<?php echo esc_url($badge_src); ?>"
+                                        alt="Badge">
+                                </div>
+                            <?php endif; ?>
+
                             <?php if (!empty($s['subtitle'])): ?><div class="sub-title"><?php echo esc_html($s['subtitle']); ?></div><?php endif; ?>
                             <?php if (!empty($s['title'])): ?><h1 class="title"><?php echo esc_html($s['title']); ?></h1><?php endif; ?>
                             <?php if (!empty($s['desc'])): ?><div class="desc"><?php echo wp_kses_post($s['desc']); ?></div><?php endif; ?>

@@ -10,6 +10,15 @@
   padding: var(--mm-content-pad, 0 0 0 0) !important;
 }
 
+.master-slider .slide .mm-badge {
+  max-width: var(--mm-badge-width) !important;
+  margin: var(--mm-badge-margin) !important;
+  position: var(--mm-badge-position) !important;
+  top: var(--mm-badge-top-offset) !important;
+  height: auto !important;
+  display: block !important;
+}
+
 .master-slider .slide .sub-title {
   font-family: var(--mm-sub-font, inherit) !important;
   color: var(--mm-sub-color, #fff) !important;

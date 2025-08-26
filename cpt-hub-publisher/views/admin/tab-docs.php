@@ -15,6 +15,29 @@
     <li><strong>Locations:</strong> Tag content with specific location slugs and/or <code>all-locations</code>. Consumers request a location to receive the union of location + all-locations.</li>
   </ul>
 
+  <h2>Styles Tab</h2>
+  <p>Each CPT has its own style configuration and preview.</p>
+  <ul>
+    <li><strong>Elements:</strong> Drag to reorder; toggle to show/hide. Map up to three Meta elements to your custom fields.</li>
+    <li><strong>Presets:</strong> Choose List or Grid. For Grid, set desktop columns and gap, plus tablet/mobile column counts.</li>
+    <li><strong>Per‑element styles:</strong> Color, font size, line‑height, margin/padding, width/min/max, alignment, and border radius (image/button). Buttons also support full‑width and custom box‑shadow.</li>
+    <li><strong>Card styles:</strong> Background, border, padding, vertical margin, radius, optional shadow.</li>
+    <li><strong>Meta styling:</strong> Choose per‑meta placement (Thumb wrap or Content wrap). Set background, free‑form <em>position</em> and <em>top/right/bottom/left</em> offsets (supports raw CSS including calc()/var()).</li>
+    <li><strong>Responsive:</strong> Tablet/mobile “Show” toggles per element and scale factors (e.g., tablet 0.9, mobile 0.6).</li>
+    <li><strong>Animations:</strong> Entrance stagger, thumbnail hover reveal (Solid/Sheen), image hover zoom, and optional button ripple. A “Stick to bottom” option can align the button at the bottom of the card.</li>
+    <li><strong>Preview:</strong> Renders up to 6 latest posts; the card is grouped into <code>.cphub-thumb-wrap</code> (image + meta set to Thumb) and <code>.cphub-content-wrap</code> (title, text, button + meta set to Content).</li>
+  </ul>
+
+  <h2>Assets Endpoint</h2>
+  <?php $rest_assets = esc_url( rest_url( 'cphub/v1/assets' ) ); ?>
+  <p>Consumers can fetch the current style config for a CPT.</p>
+  <ul>
+    <li><strong>Endpoint:</strong> <code><?php echo $rest_assets; ?>?cpt=<?php echo esc_html( $example_cpt ?: 'your_cpt_slug' ); ?></code></li>
+    <li><strong>Returns:</strong> <code>{ version, layout, css }</code> with caching headers (ETag/Last-Modified).</li>
+    <li><strong>Layout keys:</strong> <code>order</code>, <code>enabled</code>, <code>meta_keys</code>, <code>meta_wrap</code> (thumb/content placement), and responsive visibility maps.</li>
+    <li><strong>CSS conventions:</strong> Cards use <code>.cphub-card</code> with <code>.cphub-thumb-wrap</code> and <code>.cphub-content-wrap</code> children. Elements include <code>.cphub-img</code>, <code>.cphub-title</code>, <code>.cphub-excerpt</code>, <code>.cphub-content</code>, <code>.cphub-meta</code>, <code>.cphub-btn</code>.</li>
+  </ul>
+
   <h2>Creating Content</h2>
   <ol>
     <li>Define a CPT in the <em>Content Types</em> tab: set label, supports, and optional fields.</li>
@@ -32,7 +55,7 @@
   <p><strong>Parameters:</strong></p>
   <ul>
     <li><code>cpt</code>: CPT slug (when using the query URL).</li>
-    <li><code>n</code>: items per page (default from settings).</li>
+    <li><code>n</code>: items per page (default from settings; capped at 100).</li>
     <li><code>paged</code>: page number (1‑based).</li>
     <li><code>modified_since</code>: YYYY‑MM‑DD, returns items modified after this date.</li>
     <li><code>location</code>: a location slug; returns items tagged with that slug OR <code>all-locations</code>.</li>
@@ -54,7 +77,7 @@
   <?php $rest_items = esc_url( rest_url( 'cphub/v1/items' ) ); ?>
   <ul>
     <li><strong>Endpoint:</strong> <code><?php echo $rest_items; ?></code></li>
-    <li><strong>Params:</strong> <code>cpt</code>, <code>n</code>, <code>paged</code>, <code>modified_since</code>, <code>location</code>, <code>key</code> (if configured)</li>
+    <li><strong>Params:</strong> <code>cpt</code>, <code>n</code> (capped 100), <code>paged</code>, <code>modified_since</code>, <code>location</code>, <code>key</code> (if configured)</li>
   </ul>
   <p><strong>Examples:</strong></p>
   <ul>
@@ -77,9 +100,19 @@ curl -s '<?php echo $rest_items; ?>?cpt=<?php echo esc_html( $example_cpt ?: 'yo
 
   <h2>Performance & Caching</h2>
   <ul>
-    <li>Feeds are cached per query (5 minutes) and auto‑bust on content changes.</li>
-    <li>Use <code>modified_since</code> for incremental consumption.</li>
-    <li>Consider capping <code>n</code> to a sensible maximum in production.</li>
+    <li>Feeds and REST are cached per query (5 minutes) and auto‑bust on content changes.</li>
+    <li>REST includes <strong>ETag</strong>/<strong>Last-Modified</strong> headers and honors conditional requests (304).</li>
+    <li>Use <code>modified_since</code> for incremental consumption; <code>n</code> is capped at 100.</li>
+  </ul>
+
+  <h2>Health</h2>
+  <?php $rest_health = esc_url( rest_url( 'cphub/v1/health' ) ); ?>
+  <p>Use the health endpoint to quickly verify feed/REST availability, cache status, and current styles versions.</p>
+  <ul>
+    <li><strong>Endpoint:</strong> <code><?php echo $rest_health; ?></code></li>
+    <li><strong>Returns:</strong> time, feed base + example URL, cache entries and TTL, REST base + example URLs, and per‑CPT style <code>{ version, modified }</code>.</li>
+    <li><strong>Headers parity:</strong> RSS and REST implement <em>ETag</em> and <em>Last‑Modified</em>; conditional requests (If‑None‑Match / If‑Modified‑Since) return 304 when unchanged.</li>
+    <li><strong>Tip:</strong> In your browser dev tools or with <code>curl -i</code>, confirm <code>ETag</code> and <code>Last-Modified</code> appear, then repeat with those headers to see a 304.</li>
   </ul>
 
   <h2>Consumer Integration</h2>
