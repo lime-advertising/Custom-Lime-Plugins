@@ -15,6 +15,7 @@ This guide explains how to connect a location site (Consumer) to the corporate P
    - Location Slug: matches your site’s term (or leave empty to consume only global/all-locations)
    - Enable the CPTs you want to display locally
    - Use Publisher Styles: enable to enqueue CSS shipped from Publisher
+   - Local Content: enable to create local CPTs for the selected slugs, import posts on sync, and sideload media so permalinks and assets resolve locally
 3. Save settings. Use “Open Health” to view the Publisher’s health JSON, or “Check Health” on this page to fetch a summary (status, base URLs, and known CPTs).
 
 ## Rendering Content
@@ -40,6 +41,7 @@ For media meta fields:
 ## Styles & Scripts
 - The Consumer fetches a per‑CPT assets payload from the Publisher: `{ version, layout, layout_type, css }`.
 - Toggle: “Use Publisher Styles” in settings. When enabled, the remote CSS string is cached by version and enqueued per CPT.
+- Auto‑enqueue: Styles are enqueued when rendering shortcodes and also automatically on local CPT single and archive views.
 - The `layout` object includes:
   - `order` and `enabled` maps for element sequencing/visibility
   - `meta_keys` mapping for Meta1–Meta3
@@ -62,8 +64,18 @@ Button alignment:
 
 ## Caching & Sync
 - Content is cached locally with conditional GET (ETag/Last-Modified) and refreshed by WP‑Cron (every 10 minutes). Requests cap `n` at 100 items.
-- Manual refresh: click “Refresh Now” in settings. Use “Clear Cache” to wipe local items/assets.
+- Manual refresh: click “Refresh Now” in settings. Use “Clear Cache” to wipe local caches.
 - If the Publisher is unreachable, cached data continues to render; recent HTTP status/error are shown in the cache table.
+- When “Local Content” is enabled, sync also upserts posts into local CPTs and sideloads media. Shortcodes automatically link to local permalinks and use local thumbnails when available.
+
+### Using server cron on SiteGround
+If your host disables WP‑Cron or you prefer predictable scheduling, set up a server cron:
+- Disable WP‑Cron: set `define('DISABLE_WP_CRON', true);` in `wp-config.php`.
+- Add a cron job in Site Tools → Devs → Cron Jobs to call either:
+  - `curl -sS https://your-site.com/wp-cron.php?doing_wp_cron >/dev/null 2>&1` (every 5–10 minutes), or
+  - `/usr/local/bin/php -q /home/customer/www/your-site.com/public_html/wp-cron.php >/dev/null 2>&1` (preferred).
+
+See `docs/cron-siteground.md` for step‑by‑step instructions.
 
 ## Location Targeting
 - By default, the Consumer requests content for its configured `location` plus `all-locations` from the Publisher.
@@ -74,6 +86,7 @@ Button alignment:
 - Empty results: confirm the CPT exists on the Publisher, and that items are tagged with your `location` or `all-locations`.
 - Styles not applied: ensure “Use Publisher Styles” is enabled, and check that the manifest returns URLs.
 - Media not visible: confirm media fields on the Publisher are set; in feeds they appear as meta with `_url` and `_mime` keys.
+ - Local permalinks not used: ensure “Local Content” is enabled and run “Refresh Now”. The plugin maps remote IDs to local posts via `_cphub_remote_id` meta.
 
 ## Security & Governance
 - Prefer per‑site keys; rotate keys periodically on the Publisher and update Consumers.

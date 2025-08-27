@@ -47,7 +47,7 @@ Only update this checklist after the stakeholder says “done”.
 - [x] Acceptance: Visual consistency; updates apply on version change.
 
 ## 6) Local‑Only Content (Optional add‑on)
-- [ ] Local CPTs mirroring publisher structures.
+- [x] Local CPTs mirroring publisher structures.
 - [ ] Merge remote + local items in renderers (by date or configurable).
 - [ ] Clear labeling or markers for local-only items.
 - [ ] Acceptance: Local content appears without affecting publisher data.
@@ -65,4 +65,4 @@ Status: Feed-level shared secret supported; per-site key workflow pending.
 - [ ] Batch rollout plan for remaining locations; monitoring checklist.
 - [ ] Acceptance: Pilot signed off; playbook approved for scale‑out.
 
-Status: Publisher REST/RSS caching (ETag/Last‑Modified) implemented; Health endpoint added. Consumer settings + ingestion + renderer + styles integrated; pending consumer UI health status, error/backoff, and rollout playbook.
+Status: Publisher REST/RSS caching (ETag/Last-Modified) implemented; Health endpoint added. Consumer settings + ingestion + renderer + styles integrated; Local Content imports remote items into local CPTs with media sideloading; pending consumer error backoff, local+remote merge logic, markers for local-only items, and rollout playbook.

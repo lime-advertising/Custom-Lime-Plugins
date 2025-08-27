@@ -25,6 +25,7 @@ Out of scope (initially): editorial workflow/approvals, advanced permissions, an
   - Configure Publisher base URL, secret key, and `location` slug.
   - Enable CPTs to ingest; render via shortcodes/blocks/templates.
   - Cache content and assets locally with versioned invalidation; cron refresh; conditional GET (ETag/Last‑Modified).
+  - Optional Local Content: register local CPTs for enabled slugs, import items as local posts, and sideload featured/meta media so permalinks and assets resolve locally if the Publisher is offline.
 
 ## Location Strategy (Recommended)
 - Add a `location` taxonomy on the Publisher with terms for each location plus a special `all-locations` term.
@@ -36,7 +37,7 @@ Alternative: Allow Consumers to add local-only items of the same CPT and merge d
 ## Style Sets Strategy
 - Maintain a versioned per‑CPT style config on the Publisher.
 - Expose an assets endpoint: `{ version, layout, layout_type, css }` where `css` is a stylesheet string generated from the saved config.
-- Consumers fetch and cache CSS by version and inject/enqueue per CPT. Optional toggle to use Publisher styles vs. site theme.
+- Consumers fetch and cache CSS by version and inject/enqueue per CPT. Optional toggle to use Publisher styles vs. site theme. When enabled, CSS is auto‑enqueued on shortcodes and on local CPT single/archive views.
 
 ## APIs & Contracts
 - RSS: continue to expose `/feed/cphub` and per‑CPT `/feed/cphub/{slug}` including meta fields, media URLs, and taxonomy terms.
@@ -47,11 +48,13 @@ Alternative: Allow Consumers to add local-only items of the same CPT and merge d
 - Security: Optional `key` query param (shared or per-consumer); rotateable.
 - Caching: ETag/Last-Modified for REST and RSS (implemented) with 304 handling; 5‑minute transients on Publisher; local caching on Consumer; conditional GETs. Page size `n` is capped at 100.
   - Items include `tax_terms` for the `location` taxonomy to aid debugging of location filtering.
+  - Consumer cron refresh: a WP‑Cron task runs every 10 minutes to update items and assets in the background; manual refresh triggers immediate update.
 
 ## Performance & Reliability
 - Cap page size (`n`) on Publisher to safe defaults (<= 100) — implemented.
 - 5–15 minute caches with cache-busting on relevant CPT changes.
 - Background cron refresh on Consumers; render from cache with graceful degradation if the network fails.
+- Local Content improves resilience and keeps permalinks local; assets are sideloaded and served from the Consumer site.
 
 ## Rollout Plan
 1. Pilot with 1–2 locations.
@@ -68,6 +71,23 @@ Alternative: Allow Consumers to add local-only items of the same CPT and merge d
 - Asset delivery: reference vs. local caching (recommend local caching for resilience).
 - REST format details and pagination envelope.
 - Additional field types/validation requirements. Optional JS delivery for UI polish (currently CSS‑only animations; JS not shipped by default).
+- Delete policy for remote deletions (soft archive vs delete locally).
+- Inline content media rewriting to local attachments when importing.
+- Per‑site keys structure and rotation workflow.
+
+## Current Status
+- Publisher: Location targeting and union filtering, RSS/REST with ETag/Last‑Modified, assets endpoint, health endpoint — implemented.
+- Consumer: Settings, ingestion + caching + cron, renderer honoring layout, assets caching + enqueue, health UI — implemented.
+- Local Content: Registers CPTs for enabled slugs, imports remote items as local posts, sideloads featured/meta media, prefers local permalinks and assets — implemented.
+- Styles on local views: Auto‑enqueued on single/archive CPT views when "Use Publisher Styles" is enabled.
+
+## Next Steps
+- Add exponential backoff with jitter on repeated fetch failures and surface counters in UI.
+- Rewrite inline content images to local attachments when Local Content is enabled.
+- Optional: write cached CSS to uploads and enqueue by file URL (file‑based cache).
+- Per‑site keys and rotation guidance; optional rate limiting.
+- Diagnostics in Consumer UI: show last import counts/timestamps per CPT.
+- Merge local‑only items with remote items during render (configurable) and add visual markers for local‑only.
 
 ## Timeline (Suggested)
 - Week 1: Publisher location targeting + style sets v1.

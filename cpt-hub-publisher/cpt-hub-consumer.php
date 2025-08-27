@@ -14,13 +14,18 @@ final class CPT_Hub_Consumer
     const OPT_SETTINGS = 'cphub_consumer_settings';
     const OPT_CACHE_ITEMS = 'cphub_consumer_cache_items';
     const OPT_CACHE_ASSETS = 'cphub_consumer_cache_assets';
+    const OPT_CRON_META = 'cphub_consumer_cron_meta';
     const CRON_HOOK = 'cphub_consumer_cron_refresh';
     private static $needs_styles = [];
+    private static $did_register = false;
 
     public function __construct()
     {
         add_action('admin_menu',          [$this, 'admin_menu']);
         add_action('admin_init',          [$this, 'register_settings']);
+        add_action('init',                [$this, 'register_dynamic_cpts'], 9);
+        add_action('init',                [$this, 'ensure_cron_scheduled'], 10);
+        add_action('wp',                  [$this, 'mark_styles_from_query']);
         add_action('admin_post_cphub_consumer_refresh', [$this, 'handle_manual_refresh']);
         add_action('admin_post_cphub_consumer_clear',   [$this, 'handle_clear_cache']);
         add_action('admin_post_cphub_consumer_health',  [$this, 'handle_check_health']);
@@ -40,12 +45,17 @@ final class CPT_Hub_Consumer
         if (!wp_next_scheduled(self::CRON_HOOK)) {
             wp_schedule_event(time() + 60, 'cphub_10min', self::CRON_HOOK);
         }
+        update_option(self::OPT_CRON_META, [
+            'last_run' => 0,
+            'scheduled' => wp_next_scheduled(self::CRON_HOOK) ?: 0,
+        ], false);
     }
 
     public static function deactivate()
     {
         $ts = wp_next_scheduled(self::CRON_HOOK);
         if ($ts) wp_unschedule_event($ts, self::CRON_HOOK);
+        delete_option(self::OPT_CRON_META);
     }
 
     public function add_cron_schedules($schedules)
@@ -54,6 +64,19 @@ final class CPT_Hub_Consumer
             $schedules['cphub_10min'] = [ 'interval' => 600, 'display' => __('Every 10 minutes', 'cphub') ];
         }
         return $schedules;
+    }
+
+    public function ensure_cron_scheduled()
+    {
+        // Self-heal scheduling if activation hook missed
+        if (!wp_next_scheduled(self::CRON_HOOK)) {
+            wp_schedule_event(time() + 60, 'cphub_10min', self::CRON_HOOK);
+        }
+        // Keep next scheduled time visible in settings
+        $meta = get_option(self::OPT_CRON_META, []);
+        $meta['scheduled'] = wp_next_scheduled(self::CRON_HOOK) ?: 0;
+        if (!isset($meta['last_run'])) $meta['last_run'] = 0;
+        update_option(self::OPT_CRON_META, $meta, false);
     }
 
     public function register_settings()
@@ -68,6 +91,7 @@ final class CPT_Hub_Consumer
         $out['secret_key']    = isset($in['secret_key']) ? sanitize_text_field(trim($in['secret_key'])) : '';
         $out['location']      = isset($in['location']) ? sanitize_key(trim($in['location'])) : '';
         $out['use_styles']    = !empty($in['use_styles']) ? true : false;
+        $out['save_local']    = !empty($in['save_local']) ? true : false;
         // Enabled CPTs: merge checkboxes + CSV
         $enabled = [];
         if (!empty($in['enabled_cpts']) && is_array($in['enabled_cpts'])) {
@@ -94,6 +118,7 @@ final class CPT_Hub_Consumer
         settings_errors('cphub_consumer');
         $s = get_option(self::OPT_SETTINGS, ['publisher_url'=>'','secret_key'=>'','location'=>'','enabled_cpts'=>[]]);
         if (!isset($s['use_styles'])) $s['use_styles'] = true;
+        if (!isset($s['save_local'])) $s['save_local'] = false;
         $cache_items  = get_option(self::OPT_CACHE_ITEMS, []);
         $cache_assets = get_option(self::OPT_CACHE_ASSETS, []);
         $enabled = (array)($s['enabled_cpts'] ?? []);
@@ -120,6 +145,13 @@ final class CPT_Hub_Consumer
               <tr>
                 <th scope="row"><label>Use Publisher Styles</label></th>
                 <td><label><input type="checkbox" name="<?php echo esc_attr(self::OPT_SETTINGS); ?>[use_styles]" value="1" <?php checked(!empty($s['use_styles'])); ?>> Enqueue CSS from Publisher assets</label></td>
+              </tr>
+              <tr>
+                <th scope="row"><label>Local Content</label></th>
+                <td>
+                  <label><input type="checkbox" name="<?php echo esc_attr(self::OPT_SETTINGS); ?>[save_local]" value="1" <?php checked(!empty($s['save_local'])); ?>> Store items as local posts and sideload media</label>
+                  <p class="description">Enables local CPTs for enabled slugs, imports posts/media so links point to local permalinks and assets are available if the Publisher is offline.</p>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Enabled CPTs</th>
@@ -158,6 +190,13 @@ final class CPT_Hub_Consumer
             <button class="button">Refresh Now</button>
             <span class="description">Fetch items and assets for enabled CPTs with conditional GET.</span>
           </form>
+
+          <?php $cron = get_option(self::OPT_CRON_META, ['last_run'=>0,'scheduled'=>0]); $cron_enabled = !defined('DISABLE_WP_CRON') || !DISABLE_WP_CRON; ?>
+          <div class="card" style="padding:1em;max-width:900px;margin-top:12px;">
+            <p><strong>Cron status:</strong> <?php echo $cron_enabled ? 'WP‑Cron enabled' : 'WP‑Cron disabled'; ?><?php if (!$cron_enabled): ?> <span class="description">(set DISABLE_WP_CRON to false to enable)</span><?php endif; ?></p>
+            <p><strong>Last run:</strong> <?php echo !empty($cron['last_run']) ? esc_html(date('Y-m-d H:i', (int)$cron['last_run'])) : '—'; ?> | <strong>Next scheduled:</strong> <?php echo !empty($cron['scheduled']) ? esc_html(date('Y-m-d H:i', (int)$cron['scheduled'])) : '—'; ?></p>
+            <p class="description">WP‑Cron triggers on page views. Low‑traffic sites should add a server cron to request <code><?php echo esc_html(site_url('wp-cron.php')); ?></code> every 5–10 minutes.</p>
+          </div>
 
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="card" style="padding:1em;max-width:900px;margin-top:12px;">
             <?php wp_nonce_field('cphub_consumer_clear'); ?>
@@ -231,6 +270,10 @@ final class CPT_Hub_Consumer
     public function cron_refresh()
     {
         $this->refresh_all();
+        update_option(self::OPT_CRON_META, [
+            'last_run' => time(),
+            'scheduled' => wp_next_scheduled(self::CRON_HOOK) ?: 0,
+        ], false);
     }
 
     public function handle_clear_cache()
@@ -272,6 +315,10 @@ final class CPT_Hub_Consumer
         $s = get_option(self::OPT_SETTINGS, []);
         $enabled = (array)($s['enabled_cpts'] ?? []);
         if (!$enabled) return;
+        // Ensure CPTs are registered if Local Content is enabled
+        if (!empty($s['save_local']) && !self::$did_register) {
+            $this->register_dynamic_cpts();
+        }
         foreach ($enabled as $slug) {
             $this->fetch_items($slug);
             $this->fetch_assets($slug);
@@ -336,6 +383,11 @@ final class CPT_Hub_Consumer
         $entry['updated'] = time();
         $cache[$cpt] = $entry;
         update_option(self::OPT_CACHE_ITEMS, $cache, false);
+
+        // When Local Content is enabled, upsert items into local CPT and sideload assets
+        if (!empty($s['save_local'])) {
+            $this->sync_local_posts($cpt, $entry['items']);
+        }
     }
 
     private function fetch_assets($cpt)
@@ -438,6 +490,23 @@ final class CPT_Hub_Consumer
         }
     }
 
+    public function mark_styles_from_query()
+    {
+        // Auto-enqueue styles on local CPT archive/single views (when Use Publisher Styles is enabled)
+        $s = get_option(self::OPT_SETTINGS, []);
+        if (empty($s['use_styles'])) return;
+        $enabled = (array)($s['enabled_cpts'] ?? []);
+        if (!$enabled) return;
+        foreach ($enabled as $slug) {
+            $slug = sanitize_key($slug);
+            if (function_exists('is_singular') && is_singular($slug)) {
+                $this->mark_need_style($slug);
+            } elseif (function_exists('is_post_type_archive') && is_post_type_archive($slug)) {
+                $this->mark_need_style($slug);
+            }
+        }
+    }
+
     private function get_cached_items($cpt)
     {
         $cache = get_option(self::OPT_CACHE_ITEMS, []);
@@ -460,6 +529,178 @@ final class CPT_Hub_Consumer
         return 'list';
     }
 
+    /* ================= Local Content ================= */
+
+    public function register_dynamic_cpts()
+    {
+        if (self::$did_register) return;
+        $s = get_option(self::OPT_SETTINGS, []);
+        if (empty($s['save_local'])) return;
+        $enabled = (array)($s['enabled_cpts'] ?? []);
+        foreach ($enabled as $slug) {
+            $pt = sanitize_key($slug);
+            if (post_type_exists($pt)) continue;
+            $label = ucwords(str_replace(['-', '_'], ' ', $pt));
+            register_post_type($pt, [
+                'label' => $label,
+                'labels' => [
+                    'name' => $label,
+                    'singular_name' => $label,
+                ],
+                'public' => true,
+                'has_archive' => true,
+                'show_in_rest' => true,
+                'supports' => ['title','editor','excerpt','thumbnail'],
+                'menu_icon' => 'dashicons-archive',
+            ]);
+        }
+        self::$did_register = true;
+    }
+
+    private function sync_local_posts($cpt, array $items)
+    {
+        foreach ($items as $it) {
+            $this->upsert_local_post($cpt, $it);
+        }
+    }
+
+    private function upsert_local_post($cpt, array $item)
+    {
+        $remote_id = (string)($item['id'] ?? '');
+        if ($remote_id === '') return 0;
+        $post_id = $this->find_local_post_id($cpt, $remote_id);
+        $postarr = [
+            'post_type'   => $cpt,
+            'post_status' => 'publish',
+            'post_title'  => isset($item['title']) ? wp_strip_all_tags((string)$item['title']) : '',
+            'post_content'=> isset($item['content']) ? (string)$item['content'] : '',
+            'post_excerpt'=> isset($item['excerpt']) ? wp_strip_all_tags((string)$item['excerpt']) : '',
+        ];
+        if ($post_id) {
+            $postarr['ID'] = $post_id;
+        }
+        // Preserve original publish/modified dates when first creating
+        if (!$post_id) {
+            if (!empty($item['date'])) {
+                $ts = strtotime((string)$item['date']);
+                if ($ts) { $postarr['post_date_gmt'] = gmdate('Y-m-d H:i:s', $ts); $postarr['post_date'] = get_date_from_gmt($postarr['post_date_gmt']); }
+            }
+            if (!empty($item['modified'])) {
+                $ms = strtotime((string)$item['modified']);
+                if ($ms) { $postarr['post_modified_gmt'] = gmdate('Y-m-d H:i:s', $ms); $postarr['post_modified'] = get_date_from_gmt($postarr['post_modified_gmt']); }
+            }
+        }
+        $new_id = wp_insert_post($postarr, true);
+        if (is_wp_error($new_id) || !$new_id) return 0;
+        $post_id = $new_id;
+
+        // Mark mapping
+        update_post_meta($post_id, '_cphub_remote_id', $remote_id);
+        if (!empty($item['modified'])) update_post_meta($post_id, '_cphub_remote_modified', (string)$item['modified']);
+
+        // Featured image
+        if (!empty($item['thumb'])) {
+            $att_id = $this->sideload_media((string)$item['thumb'], $post_id);
+            if ($att_id) set_post_thumbnail($post_id, $att_id);
+        }
+
+        // Copy meta (including media helpers). Store scalar values directly.
+        if (!empty($item['meta']) && is_array($item['meta'])) {
+            foreach ($item['meta'] as $k => $v) {
+                if ($k === '' || strpos($k, '_') === 0) continue; // avoid protected keys here
+                if (is_scalar($v)) update_post_meta($post_id, $k, (string)$v);
+            }
+            // Sideload any meta with _url companions
+            foreach ($item['meta'] as $k => $v) {
+                if (substr($k, -4) === '_url' && is_string($v) && $v !== '') {
+                    $base_key = substr($k, 0, -4);
+                    $att = $this->sideload_media((string)$v, $post_id);
+                    if ($att) {
+                        update_post_meta($post_id, $base_key . '_id', (string)$att);
+                        $url = wp_get_attachment_url($att);
+                        if ($url) update_post_meta($post_id, $base_key . '_url', (string)$url);
+                        $mime = get_post_mime_type($att);
+                        if ($mime) update_post_meta($post_id, $base_key . '_mime', (string)$mime);
+                    }
+                }
+            }
+        }
+
+        return $post_id;
+    }
+
+    private function find_local_post_id($cpt, $remote_id)
+    {
+        $q = new WP_Query([
+            'post_type' => $cpt,
+            'post_status' => 'any',
+            'posts_per_page' => 1,
+            'fields' => 'ids',
+            'meta_query' => [[
+                'key' => '_cphub_remote_id',
+                'value' => (string)$remote_id,
+                'compare' => '=',
+            ]],
+        ]);
+        if ($q->have_posts()) {
+            $ids = $q->posts;
+            return $ids ? (int)$ids[0] : 0;
+        }
+        return 0;
+    }
+
+    private function sideload_media($url, $post_id = 0)
+    {
+        $url = esc_url_raw(trim((string)$url));
+        if ($url === '') return 0;
+        // Check by source URL to avoid duplicate downloads
+        $existing = get_posts([
+            'post_type' => 'attachment',
+            'posts_per_page' => 1,
+            'post_status' => 'inherit',
+            'meta_query' => [[ 'key' => '_cphub_source_url', 'value' => $url, 'compare' => '=' ]],
+            'fields' => 'ids',
+        ]);
+        if (!empty($existing)) {
+            $aid = (int)$existing[0];
+            if ($post_id) wp_update_post(['ID'=>$aid,'post_parent'=>$post_id]);
+            return $aid;
+        }
+        if (!function_exists('download_url')) require_once ABSPATH . 'wp-admin/includes/file.php';
+        if (!function_exists('wp_handle_sideload')) require_once ABSPATH . 'wp-admin/includes/file.php';
+        if (!function_exists('wp_insert_attachment')) require_once ABSPATH . 'wp-admin/includes/image.php';
+        $tmp = download_url($url, 30);
+        if (is_wp_error($tmp)) return 0;
+        $file_array = [
+            'name' => basename(parse_url($url, PHP_URL_PATH) ?: 'remote-file'),
+            'tmp_name' => $tmp,
+        ];
+        $overrides = ['test_form' => false];
+        $sideload = wp_handle_sideload($file_array, $overrides);
+        if (isset($sideload['error'])) {
+            @unlink($tmp);
+            return 0;
+        }
+        $file = $sideload['file'];
+        $type = $sideload['type'];
+        $title = sanitize_file_name(pathinfo($file, PATHINFO_FILENAME));
+        $attachment = [
+            'post_mime_type' => $type,
+            'post_title'     => $title,
+            'post_content'   => '',
+            'post_status'    => 'inherit',
+            'post_parent'    => $post_id,
+        ];
+        $attach_id = wp_insert_attachment($attachment, $file, $post_id);
+        if (!is_wp_error($attach_id)) {
+            $attach_data = wp_generate_attachment_metadata($attach_id, $file);
+            wp_update_attachment_metadata($attach_id, $attach_data);
+            update_post_meta($attach_id, '_cphub_source_url', $url);
+            return (int)$attach_id;
+        }
+        return 0;
+    }
+
     private function render_card(array $item, $cpt)
     {
         $assets = get_option(self::OPT_CACHE_ASSETS, []);
@@ -476,14 +717,30 @@ final class CPT_Hub_Consumer
         $thumb_html = '';
         $content_html = '';
 
+        $local_link = '';
+        $local_thumb = '';
+        $s = get_option(self::OPT_SETTINGS, []);
+        $local_id = 0;
+        if (!empty($s['save_local'])) {
+            $local_id = $this->find_local_post_id($cpt, (string)($item['id'] ?? ''));
+            if ($local_id) {
+                $perma = get_permalink($local_id);
+                if ($perma) $local_link = $perma;
+                $turl = get_the_post_thumbnail_url($local_id, 'full');
+                if ($turl) $local_thumb = $turl;
+            }
+        }
+
         foreach ($order as $el) {
             if ($el === 'title') {
                 if (!empty($enabled['title']) && !empty($item['title'])) {
-                    $content_html .= '<h3 class="cphub-title"><a href="' . esc_url($item['link']) . '">' . esc_html($item['title']) . '</a></h3>';
+                    $href = $local_link !== '' ? $local_link : (string)$item['link'];
+                    $content_html .= '<h3 class="cphub-title"><a href="' . esc_url($href) . '">' . esc_html($item['title']) . '</a></h3>';
                 }
             } elseif ($el === 'image') {
                 if (!empty($enabled['image']) && !empty($item['thumb'])) {
-                    $thumb_html .= '<img class="cphub-img" src="' . esc_url($item['thumb']) . '" alt="" />';
+                    $src = $local_thumb !== '' ? $local_thumb : (string)$item['thumb'];
+                    $thumb_html .= '<img class="cphub-img" src="' . esc_url($src) . '" alt="" />';
                 }
             } elseif ($el === 'excerpt') {
                 if (!empty($enabled['excerpt']) && !empty($item['excerpt'])) {
@@ -518,13 +775,14 @@ final class CPT_Hub_Consumer
                 }
             } elseif ($el === 'button') {
                 if (!empty($enabled['button'])) {
+                    $href = $local_link !== '' ? $local_link : (string)$item['link'];
                     if ($use_overlay_btn) {
-                        $content_html .= '<a class="cphub-btn has-hover" href="' . esc_url($item['link']) . '">' .
+                        $content_html .= '<a class="cphub-btn has-hover" href="' . esc_url($href) . '">' .
                                          '<span class="cphub-btn-inner"><span class="cphub-btn-base"><span class="cphub-btn-text">Read More</span></span></span>' .
                                          '<span class="cphub-btn-hover"></span>' .
                                          '</a>';
                     } else {
-                        $content_html .= '<a class="cphub-btn" href="' . esc_url($item['link']) . '">Read More</a>';
+                        $content_html .= '<a class="cphub-btn" href="' . esc_url($href) . '">Read More</a>';
                     }
                 }
             }
