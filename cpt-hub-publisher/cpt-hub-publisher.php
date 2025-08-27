@@ -17,6 +17,7 @@ final class CPT_Hub_Publisher
     const OPTION_TAX   = 'cphub_taxonomies';    // array of taxonomy definitions
     const OPTION_STYLES= 'cphub_styles';        // per-CPT style/layout config
     const OPTION_LOC_SEEDED = 'cphub_locations_seeded'; // one-time location seeding flag
+    const OPTION_GLOBAL_CSS = 'cphub_global_css'; // sitewide custom CSS payload
     const NONCE_ACTION = 'cphub_manage_types';
 
     public function __construct()
@@ -27,6 +28,7 @@ final class CPT_Hub_Publisher
         add_action('admin_init',        [$this, 'register_settings']);
         add_action('admin_init',        [$this, 'register_admin_columns']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+        add_action('wp_enqueue_scripts',  [$this, 'enqueue_global_css']);
 
         // Register taxonomies then CPTs so bindings exist
         add_action('init',              [$this, 'register_dynamic_taxonomies'], 9);
@@ -52,9 +54,16 @@ final class CPT_Hub_Publisher
         add_action('save_post',         [$this, 'save_meta_fields'], 9, 3);
         add_action('save_post',         [$this, 'ensure_default_location'], 20, 3);
 
+        // Force Classic Editor for CPT Hub types
+        add_filter('use_block_editor_for_post_type', [$this, 'disable_block_editor_for_cphub'], 10, 2);
+
         // Activation / Deactivation
         register_activation_hook(__FILE__, [__CLASS__, 'activate']);
         register_deactivation_hook(__FILE__, [__CLASS__, 'deactivate']);
+
+        // Publisher-side shortcodes to render local CPT content
+        add_shortcode('cphub_list',  [$this, 'sc_list']);
+        add_shortcode('cphub_item',  [$this, 'sc_item']);
     }
 
     /* ---------------------- Known Locations ---------------- */
@@ -148,6 +157,13 @@ final class CPT_Hub_Publisher
         flush_rewrite_rules();
     }
 
+    public function disable_block_editor_for_cphub($use_block_editor, $post_type)
+    {
+        $types = get_option(self::OPTION_KEY, []);
+        if (isset($types[$post_type])) return false;
+        return $use_block_editor;
+    }
+
     /* ---------------------- Admin UI ------------------------ */
     public function admin_menu()
     {
@@ -222,7 +238,7 @@ final class CPT_Hub_Publisher
                         $types[$slug]['has_archive'] = $has_archive;
 
                         // Normalize custom field definitions
-                        $allowed_types = ['text', 'textarea', 'number', 'url', 'select', 'media'];
+                        $allowed_types = ['text', 'textarea', 'number', 'url', 'select', 'media', 'wysiwyg'];
                         $norm_fields = [];
                         $rows = max(
                             count($fields_in['key'] ?? []),
@@ -547,6 +563,21 @@ final class CPT_Hub_Publisher
                     add_settings_error('cphub', 'styles_error', 'Invalid CPT for styles.', 'error');
                 }
             }
+
+            // Save Global CSS
+            if ($_POST['cphub_action'] === 'global_save') {
+                $css = isset($_POST['css']) ? (string)$_POST['css'] : '';
+                // Normalize line endings
+                $css = str_replace(["\r\n","\r"], "\n", $css);
+                $ver = md5($css);
+                $payload = [
+                    'css'      => $css,
+                    'version'  => $ver,
+                    'modified' => time(),
+                ];
+                update_option(self::OPTION_GLOBAL_CSS, $payload, false);
+                add_settings_error('cphub', 'global_saved', 'Global CSS saved.', 'updated');
+            }
         }
     }
 
@@ -574,7 +605,7 @@ final class CPT_Hub_Publisher
         <div class="wrap">
             <h1>CPT Hub – Publisher</h1>
             <h2 class="nav-tab-wrapper">
-                <?php $tabs = ['types' => 'Content Types', 'tax' => 'Taxonomies', 'feed' => 'Feed Settings', 'styles' => 'Styles', 'docs' => 'Documentation'];
+                <?php $tabs = ['types' => 'Content Types', 'tax' => 'Taxonomies', 'feed' => 'Feed Settings', 'styles' => 'Styles', 'global' => 'Global CSS', 'docs' => 'Documentation'];
                 foreach ($tabs as $t_key => $t_label):
                     $url = esc_url(add_query_arg(['page' => 'cphub', 'tab' => $t_key], admin_url('admin.php')));
                     $class = 'nav-tab' . ($tab === $t_key ? ' nav-tab-active' : ''); ?>
@@ -592,6 +623,9 @@ final class CPT_Hub_Publisher
                         break;
                     case 'styles':
                         include $base . 'views/admin/tab-styles.php';
+                        break;
+                    case 'global':
+                        include $base . 'views/admin/tab-global.php';
                         break;
                     case 'docs':
                         include $base . 'views/admin/tab-docs.php';
@@ -654,7 +688,7 @@ final class CPT_Hub_Publisher
 
             <?php if ($edit_def): ?>
             <h2 class="title" style="margin-top:2em;">Edit Type</h2>
-            <form method="post" class="card" style="padding:1em;max-width:900px;">
+            <form method="post" class="card" style="padding:1em;max-width:100%;">
                 <?php wp_nonce_field(self::NONCE_ACTION); ?>
                 <input type="hidden" name="cphub_action" value="update">
                 <input type="hidden" name="slug" value="<?php echo esc_attr($edit_slug); ?>">
@@ -810,7 +844,7 @@ final class CPT_Hub_Publisher
             <?php endif; ?>
 
             <h2 class="title" style="margin-top:2em;">Add New Type</h2>
-            <form method="post" class="card" style="padding:1em;max-width:900px;">
+            <form method="post" class="card" style="padding:1em;max-width:100%;">
                 <?php wp_nonce_field(self::NONCE_ACTION); ?>
                 <input type="hidden" name="cphub_action" value="add">
                 <table class="form-table" role="presentation">
@@ -841,7 +875,7 @@ final class CPT_Hub_Publisher
             </form>
 
             <h2 class="title" style="margin-top:2em;">Custom Taxonomies</h2>
-            <table class="widefat striped" style="max-width:900px;">
+            <table class="widefat striped" style="max-width:100%;">
                 <thead>
                     <tr>
                         <th>Slug</th>
@@ -874,7 +908,7 @@ final class CPT_Hub_Publisher
 
             <?php if ($tax_edit_def): ?>
             <h3 class="title" style="margin-top:1em;">Edit Taxonomy</h3>
-            <form method="post" class="card" style="padding:1em;max-width:900px;">
+            <form method="post" class="card" style="padding:1em;max-width:100%;">
                 <?php wp_nonce_field(self::NONCE_ACTION); ?>
                 <input type="hidden" name="cphub_action" value="tax_update">
                 <input type="hidden" name="slug" value="<?php echo esc_attr($tax_edit_slug); ?>">
@@ -900,7 +934,7 @@ final class CPT_Hub_Publisher
             <?php endif; ?>
 
             <h3 class="title" style="margin-top:1em;">Add Taxonomy</h3>
-            <form method="post" class="card" style="padding:1em;max-width:900px;">
+            <form method="post" class="card" style="padding:1em;max-width:100%;">
                 <?php wp_nonce_field(self::NONCE_ACTION); ?>
                 <input type="hidden" name="cphub_action" value="tax_add">
                 <table class="form-table" role="presentation">
@@ -921,7 +955,7 @@ final class CPT_Hub_Publisher
             </form>
 
             <h2 class="title" style="margin-top:2em;">Feed Settings</h2>
-            <form method="post" action="options.php" class="card" style="padding:1em;max-width:900px;">
+            <form method="post" action="options.php" class="card" style="padding:1em;max-width:100%;">
                 <?php settings_fields('cphub_feed'); ?>
                 <?php $fs = get_option(self::OPTION_FEED, []); ?>
                 <table class="form-table" role="presentation">
@@ -1078,6 +1112,14 @@ final class CPT_Hub_Publisher
             'permission_callback' => '__return_true',
             'args' => [
                 'cpt' => [ 'type' => 'string', 'required' => true ],
+                'key' => [ 'type' => 'string', 'required' => false ],
+            ],
+        ]);
+        register_rest_route('cphub/v1', '/global', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'rest_global_css'],
+            'permission_callback' => '__return_true',
+            'args' => [
                 'key' => [ 'type' => 'string', 'required' => false ],
             ],
         ]);
@@ -1266,11 +1308,30 @@ final class CPT_Hub_Publisher
             return $resp;
         }
 
+        // Compute which meta slots are WYSIWYG (HTML) based on mapped field types
+        $types_opt = get_option(self::OPTION_KEY, []);
+        $field_types = [];
+        if (isset($types_opt[$cpt]['fields']) && is_array($types_opt[$cpt]['fields'])) {
+            foreach ($types_opt[$cpt]['fields'] as $f) {
+                if (!empty($f['key'])) $field_types[$f['key']] = $f['type'] ?? 'text';
+            }
+        }
+        $meta_html = ['meta1' => false, 'meta2' => false, 'meta3' => false];
+        $mk = isset($cfg['layout']['meta_keys']) ? (array)$cfg['layout']['meta_keys'] : [];
+        foreach ($meta_html as $slot => $_) {
+            $k = $mk[$slot] ?? '';
+            if ($k && isset($field_types[$k]) && $field_types[$k] === 'wysiwyg') {
+                $meta_html[$slot] = true;
+            }
+        }
+        $layout_payload = $cfg['layout'];
+        $layout_payload['meta_html'] = $meta_html;
+
         // Build CSS only if needed to return 200
         $css = $this->build_styles_css($styles);
         $payload = [
             'version'     => $cfg['version'],
-            'layout'      => $cfg['layout'],
+            'layout'      => $layout_payload,
             'layout_type' => isset($cfg['styles']['layout_type']) && $cfg['styles']['layout_type'] === 'grid' ? 'grid' : 'list',
             'css'         => $css,
         ];
@@ -1279,6 +1340,224 @@ final class CPT_Hub_Publisher
         if ($last_modified_http) $response->header('Last-Modified', $last_modified_http);
         $response->header('Cache-Control', 'public, max-age=300');
         return $response;
+    }
+
+    public function rest_global_css(WP_REST_Request $request)
+    {
+        $feed_settings = get_option(self::OPTION_FEED, []);
+        $secret = $feed_settings['secret_key'] ?? '';
+        $req_key = sanitize_text_field($request->get_param('key'));
+        if ($secret && $req_key !== $secret) {
+            return new WP_Error('cphub_forbidden', 'Forbidden: invalid or missing key', ['status' => 403]);
+        }
+        $opt = get_option(self::OPTION_GLOBAL_CSS, ['css'=>'','version'=>'','modified'=>0]);
+        $css = (string)($opt['css'] ?? '');
+        $ver = (string)($opt['version'] ?? '');
+        $mod = intval($opt['modified'] ?? 0);
+        $etag = '"' . ($ver ?: md5($css)) . '"';
+        $last_modified_http = $mod ? gmdate('D, d M Y H:i:s', $mod) . ' GMT' : '';
+
+        $if_none_match     = trim((string)$request->get_header('if-none-match'));
+        $if_modified_since = trim((string)$request->get_header('if-modified-since'));
+        $send_304 = false;
+        if ($if_none_match && $if_none_match === $etag) {
+            $send_304 = true;
+        } elseif ($mod && $if_modified_since) {
+            $ims_ts = strtotime($if_modified_since);
+            if ($ims_ts && $ims_ts >= $mod) $send_304 = true;
+        }
+        if ($send_304) {
+            $resp = new WP_REST_Response(null, 304);
+            $resp->header('ETag', $etag);
+            if ($last_modified_http) $resp->header('Last-Modified', $last_modified_http);
+            $resp->header('Cache-Control', 'public, max-age=300');
+            return $resp;
+        }
+        $payload = [ 'version' => ($ver ?: md5($css)), 'css' => $css ];
+        $resp = new WP_REST_Response($payload, 200);
+        $resp->header('ETag', $etag);
+        if ($last_modified_http) $resp->header('Last-Modified', $last_modified_http);
+        $resp->header('Cache-Control', 'public, max-age=300');
+        return $resp;
+    }
+
+    /* ---------------------- Publisher Shortcodes ----------- */
+    private function enqueue_style_for_cpt($cpt)
+    {
+        $cfg = $this->get_styles_config($cpt);
+        $styles = $cfg['styles'];
+        $ver = isset($cfg['version']) ? substr((string)$cfg['version'], 0, 10) : '0';
+        $css = $this->build_styles_css($styles);
+        $handle = 'cphub-pub-' . sanitize_key($cpt) . '-' . $ver;
+        if (!wp_style_is($handle, 'enqueued')) {
+            if (!wp_style_is($handle, 'registered')) {
+                wp_register_style($handle, false, [], null);
+            }
+            wp_add_inline_style($handle, (string)$css);
+            wp_enqueue_style($handle);
+        }
+        return $css; // return css string for helpers (overlay detection)
+    }
+
+    private function render_card_from_item(array $item, $cpt, array $layout, $assets_css)
+    {
+        $enabled   = isset($layout['enabled']) && is_array($layout['enabled']) ? $layout['enabled'] : [];
+        $order     = isset($layout['order']) && is_array($layout['order']) ? $layout['order'] : ['image','title','excerpt','content','meta1','meta2','meta3','button'];
+        $meta_keys = isset($layout['meta_keys']) && is_array($layout['meta_keys']) ? $layout['meta_keys'] : ['meta1'=>'','meta2'=>'','meta3'=>''];
+        $meta_wrap = isset($layout['meta_wrap']) && is_array($layout['meta_wrap']) ? $layout['meta_wrap'] : ['meta1'=>'content','meta2'=>'content','meta3'=>'content'];
+
+        // Compute which meta slots are HTML (WYSIWYG) by checking mapped field types
+        $types_opt = get_option(self::OPTION_KEY, []);
+        $field_types = [];
+        if (isset($types_opt[$cpt]['fields']) && is_array($types_opt[$cpt]['fields'])) {
+            foreach ($types_opt[$cpt]['fields'] as $f) {
+                if (!empty($f['key'])) $field_types[$f['key']] = $f['type'] ?? 'text';
+            }
+        }
+        $meta_html = ['meta1'=>false,'meta2'=>false,'meta3'=>false];
+        foreach ($meta_html as $slot => $_) {
+            $k = $meta_keys[$slot] ?? '';
+            if ($k && isset($field_types[$k]) && $field_types[$k] === 'wysiwyg') $meta_html[$slot] = true;
+        }
+
+        $use_overlay_btn = ($assets_css && strpos($assets_css, '.cphub-btn.has-hover') !== false);
+        $thumb_html = '';
+        $content_html = '';
+
+        foreach ($order as $el) {
+            if ($el === 'title') {
+                if (!empty($enabled['title']) && !empty($item['title'])) {
+                    $content_html .= '<h3 class="cphub-title"><a href="' . esc_url($item['link']) . '">' . esc_html($item['title']) . '</a></h3>';
+                }
+            } elseif ($el === 'image') {
+                if (!empty($enabled['image']) && !empty($item['thumb'])) {
+                    $thumb_html .= '<img class="cphub-img" src="' . esc_url($item['thumb']) . '" alt="" />';
+                }
+            } elseif ($el === 'excerpt') {
+                if (!empty($enabled['excerpt']) && !empty($item['excerpt'])) {
+                    $content_html .= '<div class="cphub-excerpt">' . wp_kses_post(wpautop($item['excerpt'])) . '</div>';
+                }
+            } elseif ($el === 'content') {
+                if (!empty($enabled['content']) && !empty($item['content'])) {
+                    $content_html .= '<div class="cphub-content">' . wp_kses_post($item['content']) . '</div>';
+                }
+            } elseif (in_array($el, ['meta1','meta2','meta3'], true)) {
+                if (!empty($enabled[$el])) {
+                    $key = isset($meta_keys[$el]) ? $meta_keys[$el] : '';
+                    if ($key !== '' && isset($item['meta']) && isset($item['meta'][$key])) {
+                        $html = '';
+                        $url = isset($item['meta'][$key . '_url']) ? $item['meta'][$key . '_url'] : '';
+                        $mime= isset($item['meta'][$key . '_mime']) ? $item['meta'][$key . '_mime'] : '';
+                        if ($url) {
+                            if (is_string($mime) && strpos($mime, 'image/') === 0) {
+                                $html = '<div class="cphub-meta"><img class="cphub-meta-media" src="' . esc_url($url) . '" alt="" /></div>';
+                            } else {
+                                $html = '<div class="cphub-meta"><a class="cphub-meta-file" href="' . esc_url($url) . '" target="_blank" rel="noopener">Download</a></div>';
+                            }
+                        } else {
+                            if (!empty($meta_html[$el])) {
+                                $html = '<div class="cphub-meta">' . wp_kses_post(wpautop((string)$item['meta'][$key])) . '</div>';
+                            } else {
+                                $html = '<div class="cphub-meta">' . esc_html((string)$item['meta'][$key]) . '</div>';
+                            }
+                        }
+                        if (($meta_wrap[$el] ?? 'content') === 'thumb') {
+                            $thumb_html .= $html;
+                        } else {
+                            $content_html .= $html;
+                        }
+                    }
+                }
+            } elseif ($el === 'button') {
+                if (!empty($enabled['button'])) {
+                    if ($use_overlay_btn) {
+                        $content_html .= '<a class="cphub-btn has-hover" href="' . esc_url($item['link']) . '">' .
+                                         '<span class="cphub-btn-inner"><span class="cphub-btn-base"><span class="cphub-btn-text">Read More</span></span></span>' .
+                                         '<span class="cphub-btn-hover"></span>' .
+                                         '</a>';
+                    } else {
+                        $content_html .= '<a class="cphub-btn" href="' . esc_url($item['link']) . '">Read More</a>';
+                    }
+                }
+            }
+        }
+
+        ob_start();
+        echo '<div class="cphub-card">';
+        echo '<div class="cphub-thumb-wrap">' . $thumb_html . '</div>';
+        echo '<div class="cphub-content-wrap">' . $content_html . '</div>';
+        echo '</div>';
+        return ob_get_clean();
+    }
+
+    public function sc_list($atts)
+    {
+        $a = shortcode_atts([
+            'cpt' => '',
+            'n' => 10,
+            'paged' => 1,
+            'location' => '',
+        ], $atts, 'cphub_list');
+        $cpt = sanitize_key($a['cpt']);
+        if (!$cpt) return '';
+        $n = max(1, intval($a['n']));
+        $paged = max(1, intval($a['paged']));
+        $loc = sanitize_key($a['location']);
+
+        // Enqueue styles for this CPT
+        $assets_css = $this->enqueue_style_for_cpt($cpt);
+        $cfg = $this->get_styles_config($cpt);
+        $layout = $cfg['layout'];
+        $layout_type = isset($cfg['styles']['layout_type']) && $cfg['styles']['layout_type'] === 'grid' ? 'grid' : 'list';
+
+        $args = [
+            'post_type' => [$cpt],
+            'post_status' => 'publish',
+            'posts_per_page' => $n,
+            'paged' => $paged,
+            'ignore_sticky_posts' => true,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        ];
+        if ($loc && taxonomy_exists('location')) {
+            $args['tax_query'] = [[
+                'taxonomy' => 'location',
+                'field' => 'slug',
+                'terms' => [$loc, 'all-locations'],
+                'operator' => 'IN',
+            ]];
+        }
+        $q = new WP_Query($args);
+        if (!$q->have_posts()) return '';
+
+        ob_start();
+        echo '<div class="' . esc_attr($layout_type === 'grid' ? 'cphub-grid' : 'cphub-list') . '">';
+        while ($q->have_posts()) {
+            $q->the_post();
+            $item = $this->map_post_to_feed_item(get_post());
+            echo $this->render_card_from_item($item, $cpt, $layout, $assets_css);
+        }
+        wp_reset_postdata();
+        echo '</div>';
+        return ob_get_clean();
+    }
+
+    public function sc_item($atts)
+    {
+        $a = shortcode_atts([
+            'cpt' => '',
+            'id'  => '',
+        ], $atts, 'cphub_item');
+        $cpt = sanitize_key($a['cpt']);
+        $id = intval($a['id']);
+        if (!$cpt || $id <= 0) return '';
+        $p = get_post($id);
+        if (!$p || $p->post_type !== $cpt || $p->post_status !== 'publish') return '';
+        $assets_css = $this->enqueue_style_for_cpt($cpt);
+        $cfg = $this->get_styles_config($cpt);
+        $layout = $cfg['layout'];
+        $item = $this->map_post_to_feed_item($p);
+        return $this->render_card_from_item($item, $cpt, $layout, $assets_css);
     }
 
     private function get_styles_config($cpt)
@@ -1635,6 +1914,9 @@ final class CPT_Hub_Publisher
                 $css .= '.cphub-card:hover .cphub-thumb-wrap::before{transform:translateX(' . $end . ') rotate(' . $angle . 'deg);}';
             }
         }
+        // Utility color classes for WYSIWYG meta content
+        $css .= '.cphub-meta .cphub-color-primary{color:' . $primary . '}';
+        $css .= '.cphub-meta .cphub-color-text{color:' . $text . '}';
         // Title spacing
         $title_mt = isset($styles['title_mt']) ? max(0, intval($styles['title_mt'])) : null;
         $title_mb = isset($styles['title_mb']) ? max(0, intval($styles['title_mb'])) : max(4, intval($sp/2));
@@ -1932,6 +2214,44 @@ final class CPT_Hub_Publisher
         return $css;
     }
 
+    private function sanitize_wysiwyg_html($html)
+    {
+        $html = (string)$html;
+        // Ensure paragraphs from single-linebreaks
+        $html = wpautop($html);
+        // Limit style attributes to color only on spans
+        $html = preg_replace_callback('/<span\b([^>]*?)>/i', function($m){
+            $attrs = $m[1];
+            $colorDecl = '';
+            if (preg_match('/style\s*=\s*(["\'])(.*?)\1/i', $attrs, $sm)) {
+                $style = $sm[2];
+                foreach (explode(';', $style) as $decl) {
+                    $decl = trim($decl);
+                    if ($decl === '') continue;
+                    if (stripos($decl, 'color:') === 0) {
+                        // Normalize to keep only color
+                        $colorDecl = $decl;
+                        break;
+                    }
+                }
+                // Remove existing style attribute entirely
+                $attrs = preg_replace('/\s*style\s*=\s*(["\'])(.*?)\1/i', '', $attrs);
+            }
+            if ($colorDecl !== '') {
+                $attrs .= ' style="' . esc_attr($colorDecl . ';') . '"';
+            }
+            return '<span' . $attrs . '>';
+        }, $html);
+        // Allowed HTML same as post content
+        $allowed = wp_kses_allowed_html('post');
+        // Ensure span allows class and style
+        if (!isset($allowed['span'])) $allowed['span'] = [];
+        $allowed['span']['class'] = true;
+        $allowed['span']['style'] = true;
+        // Kses sanitize
+        return wp_kses($html, $allowed);
+    }
+
     public function enqueue_admin_assets($hook)
     {
         if ($hook !== 'toplevel_page_cphub') return;
@@ -1939,6 +2259,22 @@ final class CPT_Hub_Publisher
         if ($tab === 'styles') {
             wp_enqueue_script('jquery-ui-sortable');
         }
+    }
+
+    public function enqueue_global_css()
+    {
+        // Enqueue Global CSS on Publisher front end if defined
+        if (is_admin()) return;
+        $opt = get_option(self::OPTION_GLOBAL_CSS, ['css'=>'','version'=>'']);
+        $css = isset($opt['css']) ? (string)$opt['css'] : '';
+        if ($css === '') return;
+        $ver = isset($opt['version']) ? substr((string)$opt['version'], 0, 10) : '0';
+        $handle = 'cphub-pub-global-' . $ver;
+        if (!wp_style_is($handle, 'registered')) {
+            wp_register_style($handle, false, [], null);
+            wp_add_inline_style($handle, $css);
+        }
+        wp_enqueue_style($handle);
     }
 
     public function render_feed()
@@ -2164,6 +2500,30 @@ final class CPT_Hub_Publisher
             $val = get_post_meta($post->ID, $f['key'], true);
             echo '<tr><th><label for="cphub_meta_' . $key . '">' . $lab . '</label></th><td>';
             switch ($typ) {
+                case 'wysiwyg':
+                    // Provide paragraph/heading and color styles (primary/text via CSS classes)
+                    $style_formats = [
+                        [ 'title' => 'Primary color', 'inline' => 'span', 'classes' => 'cphub-color-primary' ],
+                        [ 'title' => 'Text color',    'inline' => 'span', 'classes' => 'cphub-color-text' ],
+                    ];
+                    $settings = [
+                        'textarea_name' => 'cphub_meta[' . $key . ']',
+                        'textarea_rows' => 8,
+                        'media_buttons' => false,
+                        'teeny' => false,
+                        'quicktags' => false,
+                        'tinymce' => [
+                            'toolbar1' => 'formatselect,styleselect,forecolor,|,bold,italic,underline,|,bullist,numlist,|,link,unlink,|,removeformat',
+                            'toolbar2' => '',
+                            'block_formats' => 'Paragraph=p;Heading 2=h2;Heading 3=h3;Heading 4=h4',
+                            // TinyMCE expects JSON string for style_formats
+                            'style_formats' => wp_json_encode($style_formats),
+                            'wpautop' => true,
+                        ],
+                    ];
+                    // Output a compact WYSIWYG editor with paragraph/heading dropdown
+                    wp_editor((string)$val, 'cphub_meta_' . $key, $settings);
+                    break;
                 case 'textarea':
                     echo '<textarea id="cphub_meta_' . $key . '" name="cphub_meta[' . $key . ']" rows="4" class="large-text">' . esc_textarea($val) . '</textarea>';
                     break;
@@ -2303,6 +2663,10 @@ final class CPT_Hub_Publisher
             $raw = $incoming[$key] ?? '';
             $val = '';
             switch ($typ) {
+                case 'wysiwyg':
+                    // Allow safe HTML; keep only allowed tags and filter style to color only
+                    $val = is_string($raw) ? $this->sanitize_wysiwyg_html($raw) : '';
+                    break;
                 case 'textarea':
                     $val = is_string($raw) ? sanitize_textarea_field($raw) : '';
                     break;

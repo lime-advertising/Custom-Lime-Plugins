@@ -3,7 +3,7 @@
 ?>
 
 <h2 class="title">Custom Taxonomies</h2>
-<table class="widefat striped" style="max-width:900px;">
+<table class="widefat striped" style="max-width:100%;">
     <thead>
         <tr>
             <th>Slug</th>
@@ -36,7 +36,7 @@
 
 <?php if ($tax_edit_def): ?>
 <h3 class="title" style="margin-top:1em;">Edit Taxonomy</h3>
-<form method="post" class="card" style="padding:1em;max-width:900px;">
+<form method="post" class="card" style="padding:1em;max-width:100%;">
     <?php wp_nonce_field(CPT_Hub_Publisher::NONCE_ACTION); ?>
     <input type="hidden" name="cphub_action" value="tax_update">
     <input type="hidden" name="slug" value="<?php echo esc_attr($tax_edit_slug); ?>">
@@ -62,7 +62,7 @@
 <?php endif; ?>
 
 <h3 class="title" style="margin-top:1em;">Add Taxonomy</h3>
-<form method="post" class="card" style="padding:1em;max-width:900px;">
+<form method="post" class="card" style="padding:1em;max-width:100%;">
     <?php wp_nonce_field(CPT_Hub_Publisher::NONCE_ACTION); ?>
     <input type="hidden" name="cphub_action" value="tax_add">
     <table class="form-table" role="presentation">

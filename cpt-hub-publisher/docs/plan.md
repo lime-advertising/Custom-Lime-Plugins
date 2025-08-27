@@ -26,6 +26,8 @@ Out of scope (initially): editorial workflow/approvals, advanced permissions, an
   - Enable CPTs to ingest; render via shortcodes/blocks/templates.
   - Cache content and assets locally with versioned invalidation; cron refresh; conditional GET (ETag/Last‑Modified).
   - Optional Local Content: register local CPTs for enabled slugs, import items as local posts, and sideload featured/meta media so permalinks and assets resolve locally if the Publisher is offline.
+  - Global CSS: optional sitewide CSS string is delivered via REST and enqueued across all pages.
+  - Publisher also exposes shortcodes to render local CPT content for preview or site use: `[cphub_list]`, `[cphub_item]`.
 
 ## Location Strategy (Recommended)
 - Add a `location` taxonomy on the Publisher with terms for each location plus a special `all-locations` term.
@@ -38,16 +40,20 @@ Alternative: Allow Consumers to add local-only items of the same CPT and merge d
 - Maintain a versioned per‑CPT style config on the Publisher.
 - Expose an assets endpoint: `{ version, layout, layout_type, css }` where `css` is a stylesheet string generated from the saved config.
 - Consumers fetch and cache CSS by version and inject/enqueue per CPT. Optional toggle to use Publisher styles vs. site theme. When enabled, CSS is auto‑enqueued on shortcodes and on local CPT single/archive views.
+- WYSIWYG meta styling: the editor can apply branded classes (e.g., `cphub-color-primary`, `cphub-color-text`) and safe inline `color:` styles; the generated CSS maps branded classes to the CPT’s Primary/Text colors.
 
 ## APIs & Contracts
 - RSS: continue to expose `/feed/cphub` and per‑CPT `/feed/cphub/{slug}` including meta fields, media URLs, and taxonomy terms.
 - REST (implemented):
   - Items: `/wp-json/cphub/v1/items?cpt=slides&location=nyc&n=20&paged=1&modified_since=YYYY-MM-DD`
   - Assets: `/wp-json/cphub/v1/assets?cpt=slides` → `{ version, layout, layout_type, css }`
+  - Global CSS: `/wp-json/cphub/v1/global` → `{ version, css }`
   - Health: `/wp-json/cphub/v1/health` → status, base URLs, feed cache stats, styles versions
 - Security: Optional `key` query param (shared or per-consumer); rotateable.
 - Caching: ETag/Last-Modified for REST and RSS (implemented) with 304 handling; 5‑minute transients on Publisher; local caching on Consumer; conditional GETs. Page size `n` is capped at 100.
   - Items include `tax_terms` for the `location` taxonomy to aid debugging of location filtering.
+  - Assets layout includes `meta_html` map indicating which of `meta1..3` are WYSIWYG HTML (`true`) vs. plain text (`false`). Consumers render HTML slots with `wp_kses_post` (safe HTML) and `wpautop` for paragraph wrapping.
+  - WYSIWYG meta sanitation: Publisher saves with safe tags; span styles limited to `color:` only; classes preserved.
   - Consumer cron refresh: a WP‑Cron task runs every 10 minutes to update items and assets in the background; manual refresh triggers immediate update.
 
 ## Performance & Reliability

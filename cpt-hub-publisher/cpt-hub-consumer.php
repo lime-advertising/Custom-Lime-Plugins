@@ -14,6 +14,7 @@ final class CPT_Hub_Consumer
     const OPT_SETTINGS = 'cphub_consumer_settings';
     const OPT_CACHE_ITEMS = 'cphub_consumer_cache_items';
     const OPT_CACHE_ASSETS = 'cphub_consumer_cache_assets';
+    const OPT_CACHE_GLOBAL = 'cphub_consumer_cache_global';
     const OPT_CRON_META = 'cphub_consumer_cron_meta';
     const CRON_HOOK = 'cphub_consumer_cron_refresh';
     private static $needs_styles = [];
@@ -30,8 +31,12 @@ final class CPT_Hub_Consumer
         add_action('admin_post_cphub_consumer_clear',   [$this, 'handle_clear_cache']);
         add_action('admin_post_cphub_consumer_health',  [$this, 'handle_check_health']);
         add_action('wp_enqueue_scripts',  [$this, 'enqueue_styles']);
+        add_filter('use_block_editor_for_post_type', [$this, 'disable_block_editor_for_cphub'], 10, 2);
+        add_action('add_meta_boxes',      [$this, 'add_readonly_meta_box']);
+        add_filter('default_hidden_meta_boxes', [$this, 'hide_default_custom_fields_box'], 10, 2);
         add_shortcode('cphub_list',       [$this, 'sc_list']);
         add_shortcode('cphub_item',       [$this, 'sc_item']);
+        add_shortcode('cphub_location',   [$this, 'sc_location']);
 
         add_filter('cron_schedules',      [$this, 'add_cron_schedules']);
         add_action(self::CRON_HOOK,       [$this, 'cron_refresh']);
@@ -231,6 +236,22 @@ final class CPT_Hub_Consumer
             </tbody>
           </table>
 
+          <?php $g = get_option(self::OPT_CACHE_GLOBAL, []); ?>
+          <h3 style="margin-top:1em;">Global CSS Status</h3>
+          <table class="widefat striped" style="max-width:1100px;">
+            <thead><tr><th>Version</th><th>ETag</th><th>Last-Modified</th><th>Updated</th><th>Last Status</th><th>Last Error</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><?php echo esc_html($g['version'] ?? ''); ?></td>
+                <td style="word-break:break-all;">&quot;<?php echo esc_html(trim((string)($g['etag'] ?? ''), '"')); ?>&quot;</td>
+                <td><?php echo esc_html($g['last_modified'] ?? ''); ?></td>
+                <td><?php echo !empty($g['updated']) ? esc_html(date('Y-m-d H:i', (int)$g['updated'])) : ''; ?></td>
+                <td><?php echo isset($g['last_status']) ? (int)$g['last_status'] : ''; ?></td>
+                <td style="max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?php echo esc_attr(substr((string)($g['last_error'] ?? ''),0,500)); ?>"><?php echo esc_html(substr((string)($g['last_error'] ?? ''),0,80)); ?></td>
+              </tr>
+            </tbody>
+          </table>
+
           <h2 style="margin-top:1.5em;">Publisher Health</h2>
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="card" style="padding:1em;max-width:900px;">
             <?php wp_nonce_field('cphub_consumer_health'); ?>
@@ -282,6 +303,7 @@ final class CPT_Hub_Consumer
         check_admin_referer('cphub_consumer_clear');
         delete_option(self::OPT_CACHE_ITEMS);
         delete_option(self::OPT_CACHE_ASSETS);
+        delete_option(self::OPT_CACHE_GLOBAL);
         delete_transient('cphub_consumer_last_health');
         add_settings_error('cphub_consumer', 'cache_cleared', 'Consumer cache cleared.', 'updated');
         wp_safe_redirect(add_query_arg(['page'=>'cphub-consumer'], admin_url('options-general.php')));
@@ -323,6 +345,8 @@ final class CPT_Hub_Consumer
             $this->fetch_items($slug);
             $this->fetch_assets($slug);
         }
+        // Refresh global CSS as well
+        $this->fetch_global_css();
     }
 
     private function build_url($base, $path, $args)
@@ -478,6 +502,17 @@ final class CPT_Hub_Consumer
         $s = get_option(self::OPT_SETTINGS, []);
         if (empty($s['use_styles'])) return;
         $assets = get_option(self::OPT_CACHE_ASSETS, []);
+        // Enqueue global CSS first if present
+        $global = get_option(self::OPT_CACHE_GLOBAL, []);
+        if (!empty($global['css'])) {
+            $gver = isset($global['version']) ? substr((string)$global['version'], 0, 10) : '0';
+            $gh = 'cphub-global-' . $gver;
+            if (!wp_style_is($gh, 'registered')) {
+                wp_register_style($gh, false, [], null);
+                wp_add_inline_style($gh, (string)$global['css']);
+            }
+            wp_enqueue_style($gh);
+        }
         foreach (self::$needs_styles as $cpt) {
             if (empty($assets[$cpt]['css'])) continue;
             $ver = isset($assets[$cpt]['version']) ? substr((string)$assets[$cpt]['version'], 0, 10) : '0';
@@ -488,6 +523,52 @@ final class CPT_Hub_Consumer
             }
             wp_enqueue_style($handle);
         }
+    }
+
+    private function fetch_global_css()
+    {
+        $s = get_option(self::OPT_SETTINGS, []);
+        $base = isset($s['publisher_url']) ? trim($s['publisher_url']) : '';
+        if ($base === '') return;
+        $cache = get_option(self::OPT_CACHE_GLOBAL, []);
+        $args = [];
+        if (!empty($s['secret_key'])) $args['key'] = $s['secret_key'];
+        $url = $this->build_url($base, 'wp-json/cphub/v1/global', $args);
+        $headers = [];
+        if (!empty($cache['etag'])) $headers['If-None-Match'] = $cache['etag'];
+        if (!empty($cache['last_modified'])) $headers['If-Modified-Since'] = $cache['last_modified'];
+        $res = wp_remote_get($url, [ 'timeout' => 15, 'headers' => $headers, 'user-agent' => 'CPT-Hub-Consumer/0.1' ]);
+        if (is_wp_error($res)) {
+            $cache['last_status'] = 0;
+            $cache['last_error']  = $res->get_error_message();
+            $cache['updated']     = time();
+            update_option(self::OPT_CACHE_GLOBAL, $cache, false);
+            return;
+        }
+        $code = wp_remote_retrieve_response_code($res);
+        $cache['last_status'] = $code;
+        if ($code === 304) {
+            $cache['updated'] = time();
+            update_option(self::OPT_CACHE_GLOBAL, $cache, false);
+            return;
+        }
+        if ($code !== 200) {
+            $cache['last_error'] = wp_remote_retrieve_body($res);
+            $cache['updated']    = time();
+            update_option(self::OPT_CACHE_GLOBAL, $cache, false);
+            return;
+        }
+        $body = wp_remote_retrieve_body($res);
+        $data = json_decode($body, true);
+        if (!is_array($data)) return;
+        $etag = wp_remote_retrieve_header($res, 'etag');
+        $last = wp_remote_retrieve_header($res, 'last-modified');
+        $cache['etag'] = is_string($etag) ? $etag : '';
+        $cache['last_modified'] = is_string($last) ? $last : '';
+        $cache['version'] = isset($data['version']) ? (string)$data['version'] : '';
+        $cache['css'] = isset($data['css']) ? (string)$data['css'] : '';
+        $cache['updated'] = time();
+        update_option(self::OPT_CACHE_GLOBAL, $cache, false);
     }
 
     public function mark_styles_from_query()
@@ -539,22 +620,131 @@ final class CPT_Hub_Consumer
         $enabled = (array)($s['enabled_cpts'] ?? []);
         foreach ($enabled as $slug) {
             $pt = sanitize_key($slug);
-            if (post_type_exists($pt)) continue;
-            $label = ucwords(str_replace(['-', '_'], ' ', $pt));
-            register_post_type($pt, [
-                'label' => $label,
-                'labels' => [
-                    'name' => $label,
-                    'singular_name' => $label,
-                ],
-                'public' => true,
-                'has_archive' => true,
-                'show_in_rest' => true,
-                'supports' => ['title','editor','excerpt','thumbnail'],
-                'menu_icon' => 'dashicons-archive',
-            ]);
+            if (!post_type_exists($pt)) {
+                $label = ucwords(str_replace(['-', '_'], ' ', $pt));
+                register_post_type($pt, [
+                    'label' => $label,
+                    'labels' => [
+                        'name' => $label,
+                        'singular_name' => $label,
+                    ],
+                    'public' => true,
+                    'has_archive' => true,
+                    'show_in_rest' => false,
+                    'supports' => ['title','editor','excerpt','thumbnail','custom-fields'],
+                    'menu_icon' => 'dashicons-archive',
+                ]);
+            }
+            // Ensure classic Custom Fields panel is available even if CPT already existed
+            add_post_type_support($pt, 'custom-fields');
         }
         self::$did_register = true;
+    }
+
+    public function disable_block_editor_for_cphub($use_block_editor, $post_type)
+    {
+        // Force Classic Editor for CPT Hub local content to match Publisher behavior
+        $s = get_option(self::OPT_SETTINGS, []);
+        if (empty($s['save_local'])) return $use_block_editor;
+        $enabled = array_map('sanitize_key', (array)($s['enabled_cpts'] ?? []));
+        if (in_array($post_type, $enabled, true)) return false;
+        return $use_block_editor;
+    }
+
+    public function add_readonly_meta_box()
+    {
+        $s = get_option(self::OPT_SETTINGS, []);
+        if (empty($s['save_local'])) return;
+        $enabled = array_map('sanitize_key', (array)($s['enabled_cpts'] ?? []));
+        foreach ($enabled as $pt) {
+            add_meta_box(
+                'cphub_meta_readonly',
+                'CPT Hub Meta (Read‑only)',
+                [$this, 'render_readonly_meta_box'],
+                $pt,
+                'normal',
+                'default'
+            );
+        }
+    }
+
+    public function hide_default_custom_fields_box($hidden, $screen)
+    {
+        // Hide the native Custom Fields box by default for CPT Hub CPTs (still available via Screen Options)
+        $s = get_option(self::OPT_SETTINGS, []);
+        $enabled = array_map('sanitize_key', (array)($s['enabled_cpts'] ?? []));
+        if (!empty($screen->post_type) && in_array($screen->post_type, $enabled, true)) {
+            if (!in_array('postcustom', $hidden, true)) $hidden[] = 'postcustom';
+        }
+        return $hidden;
+    }
+
+    public function render_readonly_meta_box($post)
+    {
+        $all = get_post_meta($post->ID);
+        if (!$all || !is_array($all)) { echo '<p><em>No meta.</em></p>'; return; }
+
+        // Collect base values and media helpers grouped by base key
+        $base = [];
+        $media = [];
+        foreach ($all as $k => $vals) {
+            if (!is_array($vals)) continue;
+            $val = reset($vals);
+            if (!is_scalar($val)) continue;
+            $val = (string)$val;
+            if ($k === '') continue;
+            if (preg_match('/^(.*)_(id|url|mime)$/', $k, $m)) {
+                $b = $m[1]; $t = $m[2];
+                if ($b !== '' && $b[0] !== '_') {
+                    if (!isset($media[$b])) $media[$b] = [];
+                    $media[$b][$t] = $val;
+                }
+                continue;
+            }
+            if ($k[0] === '_') continue; // protected
+            $base[$k] = $val;
+        }
+
+        // Union of keys: base keys and media bases
+        $keys = array_unique(array_merge(array_keys($base), array_keys($media)));
+        if (!$keys) { echo '<p><em>No public meta fields.</em></p>'; return; }
+        sort($keys, SORT_NATURAL | SORT_FLAG_CASE);
+
+        echo '<table class="widefat striped"><thead><tr><th style="width:40%">Meta key</th><th>Value</th></tr></thead><tbody>';
+        foreach ($keys as $k) {
+            $display = '';
+            // Prefer URL from media helpers if present
+            if (isset($media[$k]['url']) && $media[$k]['url'] !== '') {
+                $url = esc_url($media[$k]['url']);
+                $mime = isset($media[$k]['mime']) ? (string)$media[$k]['mime'] : '';
+                if (is_string($mime) && strpos($mime, 'image/') === 0) {
+                    $display = '<a style=" display: block; background: #000; width: 60px; padding: 10px; box-sizing: border-box; href="' . $url . '" target="_blank" rel="noopener"><img src="' . $url . '" alt="" style="max-width:140px;height:auto;" /></a>';
+                } else {
+                    $display = '<a href="' . $url . '" target="_blank" rel="noopener">' . esc_html(basename(parse_url($media[$k]['url'], PHP_URL_PATH) ?: $media[$k]['url'])) . '</a>';
+                }
+            } elseif (isset($base[$k]) && $base[$k] !== '' && ctype_digit($base[$k])) {
+                // Looks like an attachment ID; try to resolve URL
+                $aid = intval($base[$k]);
+                if ($aid > 0) {
+                    $url = wp_get_attachment_url($aid);
+                    $mime = get_post_mime_type($aid);
+                    if ($url) {
+                        $eurl = esc_url($url);
+                        if (is_string($mime) && strpos($mime, 'image/') === 0) {
+                            $display = '<a style=" display: block; background: #000; width: 60px; padding: 10px; box-sizing: border-box; href="' . $eurl . '" target="_blank" rel="noopener"><img src="' . $eurl . '" alt="" style="max-width:140px;height:auto;" /></a>';
+                        } else {
+                            $display = '<a href="' . $eurl . '" target="_blank" rel="noopener">' . esc_html(basename(parse_url($url, PHP_URL_PATH) ?: $url)) . '</a>';
+                        }
+                    }
+                }
+            }
+            if ($display === '') {
+                $display = isset($base[$k]) ? esc_html($base[$k]) : '<em>—</em>';
+            }
+            echo '<tr><td><code>' . esc_html($k) . '</code></td><td>' . $display . '</td></tr>';
+        }
+        echo '</tbody></table>';
+        echo '<p class="description">Read‑only view of Publisher meta. Media helpers (e.g., <code>_id</code>, <code>_url</code>, <code>_mime</code>) are hidden; media shows a preview or file link.</p>';
     }
 
     private function sync_local_posts($cpt, array $items)
@@ -764,7 +954,14 @@ final class CPT_Hub_Consumer
                                 $html = '<div class="cphub-meta"><a class="cphub-meta-file" href="' . esc_url($url) . '" target="_blank" rel="noopener">Download</a></div>';
                             }
                         } else {
-                            $html = '<div class="cphub-meta">' . esc_html((string)$item['meta'][$key]) . '</div>';
+                            $is_html = isset($layout['meta_html']) && !empty($layout['meta_html'][$el]);
+                            if ($is_html) {
+                                $html_val = (string)$item['meta'][$key];
+                                // Autop to ensure paragraphs are wrapped; then sanitize
+                                $html = '<div class="cphub-meta">' . wp_kses_post(wpautop($html_val)) . '</div>';
+                            } else {
+                                $html = '<div class="cphub-meta">' . esc_html((string)$item['meta'][$key]) . '</div>';
+                            }
                         }
                         if (($meta_wrap[$el] ?? 'content') === 'thumb') {
                             $thumb_html .= $html;
@@ -794,6 +991,74 @@ final class CPT_Hub_Consumer
         echo '<div class="cphub-content-wrap">' . $content_html . '</div>';
         echo '</div>';
         return ob_get_clean();
+    }
+
+    /* ================= Location Shortcode ================= */
+    private function get_known_locations_map()
+    {
+        // Mirror of Publisher known locations for friendly labels
+        return [
+            'merrymaidsoshawa' => 'Oshawa, Whitby, Pickering, Ajax (Durham)',
+            'merrymaidspeterborough' => 'Peterborough and Lindsay',
+            'merrymaidsbarrie' => 'Barrie',
+            'merrymaidstorontowest' => 'Toronto West (Former Etobicoke)',
+            'merrymaidstoronto' => 'Toronto',
+            'merrymaidsbrampton' => 'Brampton',
+            'merrymaidsburnaby' => 'Burnaby, New Westminster and Tri-Cities',
+            'merrymaidsvancouver' => 'Vancouver',
+            'merrymaidscalgarynse' => 'Calgary NSE',
+            'merrymaidscalgarysw' => 'Calgary SW',
+            'merrymaidskwc' => 'KWC (Kitchener, Waterloo, Cambridge)',
+            'merrymaidsguelph' => 'Guelph',
+            'merrymaidssurrey' => 'Surrey, Delta, Langley, White Rock',
+            'merrymaidshamilton' => 'Hamilton and Stoney Creek',
+            'merrymaidsoakville' => 'Oakville',
+            'merrymaidsmilton' => 'Milton and Georgetown',
+            'merrymaidsburlington' => 'Burlington',
+            'merrymaidsmississauga' => 'Mississauga',
+            'merrymaidsorangeville' => 'Orangeville',
+            'merrymaidskingston' => 'Kingston',
+            'merrymaidslethbridge' => 'Lethbridge',
+            'merrymaidslondon' => 'London',
+            'merrymaidsuxbridge' => 'Uxbridge and Markham',
+            'merrymaidshalifax' => 'Metro (Halifax)',
+            'merrymaidsnorthvancouver' => 'North & West Vancouver',
+            'merrymaidsottawa' => 'Ottawa',
+            'merrymaidsottawawest' => 'Ottawa West',
+            'merrymaidsregina' => 'Regina',
+            'merrymaidswinnipeg' => 'Winnipeg',
+            'merrymaidsrichmondhill' => 'Richmond Hill and Vaughan',
+            'merrymaidssaskatoon' => 'Saskatoon',
+            'merrymaidsscarborough' => 'Scarborough',
+            'merrymaidsbelleville' => 'Belleville and Trenton',
+            'merrymaidsniagara' => 'St. Catharines, Niagara',
+            'home-office' => 'Home Office',
+        ];
+    }
+
+    private function get_location_label($slug)
+    {
+        $slug = sanitize_key((string)$slug);
+        if ($slug === '') return '';
+        $map = $this->get_known_locations_map();
+        if (isset($map[$slug])) return $map[$slug];
+        // Fallback: humanize slug
+        $label = str_replace(['-', '_'], ' ', $slug);
+        return ucwords($label);
+    }
+
+    public function sc_location($atts)
+    {
+        $a = shortcode_atts([
+            'slug' => '', // optional override; defaults to settings location
+        ], $atts, 'cphub_location');
+        $slug = sanitize_key($a['slug']);
+        if ($slug === '') {
+            $s = get_option(self::OPT_SETTINGS, []);
+            $slug = isset($s['location']) ? sanitize_key((string)$s['location']) : '';
+        }
+        if ($slug === '') return '';
+        return esc_html($this->get_location_label($slug));
     }
 
     public function sc_list($atts)

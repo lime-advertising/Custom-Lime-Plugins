@@ -17,6 +17,18 @@ Only update this checklist after the stakeholder says “done”.
 - [ ] Optional JS assets support (manifest `js[]`).
 - Acceptance: Preview reflects saved styles; Consumers can fetch version + CSS. ETag/JS pending.
 
+## 2.2) Publisher: Rich Meta (WYSIWYG)
+- [x] New custom field type: WYSIWYG (paragraphs/headings, links, lists).
+- [x] TinyMCE toolbar: formatselect, color picker (safe), styles (branded classes).
+- [x] Sanitization: keep safe tags; allow span class and `color:` only.
+- [x] Assets include `layout.meta_html` map (HTML vs text for meta1–3).
+- Acceptance: WYSIWYG renders with paragraphs/headings on Consumers with safe colors.
+
+## 2.3) Publisher: Shortcodes + Global CSS
+- [x] Publisher shortcodes: `[cphub_list]`, `[cphub_item]` render local posts using Styles layout + CSS.
+- [x] Global CSS admin tab and REST endpoint; enqueued on Publisher and Consumers.
+- Acceptance: Lists/singles render with the same card UI; sitewide CSS applies.
+
 ## 2.1) Layout Presets + Responsive
 - [x] List/Grid presets with grid gap and columns (desktop).
 - [x] Responsive grid columns for tablet/mobile.
@@ -29,6 +41,8 @@ Only update this checklist after the stakeholder says “done”.
 - [x] Per‑CPT enable/disable toggles (CSV + toggles; merges both).
 - [x] Health check endpoint test + status display in UI (Check Health + summary).
 - [x] Clear cache button; cache table with diagnostics (status/error).
+- [x] Cron status panel (enabled/disabled, last run, next scheduled).
+- [x] Location shortcode `[cphub_location]` prints friendly location label.
 - [x] Acceptance: Connectivity validated; credentials stored securely.
 
 ## 4) Consumer: Content Ingestion + Caching
@@ -38,6 +52,7 @@ Only update this checklist after the stakeholder says “done”.
 - [ ] Backoff on repeated failures.
 - [x] Shortcodes: `[cphub_list]`, `[cphub_item]` render from cache.
 - [x] Renderer honors Publisher layout (order/enabled/meta mapping), image, button overlay.
+- [x] HTML meta rendering: use `layout.meta_html` to render safe HTML with paragraphs.
 - [x] Acceptance: Pages render from cache; CSS enqueued per CPT version at render time.
 
 ## 5) Consumer: Style Sets Integration
@@ -65,4 +80,4 @@ Status: Feed-level shared secret supported; per-site key workflow pending.
 - [ ] Batch rollout plan for remaining locations; monitoring checklist.
 - [ ] Acceptance: Pilot signed off; playbook approved for scale‑out.
 
-Status: Publisher REST/RSS caching (ETag/Last-Modified) implemented; Health endpoint added. Consumer settings + ingestion + renderer + styles integrated; Local Content imports remote items into local CPTs with media sideloading; pending consumer error backoff, local+remote merge logic, markers for local-only items, and rollout playbook.
+Status: Publisher REST/RSS caching (ETag/Last-Modified) implemented; Health endpoint added. Consumer settings + ingestion + renderer + styles integrated; Local Content imports remote items into local CPTs with media sideloading; WYSIWYG meta delivered and rendered safely; Cron status panel added; pending consumer error backoff, local+remote merge logic, markers for local-only items, and rollout playbook.

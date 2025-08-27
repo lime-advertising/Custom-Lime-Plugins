@@ -46,7 +46,7 @@
 
 <?php if ($edit_def): ?>
 <h2 class="title" style="margin-top:2em;">Edit Type</h2>
-<form method="post" class="card" style="padding:1em;max-width:900px;">
+<form method="post" class="card" style="padding:1em;max-width:100%;">
     <?php wp_nonce_field(CPT_Hub_Publisher::NONCE_ACTION); ?>
     <input type="hidden" name="cphub_action" value="update">
     <input type="hidden" name="slug" value="<?php echo esc_attr($edit_slug); ?>">
@@ -88,13 +88,14 @@
             <th scope="row">Custom Meta Fields</th>
             <td>
                 <p class="description">Define fields stored as public post meta and exposed in the feed. Avoid leading underscores in keys.</p>
+                
                 <table class="widefat" style="max-width:860px;">
                     <thead>
                         <tr>
-                            <th style="width:20%">Key</th>
-                            <th style="width:30%">Label</th>
-                            <th style="width:20%">Type</th>
-                            <th class="cphub-col-extra">Field Options</th>
+                            <th style="width:20%;padding-left:12px;">Key</th>
+                            <th style="width:30%;padding-left:12px;">Label</th>
+                            <th style="width:20%;padding-left:12px;">Type</th>
+                            <th class="cphub-col-extra" style="padding-left:12px;">Field Options</th>
                         </tr>
                     </thead>
                     <tbody id="cphub-fields-rows">
@@ -107,7 +108,7 @@
                                 <td>
                                     <select name="fields[type][]">
                                         <?php $typesel = $f['type'] ?? 'text';
-                                        foreach (['text'=>'Text','textarea'=>'Textarea','number'=>'Number','url'=>'URL','select'=>'Select','media'=>'Media'] as $tk=>$tv): ?>
+                                        foreach (['text'=>'Text','textarea'=>'Textarea','number'=>'Number','url'=>'URL','select'=>'Select','media'=>'Media','wysiwyg'=>'WYSIWYG'] as $tk=>$tv): ?>
                                             <option value="<?php echo esc_attr($tk); ?>" <?php selected($typesel === $tk); ?>><?php echo esc_html($tv); ?></option>
                                         <?php endforeach; ?>
                                     </select>
@@ -135,6 +136,7 @@
                                     <option value="url">URL</option>
                                     <option value="select">Select</option>
                                     <option value="media">Media</option>
+                                    <option value="wysiwyg">WYSIWYG</option>
                                 </select>
                             </td>
                             <td class="cphub-field-extra">
@@ -161,18 +163,17 @@
                             var mediaSelect = extraCell.querySelector('.cphub-extra-media');
                             var removeBtn = extraCell.querySelector('.cphub-remove-field');
                             function apply(){
+                                // Keep the Field Options cell visible at all times so Remove stays visible.
+                                extraCell.style.display = '';
                                 if (sel.value === 'select') {
-                                    extraCell.style.display = '';
                                     if (optInput) { optInput.style.display=''; optInput.disabled=false; }
                                     if (mediaSelect) { mediaSelect.style.display='none'; mediaSelect.disabled=true; }
                                 } else if (sel.value === 'media') {
-                                    extraCell.style.display = '';
                                     if (optInput) { optInput.style.display='none'; optInput.disabled=true; }
                                     if (mediaSelect) { mediaSelect.style.display=''; mediaSelect.disabled=false; }
                                 } else {
-                                    extraCell.style.display = 'none';
-                                    if (optInput) { optInput.disabled=true; }
-                                    if (mediaSelect) { mediaSelect.disabled=true; }
+                                    if (optInput) { optInput.style.display='none'; optInput.disabled=true; }
+                                    if (mediaSelect) { mediaSelect.style.display='none'; mediaSelect.disabled=true; }
                                 }
                             }
                             sel.addEventListener('change', apply);
@@ -210,7 +211,7 @@
 <?php endif; ?>
 
 <h2 class="title" style="margin-top:2em;">Add New Type</h2>
-<form method="post" class="card" style="padding:1em;max-width:900px;">
+<form method="post" class="card" style="padding:1em;max-width:100%;">
     <?php wp_nonce_field(CPT_Hub_Publisher::NONCE_ACTION); ?>
     <input type="hidden" name="cphub_action" value="add">
     <table class="form-table" role="presentation">

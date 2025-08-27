@@ -24,11 +24,19 @@ This guide explains how to connect a location site (Consumer) to the corporate P
   - Attributes: `cpt` (required), `n`, `paged` (pagination against local cache)
 - Single item (shortcode):
   - `[cphub_item cpt="slides" id="123"]`
+- Location name (shortcode):
+  - `[cphub_location]` prints the configured location’s friendly name.
+  - `[cphub_location slug="merrymaidsottawa"]` overrides the slug.
 - Renderer honors Publisher layout per CPT:
   - Order and enabled flags for elements (`image`, `title`, `excerpt`, `content`, `meta1..3`, `button`)
   - Meta mapping and placement (thumb/content)
   - Button overlay markup if the Publisher CSS includes `.cphub-btn.has-hover`
 - Grid vs List: Consumer uses `layout_type` (or detects from CSS) to choose `.cphub-grid` or `.cphub-list` wrappers.
+
+Editor and meta visibility on Consumer:
+- Classic editor is enforced for local CPTs to match Publisher behavior.
+- A read‑only meta panel lists only the public Publisher fields (clean key → value view) and hides technical companions (like `_id`, `_url`, `_mime`).
+- WYSIWYG meta slots render safe HTML with paragraph/heading tags and support colored text (brand classes or inline color).
 
 Fields and meta from the Publisher are mapped 1:1. For media fields, the feed includes companions:
 - `{key}_id`, `{key}_url`, `{key}_mime`
@@ -42,6 +50,11 @@ For media meta fields:
 - The Consumer fetches a per‑CPT assets payload from the Publisher: `{ version, layout, layout_type, css }`.
 - Toggle: “Use Publisher Styles” in settings. When enabled, the remote CSS string is cached by version and enqueued per CPT.
 - Auto‑enqueue: Styles are enqueued when rendering shortcodes and also automatically on local CPT single and archive views.
+- WYSIWYG meta styling: brand classes (`.cphub-color-primary`, `.cphub-color-text`) map to the CPT’s Primary/Text colors; inline `color:` is preserved.
+
+### Global CSS
+- Publisher can define sitewide CSS under the “Global CSS” tab.
+- Consumer fetches and caches it separately and enqueues it on every page when “Use Publisher Styles” is enabled.
 - The `layout` object includes:
   - `order` and `enabled` maps for element sequencing/visibility
   - `meta_keys` mapping for Meta1–Meta3

@@ -69,7 +69,7 @@ foreach ($fields as $f) {
     .cphub-acc>summary::-webkit-details-marker{display:none}
     .cphub-acc[open]>.cphub-acc-body{padding:12px}
     .cphub-styles .form-table tbody{display:grid;grid-template-columns:repeat(2,minmax(240px,1fr));gap:16px}
-    @media (max-width: 900px){.cphub-styles .form-table tbody{grid-template-columns:1fr}}
+    @media (max-width: 100%){.cphub-styles .form-table tbody{grid-template-columns:1fr}}
     .cphub-styles .form-table tr{display:block}
     .cphub-styles .form-table th{display:block;padding:0 0 6px;margin:0}
     .cphub-styles .form-table td{display:block;padding:0}

@@ -3,7 +3,7 @@
 ?>
 
 <h2 class="title">Feed Settings</h2>
-<form method="post" action="options.php" class="card" style="padding:1em;max-width:900px;">
+<form method="post" action="options.php" class="card" style="padding:1em;max-width:100%;">
     <?php settings_fields(CPT_Hub_Publisher::OPTION_FEED === CPT_Hub_Publisher::OPTION_FEED ? 'cphub_feed' : 'cphub_feed'); ?>
     <?php $fs = get_option(CPT_Hub_Publisher::OPTION_FEED, []); ?>
     <table class="form-table" role="presentation">
