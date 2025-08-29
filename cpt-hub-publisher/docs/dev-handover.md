@@ -7,9 +7,11 @@
   - Dynamic CPTs + custom fields (Text, Textarea, Number, URL, Select, Media, WYSIWYG)
   - Global `location` taxonomy; seeded terms; union filtering
   - RSS + REST for items; REST assets (layout + CSS); Health endpoint; Global CSS endpoint
-  - Styles builder per CPT: layout, element toggles/order, responsive, animations, hover, image/button options; versioned CSS builder
+  - Styles builder per CPT: layout, element toggles/order, responsive, animations, hover, image/button options; image height + object-fit; copy styles across CPTs; versioned CSS builder
   - WYSIWYG meta: TinyMCE (formatselect, styleselect, forecolor), safe HTML, classes for brand colors; sanitized and autop’d
-  - Publisher shortcodes: `[cphub_list]`, `[cphub_item]` render local posts with same card UI
+  - Publisher shortcodes: `[cphub_list]`, `[cphub_item]` render local posts with same card UI; `[cphub_meta]` to print a meta by key (supports media, width/height/object-fit)
+  - Per‑item templates: Elementor Single template selector; saves public meta (slug/title) for Consumers
+  - Archive templates: per‑CPT Elementor Archive/Page template selector; archive base follows Public URL slug
   - Global CSS admin tab; enqueued sitewide on Publisher and shipped to Consumers
   - Classic editor enforced for CPT Hub types
 - Consumer
@@ -22,12 +24,17 @@
   - Auto enqueue Publisher CSS on shortcode render and local CPT singles/archives
   - Global CSS: fetched, cached, enqueued sitewide on Consumers
   - Location shortcode `[cphub_location]`
+  - Templates: auto‑link per‑item templates via public meta (slug/title); auto‑link archive templates via assets mapping (slug/title), resolves with HTML‑entity decoded title fallback; late archive override to beat theme filters
+  - Rewrite sync: registers local CPTs using Publisher rewrite slug and archive base; flush on change; Cache Status shows Rewrite and Template columns
+  - Housekeeping: “Clean Up Unknown CPTs” button removes retired CPTs; successful fetch un‑retires automatically; forces full asset fetch when new fields are expected
 
 ## Key Endpoints & Contracts
 - Publisher REST
   - `GET /wp-json/cphub/v1/items?cpt=&n=&paged=&modified_since=&location=&key`
-  - `GET /wp-json/cphub/v1/assets?cpt=&key` → `{ version, layout, layout_type, css }`
+  - `GET /wp-json/cphub/v1/assets?cpt=&key` → `{ version, layout, layout_type, css, archive_template?, rewrite_slug?, archive_base? }`
     - `layout.meta_html`: `{ meta1: bool, meta2: bool, meta3: bool }`
+    - `archive_template`: `{ slug, title }` for Consumer template linking
+    - `rewrite_slug`: public URL slug; `archive_base`: string or false
   - `GET /wp-json/cphub/v1/global?key` → `{ version, css }`
   - `GET /wp-json/cphub/v1/health`
 - Caching headers: ETag + Last‑Modified on all significant endpoints; Consumers use If‑None‑Match/If‑Modified‑Since
@@ -69,6 +76,7 @@
 5) Editor/UX
    - WYSIWYG: optional custom color palette tied to CPT styles; more classes (Accent/Muted)
    - Block versions of shortcodes (Publisher/Consumer)
+   - Optional: object-position control for images to complement object-fit
 6) Rollout
    - Pilot playbook, batch rollout, monitoring checklist
 
@@ -102,4 +110,6 @@ See `docs/elementor-single-templates.md`.
 - Global CSS enqueues on both Publisher and Consumers
 - Consumer cron status shows last run; server cron configured (SiteGround)
 - `[cphub_location]` prints friendly label
-
+ - Item templates: Publisher selection renders on Publisher; on Consumer, template slug/title maps to local template and renders
+ - Archive templates: archive_template mapping present in assets; Consumer shows OK in Cache Status and renders archive via Elementor
+ - Rewrite: Consumer Cache Status shows Rewrite; archive and single URLs use the Publisher’s public URL slug

@@ -14,6 +14,8 @@ This guide summarizes how to configure and use the Publisher plugin, including f
 - Configure per‑CPT Styles (layout, order/enabled, meta mapping, presets, typography, spacing, animations) in CPT Hub → Styles.
 - Map Meta1–Meta3 to your custom field keys, and choose placement (thumb/content).
 - WYSIWYG meta mapping: styles payload marks HTML slots via `layout.meta_html`, and Consumers render with safe HTML + paragraphs.
+- Image controls: width/min/max width, height, align, radius, padding/margin, hover zoom. Object fit (cover/contain/fill/none/scale‑down) is supported for cropping behavior.
+- Copy styles: Use “Copy styles from” to clone all layout + style settings from another CPT.
 
 ## Shortcodes (Publisher site)
 Render CPT content locally using the same card UI as Consumers.
@@ -21,11 +23,47 @@ Render CPT content locally using the same card UI as Consumers.
 - Single: `[cphub_item cpt="your_cpt" id="123"]`
 - Styles are generated and enqueued automatically from the saved config.
 
+Meta utility shortcode:
+- `[cphub_meta key="meta_slug" id="optional-post-id" size="full|medium|…" width="…" height="…" object_fit="cover|contain|…" link="…"]`
+  - Auto-detects the field type from CPT settings.
+  - Renders images (respects width/height/object-fit), links for files/URLs, and safe HTML for WYSIWYG.
+
+Location label:
+- `[cphub_location]` prints a friendly location name.
+  - If used on a CPT item, it auto-detects the first `location` term (excluding `all-locations`).
+  - You can force a specific slug: `[cphub_location slug="merrymaidsottawa"]`.
+  - Optional `[cphub_location fallback="Your Location"]` if no term is found.
+
 ## Global CSS
 - CPT Hub → Global CSS: enter sitewide CSS that applies across all pages.
 - Delivered to Consumers via `/wp-json/cphub/v1/global` and enqueued there.
 - Also enqueued on the Publisher front end.
 - Keep rules namespaced where possible (e.g., `.cphub-card .my-class { … }`).
+
+## Elementor Single Templates (Publisher)
+- Allows choosing a per‑item Elementor Single template for CPTs created by CPT Hub that have archives enabled.
+- Edit any eligible item and use the sidebar meta box “Single Template (Elementor)” to select a template.
+- Only appears if Elementor is active and Single templates exist in Templates → Theme Builder.
+- Rendering replaces the item’s single view content with the selected template using Elementor’s frontend renderer.
+- If Elementor is inactive or the template is missing/unpublished, the normal content is shown.
+- This feature does not affect REST/feeds or Consumers.
+
+Publisher‑driven linking for Consumers
+- When a template is selected per item, the Publisher also saves public meta used by Consumers:
+  - `cphub_el_template_key`: the template slug (Elementor Library post_name)
+  - `cphub_el_template_title`: the template title (fallback)
+- These meta are included in REST items and copied to Consumer posts on sync. Consumers then auto‑resolve a local Elementor template by slug (or title fallback) and render it on single views.
+- Keep template slugs consistent across sites when exporting/importing to ensure reliable matching (avoid duplicate names that create `-2` suffixes).
+
+## Elementor Archive Templates (Publisher)
+- In Content Types → Edit, select an “Archive Template (Elementor)” to render on the CPT archive.
+- Public URL slug controls both single and archive base. When “Has Archive” is enabled, the archive base follows the Public URL slug.
+- The assets endpoint includes an archive template mapping `{ slug, title }`. Consumers use this to auto‑link their local template by slug (then title) at runtime.
+- After changing Public URL slug or archive settings, visit Settings → Permalinks and click Save to refresh rewrite rules.
+
+## Public URL Slug
+- Each CPT can define a long, public‑facing permalink base (no 20‑character limit). The internal CPT key must still be ≤ 20 characters.
+- Singles and archives use the Public URL slug; Consumers receive and apply it for local CPT registration.
 
 ## Feeds & REST
 - Feeds: `/feed/cphub` and `/feed/cphub/{cpt}` support `n`, `paged`, `modified_since`, `location`, `key`.

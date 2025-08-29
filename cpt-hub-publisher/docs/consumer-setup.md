@@ -33,6 +33,20 @@ This guide explains how to connect a location site (Consumer) to the corporate P
   - Button overlay markup if the Publisher CSS includes `.cphub-btn.has-hover`
 - Grid vs List: Consumer uses `layout_type` (or detects from CSS) to choose `.cphub-grid` or `.cphub-list` wrappers.
 
+Elementor templates on single views (Publisher‑driven)
+- If the Publisher selects an Elementor template for an item, it ships public meta with the item: `cphub_el_template_key` (slug) and `cphub_el_template_title` (title).
+- After sync, the Consumer auto‑resolves a local Elementor Library template by slug (or by exact title if slug not found) and renders it in place of the post content.
+- Tips:
+  - Import the same templates to each location site and keep slugs consistent (avoid duplicates like `template-2`).
+  - If no matching local template is found, the page falls back to the default card/content rendering.
+   - The plugin hides theme featured image/meta on templated singles for a clean layout; Elementor handles its own assets.
+
+Elementor templates on CPT archives (Publisher‑driven)
+- The Publisher’s assets response includes `archive_template: { slug, title }` per CPT.
+- Consumer caches the mapping and, on `is_post_type_archive`, resolves a local Elementor template by slug (fallback to title, also tries HTML‑entity decoded titles) and renders it via a minimal wrapper.
+- If no local match is found or Elementor is inactive, falls back to the theme archive.
+- The override runs late (`template_include` priority 9999) to win over theme filters.
+
 Editor and meta visibility on Consumer:
 - Classic editor is enforced for local CPTs to match Publisher behavior.
 - A read‑only meta panel lists only the public Publisher fields (clean key → value view) and hides technical companions (like `_id`, `_url`, `_mime`).
@@ -50,6 +64,7 @@ For media meta fields:
 - The Consumer fetches a per‑CPT assets payload from the Publisher: `{ version, layout, layout_type, css }`.
 - Toggle: “Use Publisher Styles” in settings. When enabled, the remote CSS string is cached by version and enqueued per CPT.
 - Auto‑enqueue: Styles are enqueued when rendering shortcodes and also automatically on local CPT single and archive views.
+- Image controls from Publisher (height, object‑fit, align, width/min/max) are baked into the shipped CSS and applied on Consumers.
 - WYSIWYG meta styling: brand classes (`.cphub-color-primary`, `.cphub-color-text`) map to the CPT’s Primary/Text colors; inline `color:` is preserved.
 
 ### Global CSS
@@ -80,6 +95,7 @@ Button alignment:
 - Manual refresh: click “Refresh Now” in settings. Use “Clear Cache” to wipe local caches.
 - If the Publisher is unreachable, cached data continues to render; recent HTTP status/error are shown in the cache table.
 - When “Local Content” is enabled, sync also upserts posts into local CPTs and sideloads media. Shortcodes automatically link to local permalinks and use local thumbnails when available.
+- Assets fetch: if the local cache is missing archive template mapping, Consumer forces a full fetch (not 304) to pick up newer schema.
 
 ### Using server cron on SiteGround
 If your host disables WP‑Cron or you prefer predictable scheduling, set up a server cron:
@@ -99,7 +115,8 @@ See `docs/cron-siteground.md` for step‑by‑step instructions.
 - Empty results: confirm the CPT exists on the Publisher, and that items are tagged with your `location` or `all-locations`.
 - Styles not applied: ensure “Use Publisher Styles” is enabled, and check that the manifest returns URLs.
 - Media not visible: confirm media fields on the Publisher are set; in feeds they appear as meta with `_url` and `_mime` keys.
- - Local permalinks not used: ensure “Local Content” is enabled and run “Refresh Now”. The plugin maps remote IDs to local posts via `_cphub_remote_id` meta.
+- Local permalinks not used: ensure “Local Content” is enabled and run “Refresh Now”. The plugin maps remote IDs to local posts via `_cphub_remote_id` meta.
+- Archive template not applied: verify Template column shows OK; Elementor is active; no page cache; and Public URL slug matches on Consumer (see Rewrite column). If still not applied, save permalinks to flush rewrites.
 
 ## Security & Governance
 - Prefer per‑site keys; rotate keys periodically on the Publisher and update Consumers.

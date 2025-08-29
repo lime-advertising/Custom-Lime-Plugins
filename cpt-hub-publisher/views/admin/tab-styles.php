@@ -62,6 +62,22 @@ foreach ($fields as $f) {
   <span class="description">Version: <?php echo esc_html(substr($cfg['version'], 0, 7)); ?></span>
 </form>
 
+<form method="post" class="card" style="padding:8px 12px; max-width:700px; margin-top:-8px;">
+  <?php wp_nonce_field(CPT_Hub_Publisher::NONCE_ACTION); ?>
+  <input type="hidden" name="cphub_action" value="styles_copy" />
+  <input type="hidden" name="cpt" value="<?php echo esc_attr($active_cpt); ?>" />
+  <label style="margin-right:8px;">Copy styles from:
+    <select name="copy_from">
+      <option value="">— Select CPT —</option>
+      <?php foreach ($cpts as $slug): if ($slug === $active_cpt) continue; ?>
+        <option value="<?php echo esc_attr($slug); ?>"><?php echo esc_html($slug); ?></option>
+      <?php endforeach; ?>
+    </select>
+  </label>
+  <button class="button">Copy to <code><?php echo esc_html($active_cpt); ?></code></button>
+  <p class="description" style="margin:6px 0 0;">Copies all layout + style settings from the selected CPT into this one (overwrites current settings).</p>
+</form>
+
 <form method="post" class="card" style="padding:1em; max-width:1100px;">
   <style>
     .cphub-acc{border:1px solid #e5e7eb;border-radius:6px;margin:16px 0;background:#fff}
@@ -609,6 +625,28 @@ foreach ($fields as $f) {
                 <input type="text" name="styles[image_w]" value="<?php echo esc_attr($cfg['styles']['image_w']); ?>" placeholder="e.g. 100%, 320px" style="width:160px;" />
                 <input type="text" name="styles[image_min_w]" value="<?php echo esc_attr($cfg['styles']['image_min_w']); ?>" placeholder="min-width" style="width:160px;" />
                 <input type="text" name="styles[image_max_w]" value="<?php echo esc_attr($cfg['styles']['image_max_w']); ?>" placeholder="max-width" style="width:160px;" />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row"><label>Image height</label></th>
+              <td>
+                <input type="text" name="styles[image_h]" value="<?php echo esc_attr($cfg['styles']['image_h'] ?? ''); ?>" placeholder="e.g. auto, 240px" style="width:160px;" />
+                <p class="description">Sets <code>height</code> on the image. Use with <code>object-fit</code> for cropping behavior.</p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row"><label>Object fit</label></th>
+              <td>
+                <?php $iof = $cfg['styles']['image_object_fit'] ?? ''; ?>
+                <select name="styles[image_object_fit]">
+                  <option value="">— None —</option>
+                  <option value="cover" <?php selected($iof==='cover'); ?>>cover</option>
+                  <option value="contain" <?php selected($iof==='contain'); ?>>contain</option>
+                  <option value="fill" <?php selected($iof==='fill'); ?>>fill</option>
+                  <option value="none" <?php selected($iof==='none'); ?>>none</option>
+                  <option value="scale-down" <?php selected($iof==='scale-down'); ?>>scale-down</option>
+                </select>
+                <p class="description">Applies <code>object-fit</code> to the image. For best results set a height (and optional width).</p>
               </td>
             </tr>
             <tr>
