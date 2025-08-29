@@ -323,7 +323,7 @@ final class CPT_Hub_Consumer
             </tbody>
           </table>
 
-          <h2 style="margin-top:1.5em;">Publisher Health</h2>
+        <h2 style="margin-top:1.5em;">Publisher Health</h2>
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="card" style="padding:1em;max-width:900px;">
             <?php wp_nonce_field('cphub_consumer_health'); ?>
             <input type="hidden" name="action" value="cphub_consumer_health">
@@ -345,6 +345,37 @@ final class CPT_Hub_Consumer
             <?php else: ?>
               <p><em>No health data yet. Click "Check Health".</em></p>
             <?php endif; ?>
+          </div>
+
+          <h2 style="margin-top:1.5em;">Register CPT Code (Consumer)</h2>
+          <div class="card" style="padding:1em;max-width:1100px;">
+            <p class="description">Local CPT registration based on cached assets. Useful to compare with Publisher.</p>
+            <?php
+              $assets = get_option(self::OPT_CACHE_ASSETS, []);
+              if (!$enabled) {
+                echo '<p>No enabled CPTs.</p>';
+              } else {
+                foreach ($enabled as $slug) {
+                  $pt = sanitize_key($slug);
+                  $label = isset($assets[$pt]['label']) && is_string($assets[$pt]['label']) && $assets[$pt]['label'] !== '' ? (string)$assets[$pt]['label'] : ucwords(str_replace(['-','_'],' ',$pt));
+                  $rw   = isset($assets[$pt]['rewrite_slug']) ? (string)$assets[$pt]['rewrite_slug'] : $pt;
+                  $arch = isset($assets[$pt]['archive_base']) && $assets[$pt]['archive_base'] !== '' ? (string)$assets[$pt]['archive_base'] : true;
+                  $args = [
+                    'label' => $label,
+                    'labels' => [ 'name' => $label, 'singular_name' => $label ],
+                    'public' => true,
+                    'has_archive' => $arch,
+                    'show_in_rest' => false,
+                    'supports' => ['title','editor','excerpt','thumbnail','custom-fields'],
+                    'menu_icon' => 'dashicons-archive',
+                    'rewrite' => ['slug' => $rw, 'with_front' => false],
+                  ];
+                  $code = "register_post_type('" . esc_html($pt) . "', " . var_export($args, true) . ");";
+                  echo '<h3><code>' . esc_html($pt) . '</code></h3>';
+                  echo '<pre class="code"><code>' . esc_html($code) . '</code></pre>';
+                }
+              }
+            ?>
           </div>
         </div>
         <?php

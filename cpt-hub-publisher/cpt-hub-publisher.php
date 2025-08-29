@@ -670,7 +670,7 @@ final class CPT_Hub_Publisher
         <div class="wrap">
             <h1>CPT Hub – Publisher</h1>
             <h2 class="nav-tab-wrapper">
-                <?php $tabs = ['types' => 'Content Types', 'tax' => 'Taxonomies', 'feed' => 'Feed Settings', 'styles' => 'Styles', 'global' => 'Global CSS', 'docs' => 'Documentation'];
+                <?php $tabs = ['types' => 'Content Types', 'tax' => 'Taxonomies', 'feed' => 'Feed Settings', 'styles' => 'Styles', 'global' => 'Global CSS', 'code' => 'Register Code', 'docs' => 'Documentation'];
                 foreach ($tabs as $t_key => $t_label):
                     $url = esc_url(add_query_arg(['page' => 'cphub', 'tab' => $t_key], admin_url('admin.php')));
                     $class = 'nav-tab' . ($tab === $t_key ? ' nav-tab-active' : ''); ?>
@@ -694,6 +694,9 @@ final class CPT_Hub_Publisher
                         break;
                     case 'docs':
                         include $base . 'views/admin/tab-docs.php';
+                        break;
+                    case 'code':
+                        include $base . 'views/admin/tab-code.php';
                         break;
                     case 'types':
                     default:
