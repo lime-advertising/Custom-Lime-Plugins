@@ -72,6 +72,14 @@ Site Owners (on Consumer sites)
 - The system copies images referenced in a template to each Consumer site, so you’re not loading images from another website.
 - If an image is missing or cannot be copied, you’ll get a warning so you can fix it.
 
+## Display Conditions (Assignments)
+- If enabled by your tech team, when a template is deployed the “where it shows” rules (display conditions) set on the Publisher can also be applied on each Consumer.
+- Modes:
+  - Replace: overwrite local assignments to match the Publisher.
+  - Merge: keep local assignments and add any new ones from the Publisher.
+  - Skip: do not change local assignments.
+- Requirements: Elementor Pro on the Consumer sites to use Theme Builder conditions.
+
 ## Troubleshooting (Plain Language)
 - I can’t enroll a site:
   - Check the Publisher URL and Site Token were typed correctly.
@@ -106,4 +114,3 @@ Site Owners (on Consumer sites)
 - If you see repeated errors: copy the on-screen message and share it with support.
 
 Note: Screens may evolve as features are added, but the general steps remain the same: edit on Publisher → choose sites → review → deploy → rollback if needed.
-

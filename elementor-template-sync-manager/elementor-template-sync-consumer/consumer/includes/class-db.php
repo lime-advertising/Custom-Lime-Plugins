@@ -53,5 +53,14 @@ class DB {
         dbDelta( $sql_history );
         dbDelta( $sql_jobs );
     }
-}
 
+    public static function drop_tables(): void {
+        global $wpdb;
+        $map = $wpdb->prefix . 'etsm_map';
+        $history = $wpdb->prefix . 'etsm_history';
+        $jobs = $wpdb->prefix . 'etsm_jobs';
+        foreach ( [ $jobs, $history, $map ] as $table ) {
+            $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+        }
+    }
+}

@@ -12,9 +12,6 @@ if (!defined('ABSPATH')) exit;
 
 final class CPT_Hub_Publisher
 {
-    private $cphub_el_rendering = false; // reentrancy guard for Elementor render
-    private $cphub_el_single = false;    // context flag for Elementor content-only takeover
-    private $cphub_el_autop_removed = null; // store removed filter priorities for restore
     const OPTION_KEY   = 'cphub_types';        // array of CPT definitions
     const OPTION_FEED  = 'cphub_feed_settings'; // feed settings (secret key, default per_page)
     const OPTION_TAX   = 'cphub_taxonomies';    // array of taxonomy definitions
@@ -32,11 +29,6 @@ final class CPT_Hub_Publisher
         add_action('admin_init',        [$this, 'register_admin_columns']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('wp_enqueue_scripts',  [$this, 'enqueue_global_css']);
-        add_action('wp',                  [$this, 'mark_elementor_single_context']);
-        add_filter('body_class',          [$this, 'filter_body_class']);
-        add_filter('post_thumbnail_html', [$this, 'maybe_hide_featured_image'], 10, 5);
-        // Output late so it overrides theme styles
-        add_action('wp_head',             [$this, 'output_theme_suppress_css'], 99);
 
         // Register taxonomies then CPTs so bindings exist
         add_action('init',              [$this, 'register_dynamic_taxonomies'], 9);
@@ -52,6 +44,8 @@ final class CPT_Hub_Publisher
 
         // REST endpoints
         add_action('rest_api_init',     [$this, 'register_rest']);
+        // Maintenance tools
+        add_action('admin_post_cphub_publisher_cleanup', [$this, 'handle_cleanup_old']);
 
         // Cache busting when content of any registered CPT changes
         add_action('save_post',         [$this, 'bust_feed_cache_on_save'], 10, 3);
@@ -59,20 +53,13 @@ final class CPT_Hub_Publisher
 
         // Meta boxes for custom fields
         add_action('add_meta_boxes',    [$this, 'register_meta_boxes']);
-        // Elementor per-item Single template selector (Publisher only)
-        add_action('add_meta_boxes',    [$this, 'register_elementor_meta_box']);
         add_action('save_post',         [$this, 'save_meta_fields'], 9, 3);
-        add_action('save_post',         [$this, 'save_elementor_template_meta'], 10, 3);
         add_action('save_post',         [$this, 'ensure_default_location'], 20, 3);
 
         // Force Classic Editor for CPT Hub types
         add_filter('use_block_editor_for_post_type', [$this, 'disable_block_editor_for_cphub'], 10, 2);
 
-        // Render Elementor Single template on eligible CPT single views (Publisher)
-        // Run early to optionally disable wpautop before it runs
-        add_filter('the_content',       [$this, 'render_elementor_single_content'], 9);
-        // Render Elementor template for CPT archives when configured
-        add_filter('template_include',  [$this, 'maybe_use_elementor_archive_template'], 9);
+        // Removed Elementor rendering hooks; templates can be managed manually if desired
 
         // Activation / Deactivation
         register_activation_hook(__FILE__, [__CLASS__, 'activate']);
@@ -205,8 +192,9 @@ final class CPT_Hub_Publisher
     public function sanitize_feed_settings($input)
     {
         return [
-            'items_per_feed' => max(1, intval($input['items_per_feed'] ?? 20)),
-            'secret_key'     => sanitize_text_field($input['secret_key'] ?? ''),
+            'items_per_feed'        => max(1, intval($input['items_per_feed'] ?? 20)),
+            'secret_key'            => sanitize_text_field($input['secret_key'] ?? ''),
+            'publisher_location_name' => sanitize_text_field($input['publisher_location_name'] ?? ''),
         ];
     }
 
@@ -223,8 +211,6 @@ final class CPT_Hub_Publisher
                 $label = sanitize_text_field($_POST['label'] ?? '');
                 $supports = array_map('sanitize_text_field', (array)($_POST['supports'] ?? []));
                 $has_archive = !empty($_POST['has_archive']) ? true : false;
-                $archive_tpl = isset($_POST['archive_template']) ? intval($_POST['archive_template']) : 0;
-                $archive_tpl = isset($_POST['archive_template']) ? intval($_POST['archive_template']) : 0;
 
                 if ($slug && $label) {
                     if (strlen($slug) > 20) {
@@ -270,12 +256,7 @@ final class CPT_Hub_Publisher
                         $types[$slug]['supports']    = array_values(array_intersect($supports, ['title', 'editor', 'excerpt', 'thumbnail', 'custom-fields']));
                         $types[$slug]['has_archive'] = $has_archive;
                         $types[$slug]['rewrite_slug']= isset($_POST['rewrite_slug']) ? (sanitize_title($_POST['rewrite_slug']) ?: '') : ($types[$slug]['rewrite_slug'] ?? '');
-                        $archive_tpl = isset($_POST['archive_template']) ? intval($_POST['archive_template']) : 0;
-                        if ($archive_tpl > 0) {
-                            $types[$slug]['archive_template'] = $archive_tpl;
-                        } else {
-                            unset($types[$slug]['archive_template']);
-                        }
+                        // Elementor archive template selection removed.
 
                         // Normalize custom field definitions
                         $allowed_types = ['text', 'textarea', 'number', 'url', 'select', 'media', 'wysiwyg'];
@@ -644,6 +625,44 @@ final class CPT_Hub_Publisher
                 add_settings_error('cphub', 'global_saved', 'Global CSS saved.', 'updated');
             }
         }
+    }
+
+    public function handle_cleanup_old()
+    {
+        if (!current_user_can('manage_options')) wp_die('Forbidden');
+        check_admin_referer('cphub_publisher_cleanup');
+
+        // Remove old Elementor-related meta across all posts
+        if (function_exists('delete_post_meta_by_key')) {
+            delete_post_meta_by_key('_cphub_el_template');
+            delete_post_meta_by_key('cphub_el_template_key');
+            delete_post_meta_by_key('cphub_el_template_title');
+        }
+
+        // Remove archive_template keys from CPT definitions and prune orphan styles
+        $types  = get_option(self::OPTION_KEY, []);
+        $styles = get_option(self::OPTION_STYLES, []);
+        if (is_array($types)) {
+            foreach ($types as $slug => &$def) {
+                if (isset($def['archive_template'])) unset($def['archive_template']);
+            }
+            unset($def);
+            update_option(self::OPTION_KEY, $types, false);
+        }
+        if (is_array($styles)) {
+            $keep = array_keys($types ?: []);
+            foreach (array_keys($styles) as $slug) {
+                if (!in_array($slug, $keep, true)) unset($styles[$slug]);
+            }
+            update_option(self::OPTION_STYLES, $styles, false);
+        }
+
+        // Flush feed caches
+        $this->flush_all_feed_caches();
+
+        add_settings_error('cphub', 'cleanup_ok', 'Cleanup complete: removed old meta, pruned styles, and cleared caches.', 'updated');
+        wp_safe_redirect(add_query_arg(['page' => 'cphub', 'tab' => 'feed'], admin_url('admin.php')));
+        exit;
     }
 
     public function render_admin_page()
@@ -1403,8 +1422,7 @@ final class CPT_Hub_Publisher
 
         // Build CSS only if needed to return 200
         $css = $this->build_styles_css($styles);
-        // Include archive template mapping (slug/title) for Consumer auto-linking
-        $archive_tpl = null;
+        // Build rewrite/archives info for Consumer
         $rewrite_slug = null;
         $archive_base = null;
         if ($cpt && isset($types_opt[$cpt])) {
@@ -1413,23 +1431,12 @@ final class CPT_Hub_Publisher
             $rw = isset($def['rewrite_slug']) && is_string($def['rewrite_slug']) && $def['rewrite_slug'] !== '' ? sanitize_title($def['rewrite_slug']) : $cpt;
             $rewrite_slug = $rw;
             $archive_base = !empty($def['has_archive']) ? $rw : false;
-            $aid = isset($def['archive_template']) ? intval($def['archive_template']) : 0;
-            if ($aid > 0) {
-                $tpl = get_post($aid);
-                if ($tpl && $tpl->post_type === 'elementor_library' && $tpl->post_status === 'publish') {
-                    $archive_tpl = [
-                        'slug'  => sanitize_title($tpl->post_name ?: $tpl->post_title),
-                        'title' => get_the_title($tpl),
-                    ];
-                }
-            }
         }
         $payload = [
             'version'     => $cfg['version'],
             'layout'      => $layout_payload,
             'layout_type' => isset($cfg['styles']['layout_type']) && $cfg['styles']['layout_type'] === 'grid' ? 'grid' : 'list',
             'css'         => $css,
-            'archive_template' => $archive_tpl,
             'rewrite_slug' => $rewrite_slug,
             'archive_base' => $archive_base,
             // Provide label for Consumer local CPT registration
@@ -1662,49 +1669,39 @@ final class CPT_Hub_Publisher
 
     public function sc_location($atts)
     {
-        $a = shortcode_atts([
-            'slug' => '',       // optional explicit slug
-            'fallback' => '',   // optional fallback text
-        ], $atts, 'cphub_location');
+        // If a Publisher Location Name is set in Feed Settings, prefer it
+        $feed = get_option(self::OPTION_FEED, []);
+        $name = isset($feed['publisher_location_name']) ? trim((string)$feed['publisher_location_name']) : '';
+        if ($name !== '') return esc_html($name);
 
+        // Backward-compatible behavior: try to derive from taxonomy on current post
+        $a = shortcode_atts([
+            'slug' => '',
+            'fallback' => '',
+        ], $atts, 'cphub_location');
         $slug = sanitize_key($a['slug']);
         if ($slug === '') {
-            // Try to detect from current post's 'location' terms
             $post_id = get_the_ID();
             if ($post_id && taxonomy_exists('location')) {
                 $terms = get_the_terms($post_id, 'location');
                 if (is_array($terms) && $terms) {
-                    // Prefer first term that is not 'all-locations'
                     $chosen = null;
-                    foreach ($terms as $t) {
-                        if ($t->slug !== 'all-locations') { $chosen = $t; break; }
-                    }
+                    foreach ($terms as $t) { if ($t->slug !== 'all-locations') { $chosen = $t; break; } }
                     if (!$chosen) $chosen = $terms[0];
                     if ($chosen) $slug = sanitize_key($chosen->slug);
                 }
             }
         }
-
         if ($slug === '') return esc_html((string)$a['fallback']);
 
-        // Map slug → friendly label using known locations; fallback to term name or humanized slug
+        // Fallback mapping/humanize
         $map = [];
         if (method_exists($this, 'get_known_locations')) {
-            foreach ($this->get_known_locations() as $loc) {
-                $map[sanitize_key($loc['slug'])] = (string)$loc['label'];
-            }
+            foreach ($this->get_known_locations() as $loc) $map[sanitize_key($loc['slug'])] = (string)$loc['label'];
         }
         if (isset($map[$slug])) return esc_html($map[$slug]);
-
-        // Fallback to taxonomy term name if exists
-        if (taxonomy_exists('location')) {
-            $t = get_term_by('slug', $slug, 'location');
-            if ($t && !is_wp_error($t)) return esc_html($t->name);
-        }
-
-        // Final fallback: humanize slug
-        $label = ucwords(str_replace(['-', '_'], ' ', $slug));
-        return esc_html($label);
+        if (taxonomy_exists('location')) { $t = get_term_by('slug', $slug, 'location'); if ($t && !is_wp_error($t)) return esc_html($t->name); }
+        return esc_html(ucwords(str_replace(['-', '_'], ' ', $slug)));
     }
 
     public function sc_meta($atts)
@@ -2746,234 +2743,23 @@ final class CPT_Hub_Publisher
     }
 
     /* ---------------- Elementor Single Template (Publisher) ------------- */
-    public function register_elementor_meta_box()
-    {
-        if (!class_exists('Elementor\\Plugin')) return;
-        $types = get_option(self::OPTION_KEY, []);
-        foreach ($types as $slug => $def) {
-            $has_arch = !empty($def['has_archive']);
-            if (!$has_arch) continue;
-            add_meta_box(
-                'cphub_el_tpl_' . $slug,
-                'Single Template (Elementor)',
-                [$this, 'render_elementor_meta_box'],
-                $slug,
-                'side',
-                'default',
-                ['slug' => $slug]
-            );
-        }
-    }
+    public function register_elementor_meta_box() { /* Elementor removed */ }
 
-    private function discover_elementor_single_templates()
-    {
-        $out = [];
-        // Broad query, then filter for Single type via taxonomy or meta to be robust across Elementor versions
-        $q = new WP_Query([
-            'post_type' => 'elementor_library',
-            'post_status' => 'publish',
-            'posts_per_page' => -1,
-            'orderby' => 'title',
-            'order' => 'ASC',
-            'no_found_rows' => true,
-            'fields' => 'ids',
-        ]);
-        if ($q->have_posts()) {
-            foreach ($q->posts as $id) {
-                $is_single = false;
-                $is_page = false;
-                if (taxonomy_exists('elementor_library_type')) {
-                    $terms = get_the_terms($id, 'elementor_library_type');
-                    if (is_array($terms)) {
-                        foreach ($terms as $t) {
-                            if (strpos($t->slug, 'single') !== false) { $is_single = true; break; }
-                            if (strpos($t->slug, 'page') !== false) { $is_page = true; }
-                        }
-                    }
-                }
-                if (!$is_single) {
-                    $mt = get_post_meta($id, '_elementor_template_type', true);
-                    if (is_string($mt)) {
-                        $mt = strtolower($mt);
-                        if ($mt === 'single') $is_single = true;
-                        if ($mt === 'page') $is_page = true;
-                    }
-                }
-                if ($is_single || $is_page) {
-                    $title = get_the_title($id);
-                    $type_label = $is_single ? 'Single' : 'Page';
-                    $out[(int)$id] = $title . ' (' . $type_label . ' · ID:' . (int)$id . ')';
-                }
-            }
-        }
-        return $out;
-    }
+    // Elementor integrations removed.
 
-    public function render_elementor_meta_box($post, $box)
-    {
-        $slug = $box['args']['slug'] ?? '';
-        wp_nonce_field('cphub_el_tpl_' . $slug, 'cphub_el_tpl_nonce');
-        $selected = (int)get_post_meta($post->ID, '_cphub_el_template', true);
-        $templates = $this->discover_elementor_single_templates();
-        echo '<p><label for="cphub_el_tpl">Template</label><br/>';
-        echo '<select name="cphub_el_tpl" id="cphub_el_tpl" style="width:100%">';
-        echo '<option value="">— Use default —</option>';
-        foreach ($templates as $id => $label) {
-            echo '<option value="' . (int)$id . '"' . selected($selected, (int)$id, false) . '>' . esc_html($label) . '</option>';
-        }
-        echo '</select></p>';
-        echo '<p class="description">Applies on this item&rsquo;s single page. Requires Elementor Single templates.</p>';
-    }
+    // Elementor integrations removed.
 
-    public function save_elementor_template_meta($post_id, $post, $update)
-    {
-        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (!$post || $post->post_type === 'revision') return;
-        if (!current_user_can('edit_post', $post_id)) return;
-        if (!class_exists('Elementor\\Plugin')) return;
+    // Elementor integrations removed.
 
-        $types = get_option(self::OPTION_KEY, []);
-        if (!isset($types[$post->post_type])) return; // Only our CPTs
-        $def = $types[$post->post_type];
-        if (empty($def['has_archive'])) return; // Only when archive enabled per plan
+    public function render_elementor_single_content($content) { return $content; }
 
-        if (!isset($_POST['cphub_el_tpl_nonce']) || !wp_verify_nonce($_POST['cphub_el_tpl_nonce'], 'cphub_el_tpl_' . $post->post_type)) return;
+    public function restore_autop_filters() { /* Elementor removed */ }
 
-        $raw = $_POST['cphub_el_tpl'] ?? '';
-        $id  = is_scalar($raw) ? intval($raw) : 0;
-        if ($id <= 0) {
-            delete_post_meta($post_id, '_cphub_el_template');
-            delete_post_meta($post_id, 'cphub_el_template_key');
-            delete_post_meta($post_id, 'cphub_el_template_title');
-            return;
-        }
-        $tpl = get_post($id);
-        if ($tpl && $tpl->post_type === 'elementor_library' && $tpl->post_status === 'publish') {
-            update_post_meta($post_id, '_cphub_el_template', (int)$id);
-            // Save public meta for Consumer auto-linking by slug/title
-            $slug = sanitize_title($tpl->post_name ?: $tpl->post_title);
-            $title = get_the_title($tpl);
-            update_post_meta($post_id, 'cphub_el_template_key', $slug);
-            update_post_meta($post_id, 'cphub_el_template_title', $title);
-        } else {
-            delete_post_meta($post_id, '_cphub_el_template');
-            delete_post_meta($post_id, 'cphub_el_template_key');
-            delete_post_meta($post_id, 'cphub_el_template_title');
-        }
-    }
+    public function mark_elementor_single_context() { /* Elementor removed */ }
 
-    public function render_elementor_single_content($content)
-    {
-        if (!class_exists('Elementor\\Plugin')) return $content;
-        if (is_admin() || is_feed() || !in_the_loop() || !is_main_query()) return $content;
-        $post = get_post();
-        if (!$post) return $content;
-        if (!is_singular($post->post_type)) return $content;
-        $types = get_option(self::OPTION_KEY, []);
-        if (!isset($types[$post->post_type])) return $content; // Only our CPTs
-        $def = $types[$post->post_type];
-        if (empty($def['has_archive'])) return $content;
+    public function filter_body_class($classes) { return $classes; }
 
-        $tpl_id = (int)get_post_meta($post->ID, '_cphub_el_template', true);
-        if ($tpl_id <= 0) return $content;
-        if ($this->cphub_el_rendering) return $content; // prevent recursion when template includes Post Content widget
-        $this->cphub_el_rendering = true;
-        $this->cphub_el_single = true;
-        // Prevent wpautop/shortcode_unautop from mangling Elementor HTML for this content
-        $had_unautop = has_filter('the_content', 'shortcode_unautop');
-        $had_wpautop = has_filter('the_content', 'wpautop');
-        if ($had_unautop !== false) remove_filter('the_content', 'shortcode_unautop', is_int($had_unautop) ? $had_unautop : 10);
-        if ($had_wpautop !== false) remove_filter('the_content', 'wpautop', is_int($had_wpautop) ? $had_wpautop : 10);
-        // Record and schedule restoration after page output so later content is unaffected
-        $this->cphub_el_autop_removed = [ 'unautop' => $had_unautop, 'wpautop' => $had_wpautop ];
-        add_action('wp_footer', [$this, 'restore_autop_filters'], 1);
-        try {
-            // Use Elementor shortcode for broad compatibility across template types
-            $html = do_shortcode('[elementor-template id="' . (int)$tpl_id . '"]');
-        } catch (\Throwable $e) {
-            $html = '';
-        }
-        $this->cphub_el_rendering = false;
-        if (is_string($html) && $html !== '') return $html;
-        return $content;
-    }
-
-    public function restore_autop_filters()
-    {
-        if (!is_array($this->cphub_el_autop_removed)) return;
-        $u = $this->cphub_el_autop_removed['unautop'] ?? false;
-        $w = $this->cphub_el_autop_removed['wpautop'] ?? false;
-        if ($u !== false) add_filter('the_content', 'shortcode_unautop', is_int($u) ? $u : 10);
-        if ($w !== false) add_filter('the_content', 'wpautop', is_int($w) ? $w : 10);
-        $this->cphub_el_autop_removed = null;
-        // Remove this hook so it doesn't run multiple times
-        remove_action('wp_footer', [$this, 'restore_autop_filters'], 1);
-    }
-
-    public function mark_elementor_single_context()
-    {
-        $this->cphub_el_single = false;
-        if (is_admin() || !class_exists('Elementor\\Plugin')) return;
-        $post = get_queried_object();
-        if (!$post || empty($post->post_type)) return;
-        if (!is_singular($post->post_type)) return;
-        $types = get_option(self::OPTION_KEY, []);
-        if (!isset($types[$post->post_type])) return;
-        $def = $types[$post->post_type];
-        if (empty($def['has_archive'])) return;
-        $tpl_id = (int)get_post_meta($post->ID, '_cphub_el_template', true);
-        if ($tpl_id > 0) $this->cphub_el_single = true;
-    }
-
-    public function filter_body_class($classes)
-    {
-        if ($this->cphub_el_single && is_array($classes)) {
-            $classes[] = 'cphub-el-single';
-        }
-        return $classes;
-    }
-
-    public function maybe_hide_featured_image($html, $post_id, $post_thumbnail_id, $size, $attr)
-    {
-        if ($this->cphub_el_single && is_singular()) {
-            return '';
-        }
-        return $html;
-    }
-
-    public function output_theme_suppress_css()
-    {
-        if (!$this->cphub_el_single) return;
-        echo '<style id="cphub-el-template-suppress">'
-           . '.cphub-el-single .post-media,'
-           . '.cphub-el-single .post-meta,'
-           . '.cphub-el-single .post-meta-content,'
-           . '.cphub-el-single .post-meta-content-inner,'
-           . '.cphub-el-single .entry-meta,'
-           . '.cphub-el-single .inner-content > .post-meta{display:none !important;}'
-           . '</style>';
-    }
-
-    public function maybe_use_elementor_archive_template($template)
-    {
-        if (!class_exists('Elementor\\Plugin')) return $template;
-        if (!function_exists('is_post_type_archive') || !is_post_type_archive()) return $template;
-        $pt = get_query_var('post_type');
-        if (!$pt) return $template;
-        if (is_array($pt)) $pt = reset($pt);
-        $types = get_option(self::OPTION_KEY, []);
-        if (!$pt || !isset($types[$pt])) return $template;
-        $def = $types[$pt];
-        if (empty($def['has_archive'])) return $template;
-        $tpl_id = isset($def['archive_template']) ? intval($def['archive_template']) : 0;
-        if ($tpl_id <= 0) return $template;
-        $file = plugin_dir_path(__FILE__) . 'views/front/archive-elementor.php';
-        if (file_exists($file)) {
-            $GLOBALS['cphub_el_archive_tpl_id'] = $tpl_id;
-            return $file;
-        }
-        return $template;
-    }
+    // Elementor integrations removed.
 
     public function render_meta_box($post, $box)
     {
@@ -2989,28 +2775,25 @@ final class CPT_Hub_Publisher
             echo '<tr><th><label for="cphub_meta_' . $key . '">' . $lab . '</label></th><td>';
             switch ($typ) {
                 case 'wysiwyg':
-                    // Provide paragraph/heading and color styles (primary/text via CSS classes)
-                    $style_formats = [
-                        [ 'title' => 'Primary color', 'inline' => 'span', 'classes' => 'cphub-color-primary' ],
-                        [ 'title' => 'Text color',    'inline' => 'span', 'classes' => 'cphub-color-text' ],
-                    ];
+                    // Compact WYSIWYG editor
                     $settings = [
                         'textarea_name' => 'cphub_meta[' . $key . ']',
                         'textarea_rows' => 8,
                         'media_buttons' => false,
                         'teeny' => false,
-                        'quicktags' => false,
+                        'quicktags' => true,
                         'tinymce' => [
-                            'toolbar1' => 'formatselect,styleselect,forecolor,|,bold,italic,underline,|,bullist,numlist,|,link,unlink,|,removeformat',
+                            'toolbar1' => 'formatselect,|,bold,italic,underline,|,bullist,numlist,|,link,unlink,|,removeformat',
                             'toolbar2' => '',
                             'block_formats' => 'Paragraph=p;Heading 2=h2;Heading 3=h3;Heading 4=h4',
-                            // TinyMCE expects JSON string for style_formats
-                            'style_formats' => wp_json_encode($style_formats),
                             'wpautop' => true,
                         ],
                     ];
-                    // Output a compact WYSIWYG editor with paragraph/heading dropdown
-                    wp_editor((string)$val, 'cphub_meta_' . $key, $settings);
+                    if (function_exists('wp_editor')) {
+                        wp_editor((string)$val, 'cphub_meta_' . $key, $settings);
+                    } else {
+                        echo '<textarea id="cphub_meta_' . $key . '" name="cphub_meta[' . $key . ']" rows="8" class="large-text">' . esc_textarea($val) . '</textarea>';
+                    }
                     break;
                 case 'textarea':
                     echo '<textarea id="cphub_meta_' . $key . '" name="cphub_meta[' . $key . ']" rows="4" class="large-text">' . esc_textarea($val) . '</textarea>';

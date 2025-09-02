@@ -9,6 +9,7 @@ Centralized management and safe synchronization of Elementor templates from a si
 - Dry-run diffs and one-click rollback
 - Push via webhook or scheduled pull
 - Basic HMAC auth (extensible to stronger model)
+- Optional sync of display conditions (Elementor Pro) with replace/merge/skip policy
 
 ## Repo Structure
 - `publisher/` — Publisher plugin (registry, deploy orchestration)
@@ -69,6 +70,7 @@ HMAC headers: `X-ETSM-Token`, `X-ETSM-Timestamp`, `X-ETSM-Nonce`, `X-ETSM-Signat
 - Implement pull updates feed and policies
 - React admin UIs (registry, diffs, deploy, history, health)
 - Security hardening: separate hashed secrets, nonce store, rate limiting
+ - Condition sync enhancements: validation, per-site policy overrides
 
 ## Notes
 - This repository scaffolds core flows and contracts; some features are placeholders pending wiring (queues, UI, advanced security).

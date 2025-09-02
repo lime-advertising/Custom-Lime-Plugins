@@ -19,7 +19,9 @@ final class CPT_Hub_Consumer
     const CRON_HOOK = 'cphub_consumer_cron_refresh';
     private static $needs_styles = [];
     private static $did_register = false;
-    // Elementor integration removed; no template overrides or special rendering
+    private $cphub_el_rendering = false; // reentrancy guard for Elementor render
+    private $cphub_el_single = false;    // context flag when a template will render
+    private $cphub_el_autop_removed = null; // store removed filter priorities for restore
 
     public function __construct()
     {
@@ -34,7 +36,12 @@ final class CPT_Hub_Consumer
         add_action('admin_post_cphub_consumer_cleanup', [$this, 'handle_cleanup_retired']);
         add_action('wp_enqueue_scripts',  [$this, 'enqueue_styles']);
         // Removed archive template override: let theme handle archives
-        // Removed Elementor rendering hooks; templates are managed manually
+        // Elementor template rendering (Consumer): auto-link by slug/title from Publisher meta
+        add_action('wp',                  [$this, 'mark_elementor_single_context']);
+        add_filter('the_content',         [$this, 'render_elementor_single_content'], 9);
+        add_filter('body_class',          [$this, 'filter_body_class']);
+        add_filter('post_thumbnail_html', [$this, 'maybe_hide_featured_image'], 10, 5);
+        add_action('wp_head',             [$this, 'output_theme_suppress_css'], 99);
         add_filter('use_block_editor_for_post_type', [$this, 'disable_block_editor_for_cphub'], 10, 2);
         add_action('add_meta_boxes',      [$this, 'add_readonly_meta_box']);
         add_filter('default_hidden_meta_boxes', [$this, 'hide_default_custom_fields_box'], 10, 2);
@@ -99,7 +106,6 @@ final class CPT_Hub_Consumer
         $out['publisher_url'] = isset($in['publisher_url']) ? esc_url_raw(trim($in['publisher_url'])) : '';
         $out['secret_key']    = isset($in['secret_key']) ? sanitize_text_field(trim($in['secret_key'])) : '';
         $out['location']      = isset($in['location']) ? sanitize_key(trim($in['location'])) : '';
-        $out['location_name'] = isset($in['location_name']) ? sanitize_text_field(trim($in['location_name'])) : '';
         $out['use_styles']    = !empty($in['use_styles']) ? true : false;
         $out['save_local']    = !empty($in['save_local']) ? true : false;
         // Enabled CPTs: merge checkboxes + CSV
@@ -126,7 +132,7 @@ final class CPT_Hub_Consumer
     {
         if (!current_user_can('manage_options')) return;
         settings_errors('cphub_consumer');
-        $s = get_option(self::OPT_SETTINGS, ['publisher_url'=>'','secret_key'=>'','location'=>'','location_name'=>'','enabled_cpts'=>[]]);
+        $s = get_option(self::OPT_SETTINGS, ['publisher_url'=>'','secret_key'=>'','location'=>'','enabled_cpts'=>[]]);
         if (!isset($s['use_styles'])) $s['use_styles'] = true;
         if (!isset($s['save_local'])) $s['save_local'] = false;
         $cache_items  = get_option(self::OPT_CACHE_ITEMS, []);
@@ -151,13 +157,6 @@ final class CPT_Hub_Consumer
               <tr>
                 <th scope="row"><label for="cphub_loc">Location Slug</label></th>
                 <td><input id="cphub_loc" name="<?php echo esc_attr(self::OPT_SETTINGS); ?>[location]" type="text" class="regular-text" placeholder="e.g. merrymaidsottawa" value="<?php echo esc_attr($s['location']); ?>"></td>
-              </tr>
-              <tr>
-                <th scope="row"><label for="cphub_loc_name">Location Display Name</label></th>
-                <td>
-                  <input id="cphub_loc_name" name="<?php echo esc_attr(self::OPT_SETTINGS); ?>[location_name]" type="text" class="regular-text" placeholder="e.g. Ottawa" value="<?php echo esc_attr($s['location_name'] ?? ''); ?>">
-                  <p class="description">Shown by the [cphub_location] shortcode when set. Falls back to mapping from slug.</p>
-                </td>
               </tr>
               <tr>
                 <th scope="row"><label>Use Publisher Styles</label></th>
@@ -231,14 +230,63 @@ final class CPT_Hub_Consumer
 
           <h2 style="margin-top:1.5em;">Cache Status</h2>
           <table class="widefat striped" style="max-width:1100px;">
-            <thead><tr><th>CPT</th><th>Items</th><th>ETag</th><th>Last-Modified</th><th>Updated</th><th>Last Status</th><th>Last Error</th><th>Assets ver</th><th>Assets updated</th><th>Assets Status</th><th>Rewrite</th></tr></thead>
+            <thead><tr><th>CPT</th><th>Items</th><th>ETag</th><th>Last-Modified</th><th>Updated</th><th>Last Status</th><th>Last Error</th><th>Assets ver</th><th>Assets updated</th><th>Assets Status</th><th>Template</th><th>Rewrite</th></tr></thead>
             <tbody>
               <?php $rows = array_unique(array_merge(array_keys((array)$cache_items), array_keys((array)$cache_assets), $enabled));
-              if (!$rows) echo '<tr><td colspan="11">No cache yet.</td></tr>';
+              if (!$rows) echo '<tr><td colspan="12">No cache yet.</td></tr>';
               foreach ($rows as $slug):
                 $ci = $cache_items[$slug] ?? [];
                 $ca = $cache_assets[$slug] ?? [];
                 $retired = !empty($ci['retired']) || !empty($ca['retired']);
+                // Template resolution status (archive template) + show Elementor conditions meta for debug
+                $tpl_cell = '—';
+                if (isset($ca['archive_template']) && is_array($ca['archive_template'])) {
+                  $tmap = $ca['archive_template'];
+                  $tslug = isset($tmap['slug']) ? (string)$tmap['slug'] : '';
+                  $ttitle= isset($tmap['title']) ? (string)$tmap['title'] : '';
+                  if ($tslug !== '' || $ttitle !== '') {
+                    $matched = '';
+                    $rid = 0;
+                    if ($tslug !== '') {
+                      $p = get_page_by_path($tslug, OBJECT, 'elementor_library');
+                      if ($p && $p->post_status === 'publish') { $rid = (int)$p->ID; $matched = 'slug'; }
+                    }
+                    if (!$rid && $ttitle !== '') {
+                      $p = get_page_by_title($ttitle, OBJECT, 'elementor_library');
+                      if ($p && $p->post_status === 'publish') { $rid = (int)$p->ID; $matched = 'title'; }
+                      if (!$rid) {
+                        $dec = html_entity_decode($ttitle, ENT_QUOTES | ENT_HTML5);
+                        if ($dec !== $ttitle) {
+                          $p = get_page_by_title($dec, OBJECT, 'elementor_library');
+                          if ($p && $p->post_status === 'publish') { $rid = (int)$p->ID; $matched = 'title'; }
+                        }
+                      }
+                    }
+                    if ($rid > 0) {
+                      // Fetch Elementor conditions meta for this template (for debugging)
+                      $cond_keys = ['_elementor_conditions','_elementor_template_conditions'];
+                      $cond_dump = '';
+                      foreach ($cond_keys as $ck) {
+                        $raw = get_post_meta($rid, $ck, true);
+                        if ($raw) {
+                          $arr = is_string($raw) ? json_decode($raw, true) : ( (array)$raw );
+                          // Encode compact and truncate to keep table readable
+                          $json = wp_json_encode($arr, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                          if (!is_string($json)) $json = (string)print_r($arr, true);
+                          $short = mb_substr($json, 0, 380);
+                          if (mb_strlen($json) > 380) $short .= '…';
+                          $cond_dump .= '<div style="margin-top:4px;"><span class="description">' . esc_html($ck) . ':</span><br><code style="white-space:pre-wrap; word-break:break-word; display:block; max-height:8.5em; overflow:auto;">' . esc_html($short) . '</code></div>';
+                        }
+                      }
+                      if ($cond_dump === '') {
+                        $cond_dump = '<div class="description" style="margin-top:4px;">No conditions meta found.</div>';
+                      }
+                      $tpl_cell = 'OK (' . esc_html($matched) . ' → ID ' . $rid . ')' . $cond_dump;
+                    } else {
+                      $tpl_cell = 'Missing (slug: ' . esc_html($tslug) . ')';
+                    }
+                  }
+                }
               ?>
                 <tr>
                   <td><code><?php echo esc_html($slug); ?></code></td>
@@ -251,6 +299,7 @@ final class CPT_Hub_Consumer
                   <td><?php echo esc_html($ca['version'] ?? ''); ?></td>
                   <td><?php echo !empty($ca['updated']) ? esc_html(date('Y-m-d H:i', (int)$ca['updated'])) : ''; ?></td>
                   <td><?php echo isset($ca['last_status']) ? (int)$ca['last_status'] : ''; ?></td>
+                  <td><?php echo $tpl_cell; ?></td>
                   <td><?php echo isset($ca['rewrite_slug']) && $ca['rewrite_slug'] !== '' ? esc_html($ca['rewrite_slug']) : '—'; ?></td>
                 </tr>
               <?php endforeach; ?>
@@ -521,9 +570,9 @@ final class CPT_Hub_Consumer
         if (!empty($s['secret_key'])) $args['key'] = $s['secret_key'];
         $url = $this->build_url($base, 'wp-json/cphub/v1/assets', $args);
 
-        // Build conditional headers; on first fetch force a full response
+        // If archive template mapping is missing from cache, force a full fetch (avoid 304 with stale schema)
         $headers = [];
-        $force_full = empty($entry);
+        $force_full = empty($entry) || !isset($entry['archive_template']);
         if (!$force_full) {
             if (!empty($entry['etag'])) $headers['If-None-Match'] = $entry['etag'];
             if (!empty($entry['last_modified'])) $headers['If-Modified-Since'] = $entry['last_modified'];
@@ -568,6 +617,14 @@ final class CPT_Hub_Consumer
         $entry['version'] = isset($data['version']) ? (string)$data['version'] : '';
         $entry['css'] = isset($data['css']) ? (string)$data['css'] : '';
         $entry['layout'] = isset($data['layout']) && is_array($data['layout']) ? $data['layout'] : [];
+        if (isset($data['archive_template']) && is_array($data['archive_template'])) {
+            $entry['archive_template'] = [
+                'slug'  => isset($data['archive_template']['slug']) ? (string)$data['archive_template']['slug'] : '',
+                'title' => isset($data['archive_template']['title']) ? (string)$data['archive_template']['title'] : '',
+            ];
+        } else {
+            unset($entry['archive_template']);
+        }
         // Rewrite + archive base from Publisher
         $old_rw = isset($entry['rewrite_slug']) ? (string)$entry['rewrite_slug'] : '';
         $entry['rewrite_slug'] = isset($data['rewrite_slug']) ? (string)$data['rewrite_slug'] : '';
@@ -884,7 +941,121 @@ final class CPT_Hub_Consumer
         echo '<p class="description">Read‑only view of Publisher meta. Media helpers (e.g., <code>_id</code>, <code>_url</code>, <code>_mime</code>) are hidden; media shows a preview or file link.</p>';
     }
 
-    // Elementor single-template integration removed.
+    /* ================= Elementor Single Templates (auto-link by slug/title) ================= */
+    public function mark_elementor_single_context()
+    {
+        $this->cphub_el_single = false;
+        if (!class_exists('Elementor\\Plugin')) return;
+        if (!function_exists('is_singular') || !is_singular()) return;
+        $post = get_queried_object();
+        if (!$post || empty($post->post_type)) return;
+        $s = get_option(self::OPT_SETTINGS, []);
+        $enabled = array_map('sanitize_key', (array)($s['enabled_cpts'] ?? []));
+        if (!in_array($post->post_type, $enabled, true)) return;
+        $slug = (string)get_post_meta($post->ID, 'cphub_el_template_key', true);
+        $title= (string)get_post_meta($post->ID, 'cphub_el_template_title', true);
+        if ($slug === '' && $title === '') return;
+        // Try resolving a template now to decide if we should suppress theme elements
+        $tpl_id = $this->resolve_elementor_template_id($slug, $title);
+        if ($tpl_id > 0) $this->cphub_el_single = true;
+    }
+
+    private function resolve_elementor_template_id($slug, $title)
+    {
+        $slug = sanitize_title($slug);
+        if ($slug !== '') {
+            $tpl = get_page_by_path($slug, OBJECT, 'elementor_library');
+            if ($tpl && $tpl->post_status === 'publish') return (int)$tpl->ID;
+        }
+        $title = is_string($title) ? trim($title) : '';
+        if ($title !== '') {
+            // Try raw title
+            $tpl = get_page_by_title($title, OBJECT, 'elementor_library');
+            if ($tpl && $tpl->post_status === 'publish') return (int)$tpl->ID;
+            // Try decoding HTML entities (e.g., &#8211; → –)
+            $decoded = html_entity_decode($title, ENT_QUOTES | ENT_HTML5);
+            if ($decoded !== $title) {
+                $tpl = get_page_by_title($decoded, OBJECT, 'elementor_library');
+                if ($tpl && $tpl->post_status === 'publish') return (int)$tpl->ID;
+            }
+        }
+        return 0;
+    }
+
+    public function render_elementor_single_content($content)
+    {
+        if (!class_exists('Elementor\\Plugin')) return $content;
+        if (is_admin() || is_feed() || !in_the_loop() || !is_main_query()) return $content;
+        $post = get_post();
+        if (!$post) return $content;
+        if (!is_singular($post->post_type)) return $content;
+        $s = get_option(self::OPT_SETTINGS, []);
+        $enabled = array_map('sanitize_key', (array)($s['enabled_cpts'] ?? []));
+        if (!in_array($post->post_type, $enabled, true)) return $content;
+        $slug = (string)get_post_meta($post->ID, 'cphub_el_template_key', true);
+        $title= (string)get_post_meta($post->ID, 'cphub_el_template_title', true);
+        if ($slug === '' && $title === '') return $content;
+
+        $tpl_id = $this->resolve_elementor_template_id($slug, $title);
+        if ($tpl_id <= 0) return $content;
+        if ($this->cphub_el_rendering) return $content;
+        $this->cphub_el_rendering = true;
+        $this->cphub_el_single = true;
+
+        // Disable wpautop/shortcode_unautop while rendering
+        $had_unautop = has_filter('the_content', 'shortcode_unautop');
+        $had_wpautop = has_filter('the_content', 'wpautop');
+        if ($had_unautop !== false) remove_filter('the_content', 'shortcode_unautop', is_int($had_unautop) ? $had_unautop : 10);
+        if ($had_wpautop !== false) remove_filter('the_content', 'wpautop', is_int($had_wpautop) ? $had_wpautop : 10);
+        $this->cphub_el_autop_removed = [ 'unautop' => $had_unautop, 'wpautop' => $had_wpautop ];
+        add_action('wp_footer', [$this, 'restore_autop_filters'], 1);
+
+        try {
+            $html = do_shortcode('[elementor-template id="' . (int)$tpl_id . '"]');
+        } catch (\Throwable $e) {
+            $html = '';
+        }
+
+        $this->cphub_el_rendering = false;
+        if (is_string($html) && $html !== '') return $html;
+        return $content;
+    }
+
+    public function restore_autop_filters()
+    {
+        if (!is_array($this->cphub_el_autop_removed)) return;
+        $u = $this->cphub_el_autop_removed['unautop'] ?? false;
+        $w = $this->cphub_el_autop_removed['wpautop'] ?? false;
+        if ($u !== false) add_filter('the_content', 'shortcode_unautop', is_int($u) ? $u : 10);
+        if ($w !== false) add_filter('the_content', 'wpautop', is_int($w) ? $w : 10);
+        $this->cphub_el_autop_removed = null;
+        remove_action('wp_footer', [$this, 'restore_autop_filters'], 1);
+    }
+
+    public function filter_body_class($classes)
+    {
+        if ($this->cphub_el_single && is_array($classes)) $classes[] = 'cphub-el-single';
+        return $classes;
+    }
+
+    public function maybe_hide_featured_image($html, $post_id, $post_thumbnail_id, $size, $attr)
+    {
+        if ($this->cphub_el_single && is_singular()) return '';
+        return $html;
+    }
+
+    public function output_theme_suppress_css()
+    {
+        if (!$this->cphub_el_single) return;
+        echo '<style id="cphub-el-template-suppress">'
+           . '.cphub-el-single .post-media,'
+           . '.cphub-el-single .post-meta,'
+           . '.cphub-el-single .post-meta-content,'
+           . '.cphub-el-single .post-meta-content-inner,'
+           . '.cphub-el-single .entry-meta,'
+           . '.cphub-el-single .inner-content > .post-meta{display:none !important;}'
+           . '</style>';
+    }
 
     // Removed: maybe_use_elementor_archive_template — archives no longer overridden by Consumer.
 
@@ -1196,9 +1367,6 @@ final class CPT_Hub_Consumer
         $slug = sanitize_key($a['slug']);
         if ($slug === '') {
             $s = get_option(self::OPT_SETTINGS, []);
-            // Prefer explicit display name if provided
-            $loc_name = isset($s['location_name']) ? trim((string)$s['location_name']) : '';
-            if ($loc_name !== '') return esc_html($loc_name);
             $slug = isset($s['location']) ? sanitize_key((string)$s['location']) : '';
         }
         if ($slug === '') return '';

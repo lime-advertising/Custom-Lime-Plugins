@@ -1,5 +1,5 @@
 <?php
-namespace LimeAds\ETSM\Publisher;
+namespace LimeAds\ETSM\Consumer;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -17,11 +17,16 @@ class Plugin {
         add_action( 'init', [ $this, 'init' ] );
         add_action( 'rest_api_init', [ $this, 'register_rest' ] );
         add_action( 'admin_menu', [ Admin::class, 'register_menus' ] );
+        add_action( 'etsm_consumer_cron_pull', [ Sync::class, 'cron_pull' ] );
+        add_action( 'etsm_consumer_run_job', [ Sync::class, 'run_job' ], 10, 1 );
     }
 
     public static function activate(): void {
         DB::create_tables();
-        // Ensure capability exists for admins.
+        if ( ! wp_next_scheduled( 'etsm_consumer_cron_pull' ) ) {
+            wp_schedule_event( time() + 60, 'hourly', 'etsm_consumer_cron_pull' );
+        }
+        // Capability for local admins to manage sync.
         $role = get_role( 'administrator' );
         if ( $role && ! $role->has_cap( 'manage_template_sync' ) ) {
             $role->add_cap( 'manage_template_sync' );
@@ -29,15 +34,21 @@ class Plugin {
     }
 
     public static function deactivate(): void {
-        // No-op for now. Consider clearing scheduled events / queues.
+        wp_clear_scheduled_hook( 'etsm_consumer_cron_pull' );
+        $should_drop = (bool) get_option( 'etsm_cons_drop_on_deactivate', false );
+        if ( $should_drop ) {
+            DB::drop_tables();
+            // Clean options as well
+            delete_option( 'etsm_publisher_url' );
+            delete_option( 'etsm_site_token' );
+        }
     }
 
     public function init(): void {
-        // Placeholders for custom post statuses, etc., if ever needed.
+        // Placeholder for anything on init.
     }
 
     public function register_rest(): void {
         ( new REST_Controller() )->register_routes();
     }
 }
-

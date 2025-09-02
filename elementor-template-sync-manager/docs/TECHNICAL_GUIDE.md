@@ -43,7 +43,7 @@ Repo pointers:
 
 ## 3) Artifact Schema
 - Required keys: `global_template_id`, `version`, `name`, `slug`, `type`, `_elementor_data`, `checksum`.
-- Optional: `style_settings`, `display_conditions`, `dependencies`, `changelog`, `created_at`, `updated_at`.
+- Optional: `style_settings`, `display_conditions`, `apply_conditions` (bool), `conditions_mode` (`replace|merge|skip`), `dependencies`, `changelog`, `created_at`, `updated_at`.
 - Checksum: SHA-256 of canonical JSON excluding the `checksum` field. See validator at `shared/includes/class-json.php:1`.
 
 Canonical checksum recompute (pseudo-PHP):
@@ -115,7 +115,7 @@ Notes:
   5) Upsert mapping row (`etsm_map`) with version, checksum, last_sync_at.
 - Elementor specifics:
   - `_elementor_data` stored JSON-encoded in post meta. Use `wp_slash(wp_json_encode($data))` to avoid serialization issues.
-  - For display conditions (Pro), store associated meta (future work).
+  - Display conditions (Elementor Pro): If the artifact includes `display_conditions` and `apply_conditions` is not false, the Consumer writes `_elementor_conditions` with policy `conditions_mode` (default `replace`; also supports `merge` or `skip`). It also sets `_elementor_template_type` and, when available, assigns taxonomy `elementor_library_type` to the artifact `type`.
 
 ## 7) Media Strategy
 - Default: copy strategy. Any `url` within `_elementor_data` is sideloaded with `media_handle_sideload()` and replaced with local attachment URL.

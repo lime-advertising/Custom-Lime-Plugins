@@ -33,26 +33,42 @@ class REST_Controller {
     public function webhook_deploy( \WP_REST_Request $request ) {
         $params = $request->get_json_params();
         $artifact_url = isset( $params['artifact_url'] ) ? esc_url_raw( $params['artifact_url'] ) : '';
+        $artifact      = isset( $params['artifact'] ) && is_array( $params['artifact'] ) ? $params['artifact'] : null;
         $dry_run = ! empty( $params['dry_run'] );
+        $options = isset( $params['options'] ) && is_array( $params['options'] ) ? $params['options'] : [];
+        $async = ! empty( $options['async'] );
 
-        if ( ! $artifact_url ) {
-            return new \WP_Error( 'etsm_bad_request', 'artifact_url is required', [ 'status' => 400 ] );
+        if ( ! $artifact ) {
+            if ( ! $artifact_url ) {
+                return new \WP_Error( 'etsm_bad_request', 'artifact or artifact_url is required', [ 'status' => 400 ] );
+            }
+            // Fetch artifact from Publisher.
+            $response = wp_remote_get( $artifact_url, [ 'timeout' => 20 ] );
+            if ( is_wp_error( $response ) ) {
+                return new \WP_Error( 'etsm_fetch_failed', $response->get_error_message(), [ 'status' => 502 ] );
+            }
+            $body = wp_remote_retrieve_body( $response );
+            $artifact = json_decode( $body, true );
         }
-
-        // Fetch artifact from Publisher.
-        $response = wp_remote_get( $artifact_url, [ 'timeout' => 20 ] );
-        if ( is_wp_error( $response ) ) {
-            return new \WP_Error( 'etsm_fetch_failed', $response->get_error_message(), [ 'status' => 502 ] );
-        }
-        $body = wp_remote_retrieve_body( $response );
-        $artifact = json_decode( $body, true );
 
         if ( $dry_run ) {
             $diff = Sync::calculate_diff( $artifact );
             return rest_ensure_response( [ 'dry_run' => true, 'diff' => $diff ] );
         }
 
-        $result = Sync::apply_artifact( $artifact );
+        if ( $async ) {
+            $job_id = Sync::enqueue_apply_job( $artifact, $options );
+            if ( ! $job_id ) {
+                return new \WP_Error( 'etsm_enqueue_failed', 'Failed to enqueue job', [ 'status' => 500 ] );
+            }
+            // Schedule immediate processing
+            if ( ! wp_next_scheduled( 'etsm_consumer_run_job', [ $job_id ] ) ) {
+                wp_schedule_single_event( time() + 1, 'etsm_consumer_run_job', [ $job_id ] );
+            }
+            return rest_ensure_response( [ 'queued' => true, 'job_id' => (int) $job_id ] );
+        }
+
+        $result = Sync::apply_artifact( $artifact, $options );
         return rest_ensure_response( $result );
     }
 
@@ -69,4 +85,3 @@ class REST_Controller {
         return rest_ensure_response( [ 'status' => 'ok' ] );
     }
 }
-

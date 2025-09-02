@@ -79,37 +79,7 @@
                 <p class="description">Optional. Permalink path for this CPT (can be longer than 20 characters). Defaults to the CPT slug if empty.</p>
             </td>
         </tr>
-        <tr>
-            <th scope="row"><label for="cphub_archive_tpl">Archive Template (Elementor)</label></th>
-            <td>
-                <?php
-                $templates = [];
-                $tpl_posts = get_posts(['post_type'=>'elementor_library','numberposts'=>-1,'post_status'=>'publish','orderby'=>'title','order'=>'ASC']);
-                foreach ($tpl_posts as $tp) {
-                    $is_ok = false;
-                    $terms = function_exists('get_the_terms') ? get_the_terms($tp, 'elementor_library_type') : false;
-                    if (is_array($terms)) {
-                        foreach ($terms as $t) {
-                            if (strpos($t->slug, 'archive') !== false || strpos($t->slug, 'page') !== false) { $is_ok = true; break; }
-                        }
-                    }
-                    if (!$is_ok) {
-                        $mt = get_post_meta($tp->ID, '_elementor_template_type', true);
-                        if (is_string($mt) && (strtolower($mt)==='archive' || strtolower($mt)==='page')) $is_ok = true;
-                    }
-                    if ($is_ok) $templates[$tp->ID] = $tp->post_title . ' (ID:' . $tp->ID . ')';
-                }
-                $selected = isset($edit_def['archive_template']) ? (int)$edit_def['archive_template'] : 0;
-                ?>
-                <select id="cphub_archive_tpl" name="archive_template">
-                    <option value="">— None —</option>
-                    <?php foreach ($templates as $id => $lab): ?>
-                        <option value="<?php echo (int)$id; ?>" <?php selected($selected === (int)$id); ?>><?php echo esc_html($lab); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <p class="description">When set, this Elementor template renders on the CPT archive page.</p>
-            </td>
-        </tr>
+        
         <tr>
             <th scope="row">Assigned Taxonomies</th>
             <td>

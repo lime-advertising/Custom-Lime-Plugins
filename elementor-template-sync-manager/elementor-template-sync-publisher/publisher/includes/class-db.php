@@ -45,6 +45,7 @@ class DB {
             site_name VARCHAR(191) NOT NULL,
             site_url VARCHAR(255) NOT NULL,
             token_hash CHAR(64) NOT NULL,
+            secret TEXT NULL,
             tags TEXT NULL,
             status VARCHAR(32) NOT NULL DEFAULT 'active',
             last_seen_at DATETIME NULL,
@@ -73,5 +74,16 @@ class DB {
         dbDelta( $sql_consumers );
         dbDelta( $sql_deployments );
     }
-}
 
+    public static function drop_tables(): void {
+        global $wpdb;
+        $templates = $wpdb->prefix . 'etsm_templates';
+        $template_versions = $wpdb->prefix . 'etsm_template_versions';
+        $consumers = $wpdb->prefix . 'etsm_consumers';
+        $deployments = $wpdb->prefix . 'etsm_deployments';
+        // Use direct queries to drop if they exist.
+        foreach ( [ $deployments, $template_versions, $templates, $consumers ] as $table ) {
+            $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+        }
+    }
+}
