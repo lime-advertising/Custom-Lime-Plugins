@@ -68,15 +68,36 @@ class Admin {
         echo '<h2>Create/Update Artifact</h2>';
         echo '<form method="post">';
         wp_nonce_field( 'etsm_registry', 'etsm_registry_nonce' );
+        $selected_post_id = isset( $_POST['elementor_post_id'] ) ? (int) $_POST['elementor_post_id'] : ( ( $q->posts[0]->ID ?? 0 ) );
+        $conditions_text = '';
+        if ( isset( $_POST['action_load_conditions'] ) && $selected_post_id ) {
+            $conds = get_post_meta( $selected_post_id, '_elementor_conditions', true );
+            if ( is_string( $conds ) ) {
+                $decoded = json_decode( $conds, true );
+                if ( json_last_error() === JSON_ERROR_NONE ) { $conds = $decoded; }
+            }
+            if ( is_array( $conds ) ) { $conditions_text = wp_json_encode( $conds, JSON_PRETTY_PRINT ); }
+        } else if ( isset( $_POST['display_conditions'] ) && is_string( $_POST['display_conditions'] ) ) {
+            $conditions_text = (string) $_POST['display_conditions'];
+        }
         echo '<table class="form-table"><tr><th>Elementor Template</th><td><select name="elementor_post_id">';
         foreach ( $q->posts as $p ) {
-            printf( '<option value="%d">%s (ID %d)</option>', $p->ID, esc_html( $p->post_title ), $p->ID );
+            printf( '<option value="%d" %s>%s (ID %d)</option>', $p->ID, selected( $selected_post_id, $p->ID, false ), esc_html( $p->post_title ), $p->ID );
+        }
+        echo '</select> ';
+        echo '<button class="button" name="action_load_conditions" value="1">Use current template\'s conditions</button>';
+        echo '</td></tr>';
+        $ver_val = isset( $_POST['artifact_version'] ) ? (string) $_POST['artifact_version'] : '1.0.0';
+        echo '<tr><th>Version</th><td><input type="text" name="artifact_version" value="' . esc_attr( $ver_val ) . '"/></td></tr>';
+        $apply_checked = ( ! empty( $_POST ) && isset( $_POST['apply_conditions'] ) ) ? 'checked' : '';
+        echo '<tr><th>Apply Conditions</th><td><label><input type="checkbox" name="apply_conditions" ' . $apply_checked . ' /> Apply display conditions</label></td></tr>';
+        $m = isset( $_POST['conditions_mode'] ) ? (string) $_POST['conditions_mode'] : 'skip';
+        echo '<tr><th>Conditions Mode</th><td><select name="conditions_mode">';
+        foreach ( [ 'replace' => 'Replace', 'merge' => 'Merge', 'skip' => 'Skip' ] as $val => $label ) {
+            echo '<option value="' . esc_attr( $val ) . '" ' . selected( $m, $val, false ) . '>' . esc_html( $label ) . '</option>';
         }
         echo '</select></td></tr>';
-        echo '<tr><th>Version</th><td><input type="text" name="artifact_version" value="1.0.0"/></td></tr>';
-        echo '<tr><th>Apply Conditions</th><td><label><input type="checkbox" name="apply_conditions" checked/> Apply display conditions</label></td></tr>';
-        echo '<tr><th>Conditions Mode</th><td><select name="conditions_mode"><option value="replace">Replace</option><option value="merge">Merge</option><option value="skip">Skip</option></select></td></tr>';
-        echo '<tr><th>Display Conditions (JSON)</th><td><textarea name="display_conditions" rows="5" cols="80" placeholder="[]"></textarea></td></tr>';
+        echo '<tr><th>Display Conditions (JSON)</th><td><textarea name="display_conditions" rows="5" cols="80" placeholder="[]">' . esc_textarea( $conditions_text ) . '</textarea></td></tr>';
         echo '</table>';
         submit_button( 'Save Artifact' );
         echo '</form>';

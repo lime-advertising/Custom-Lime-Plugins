@@ -1,0 +1,140 @@
+.wcse-app {
+  max-width: 100%;
+}
+.wcse-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+}
+.wcse-table-wrap {
+  overflow: auto;
+  border: 1px solid #ccd0d4;
+  background: #fff;
+}
+.wcse-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 13px;
+}
+.wcse-table th,
+.wcse-table td {
+  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+}
+.wcse-table th,
+.wcse-table td {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+/* Column-specific min widths */
+.wcse-table th[data-col="id"],
+.wcse-table td[data-col="id"] { min-width: 60px; }
+.wcse-table th[data-col="name"],
+.wcse-table td[data-col="name"] { min-width: 260px; }
+.wcse-table th[data-col="sku"],
+.wcse-table td[data-col="sku"] { min-width: 140px; }
+.wcse-table th[data-col="regular_price"],
+.wcse-table td[data-col="regular_price"],
+.wcse-table th[data-col="sale_price"],
+.wcse-table td[data-col="sale_price"] { min-width: 110px; }
+.wcse-table th[data-col="stock_status"],
+.wcse-table td[data-col="stock_status"] { min-width: 150px; }
+.wcse-table th[data-col="stock_qty"],
+.wcse-table td[data-col="stock_qty"] { min-width: 90px; }
+.wcse-table th[data-col="status"],
+.wcse-table td[data-col="status"] { min-width: 140px; }
+.wcse-table th[data-col="categories"],
+.wcse-table td[data-col="categories"] { min-width: 280px; white-space: normal; }
+.wcse-table th[data-col^="acf:"],
+.wcse-table td[data-col^="acf:"] { min-width: 180px; }
+.wcse-table td[contenteditable] {
+  background: #fcfcff;
+  outline: none;
+}
+.wcse-table tr.wcse-dirty td {
+  background: #fff7e6;
+}
+
+/* Column visibility */
+.wcse-col-hidden {
+  display: none;
+}
+
+/* Columns panel */
+.wcse-columns-panel {
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid #ccd0d4;
+  background: #fff;
+}
+.wcse-columns-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.wcse-columns-grid label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.wcse-columns-actions { margin-top: 8px; display: flex; gap: 8px; }
+
+/* Make dropdowns fit cells nicely */
+.wcse-table td select.wcse-select {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+  padding: 2px 4px;
+}
+
+/* Tokenized categories */
+.wcse-table td.wcse-categories {
+  vertical-align: top;
+}
+.wcse-token {
+  display: inline-flex;
+  align-items: center;
+  background: #eef6ff;
+  color: #1e1e1e;
+  border: 1px solid #c5d9f1;
+  border-radius: 2px;
+  padding: 1px 4px;
+  margin: 1px 2px 1px 0;
+  white-space: nowrap;
+}
+.wcse-token-x {
+  margin-left: 4px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #666;
+}
+.wcse-token-input {
+  min-width: 80px;
+  border: 0;
+  outline: none;
+  padding: 2px 0;
+}
+
+/* FixedColumns extension styling tweaks */
+.dtfc-fixed-left, .dtfc-fixed-right {
+  background: #fff;
+}
+.dtfc-fixed-left .wcse-table th,
+.dtfc-fixed-left .wcse-table td {
+  background: #fff;
+}
+
+/* Modal for WYSIWYG editing */
+.wcse-modal { position: fixed; inset: 0; z-index: 100000; }
+.wcse-modal[hidden] { display: none; }
+.wcse-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+.wcse-modal-dialog { position: relative; max-width: 900px; margin: 8vh auto; background: #fff; border: 1px solid #ccd0d4; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+.wcse-modal-header { padding: 12px 16px; border-bottom: 1px solid #eee; }
+.wcse-modal-body { padding: 12px 16px; }
+.wcse-modal-footer { padding: 12px 16px; border-top: 1px solid #eee; display: flex; gap: 8px; justify-content: flex-end; }
+.wcse-wysiwyg .wcse-wysiwyg-preview { max-width: 480px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
+.wcse-wysiwyg .wcse-wysiwyg-edit { margin-left: 8px; vertical-align: middle; }

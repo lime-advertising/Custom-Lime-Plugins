@@ -161,13 +161,13 @@ class Sync {
             return;
         }
 
-        // Default policy: apply if present unless explicitly skipped.
-        $apply_conditions = array_key_exists( 'apply_conditions', $artifact ) ? (bool) $artifact['apply_conditions'] : true;
+        // Default policy: do NOT apply unless explicitly enabled.
+        $apply_conditions = array_key_exists( 'apply_conditions', $artifact ) ? (bool) $artifact['apply_conditions'] : false;
         if ( ! $apply_conditions ) {
             return;
         }
 
-        $mode = isset( $artifact['conditions_mode'] ) ? strtolower( (string) $artifact['conditions_mode'] ) : 'replace';
+        $mode = isset( $artifact['conditions_mode'] ) ? strtolower( (string) $artifact['conditions_mode'] ) : 'skip';
         if ( ! in_array( $mode, [ 'replace', 'merge', 'skip' ], true ) ) {
             $mode = 'replace';
         }
