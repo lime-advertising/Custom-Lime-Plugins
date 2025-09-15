@@ -1,0 +1,76 @@
+#uca-ics-feeds-table .uca-ics-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+#uca-ics-feeds-table .uca-ics-actions label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+#uca-ics-feeds-table th {
+  padding: 10px;
+}
+
+#uca-ics-feeds-table .uca-ics-feed-row input {
+  width: 100%;
+}
+
+#uca-ics-style-preview-wrapper {
+  margin-top: 12px;
+}
+
+/* Styling tab accordions */
+#uca-ics-style-form details {
+  margin: 10px 0;
+  border: 1px solid #dcdcde;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+#uca-ics-style-form details summary {
+  display: block;
+  padding: 10px 12px;
+  background: #f6f7f7;
+  border-bottom: 1px solid #dcdcde;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  list-style: none;
+}
+#uca-ics-style-form details summary::-webkit-details-marker {
+  display: none;
+}
+#uca-ics-style-form details summary::after {
+  content: "▸";
+  float: right;
+  opacity: 0.7;
+}
+#uca-ics-style-form details[open] summary::after {
+  content: "▾";
+}
+#uca-ics-style-form details > :not(summary) {
+  padding: 12px;
+  width: 100%;
+  max-width: 300px;
+  display: inline-block;
+}
+#uca-ics-style-form details.general_styles > :not(summary) {
+  padding: 12px;
+  width: 100%;
+  max-width: 100%;
+  display: block;
+}
+#uca-ics-style-form details.general_styles > :not(summary) strong {
+  display: block;
+}
+
+/* Always show the color value input alongside the picker */
+.wp-picker-container .wp-color-result { display: none; }
+.wp-picker-container .wp-picker-input-wrap { display: flex !important; align-items: center; gap: 8px; }
+.wp-picker-container .wp-picker-holder { z-index: 10; }
+.uca-ics-alpha-wrap { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; }
+.uca-ics-alpha-wrap input[type="number"] { width: 70px; }
+.uca-ics-alpha-wrap .uca-ics-alpha-label { color: #555; font-size: 12px; }
