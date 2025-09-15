@@ -74,6 +74,13 @@ class UCA_ICS_Admin
                 'style_desc_padding' => '',
                 'style_location_margin' => '',
                 'style_location_padding' => '',
+                // Element visibility and ordering
+                'elements_order' => 'when,summary,location,desc',
+                'show_when'     => 1,
+                'show_summary'  => 1,
+                'show_location' => 1,
+                'show_desc'     => 1,
+                'show_badge'    => 1,
                 'style_custom_css' => '',
             ],
         ]);
@@ -380,6 +387,23 @@ class UCA_ICS_Admin
             $out['style_custom_css'] = isset($input['style_custom_css']) ? (string) $input['style_custom_css'] : '';
         }
 
+        // Elements visibility and order
+        if (array_key_exists('elements_order', $input)) {
+            $raw = (string) $input['elements_order'];
+            $parts = array_filter(array_map('trim', explode(',', $raw)));
+            $allowed = ['when','summary','location','desc'];
+            $filtered = [];
+            foreach ($parts as $p) if (in_array($p, $allowed, true) && ! in_array($p, $filtered, true)) $filtered[] = $p;
+            foreach ($allowed as $p) if (! in_array($p, $filtered, true)) $filtered[] = $p; // append missing to end
+            $out['elements_order'] = implode(',', $filtered);
+        }
+        foreach (['when','summary','location','desc','badge'] as $k) {
+            $key = 'show_' . $k;
+            if (array_key_exists($key, $input)) {
+                $out[$key] = ! empty($input[$key]) ? 1 : 0;
+            }
+        }
+
         // Surface validation notices on settings screen
         if ($missing_count > 0) {
             add_settings_error(
@@ -584,10 +608,46 @@ class UCA_ICS_Admin
                     </details>
 
                     <details>
+                        <summary><strong><?php esc_html_e('Elements', 'uca-ics'); ?></strong></summary>
+                        <?php
+                        $order_csv = isset($opts['elements_order']) ? (string) $opts['elements_order'] : 'when,summary,location,desc';
+                        $order = array_values(array_filter(array_map('trim', explode(',', $order_csv))));
+                        $allowed = ['when','summary','location','desc'];
+                        // ensure all allowed are present at least once
+                        foreach ($allowed as $k) if (! in_array($k, $order, true)) $order[] = $k;
+                        $labels = [
+                            'when'     => __('Date/Time', 'uca-ics'),
+                            'summary'  => __('Summary', 'uca-ics'),
+                            'location' => __('Location', 'uca-ics'),
+                            'desc'     => __('Description', 'uca-ics'),
+                        ];
+                        ?>
+                        <input type="hidden" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[elements_order]" id="uca-ics-elements-order" value="<?php echo esc_attr(implode(',', $order)); ?>" />
+                        <ul id="uca-ics-elements-list" class="uca-ics-elements">
+                            <?php foreach ($order as $key): if (! isset($labels[$key])) continue; ?>
+                                <li class="uca-ics-el" data-key="<?php echo esc_attr($key); ?>">
+                                    <span class="uca-ics-el-handle" aria-hidden="true">⋮⋮</span>
+                                    <label>
+                                        <input type="checkbox" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[show_<?php echo esc_attr($key); ?>]" value="1" <?php checked(! empty($opts['show_' . $key])); ?> />
+                                        <?php echo esc_html($labels[$key]); ?>
+                                    </label>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                        <p>
+                            <label>
+                                <input type="checkbox" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[show_badge]" value="1" <?php checked(! empty($opts['show_badge'])); ?> />
+                                <?php esc_html_e('Show source label badge (for multi-feed)', 'uca-ics'); ?>
+                            </label>
+                        </p>
+                        <p class="description"><?php esc_html_e('Drag to reorder elements. Uncheck to hide an element.', 'uca-ics'); ?></p>
+                    </details>
+
+                    <details>
                         <summary><strong><?php esc_html_e('Badge', 'uca-ics'); ?></strong></summary>
-                            <p><label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_bg]" value="<?php echo esc_attr($opts['style_badge_bg'] ?? ''); ?>" /></label></p>
-                            <p><label><?php esc_html_e('Border', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_border]" value="<?php echo esc_attr($opts['style_badge_border'] ?? ''); ?>" /></label></p>
-                            <p><label><?php esc_html_e('Text color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_color]" value="<?php echo esc_attr($opts['style_badge_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_bg]" value="<?php echo esc_attr($opts['style_badge_bg'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_border]" value="<?php echo esc_attr($opts['style_badge_border'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Text color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_color]" value="<?php echo esc_attr($opts['style_badge_color'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>: <input type="text" placeholder="0.75rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_size]" value="<?php echo esc_attr($opts['style_badge_size'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="2px 8px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_padding]" value="<?php echo esc_attr($opts['style_badge_padding'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Margin', 'uca-ics'); ?>: <input type="text" placeholder="0 0 0 0.5rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_margin]" value="<?php echo esc_attr($opts['style_badge_margin'] ?? ''); ?>" /></label></p>
@@ -755,7 +815,7 @@ class UCA_ICS_Admin
         wp_enqueue_script(
             'uca-ics-admin',
             UCA_ICS_URL . 'assets/js/admin.js',
-            ['jquery', 'wp-color-picker'],
+            ['jquery', 'wp-color-picker', 'jquery-ui-sortable'],
             UCA_ICS_VER,
             true
         );

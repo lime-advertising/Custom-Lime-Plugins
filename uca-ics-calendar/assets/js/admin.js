@@ -162,58 +162,30 @@
     $('.uca-ics-color').each(function(){
       var $input = $(this);
       if ($input.data('wpColorPicker')) return; // already initialized
-      var start = parseColor($input.val());
-      var baseHex = $input.val();
-      var startAlpha = 1;
-      if(start){
-        startAlpha = start.a;
-        baseHex = '#' + [start.r, start.g, start.b].map(function(x){ var s=x.toString(16); return s.length===1?'0'+s:s; }).join('');
-      }
-      $input.val(baseHex);
+      // Normalize rgba() to hex, since transparency is no longer supported
+      (function(){
+        var val = String($input.val() || '').trim();
+        var m = val.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i);
+        if(m){
+          var r = Math.max(0, Math.min(255, parseInt(m[1],10)||0));
+          var g = Math.max(0, Math.min(255, parseInt(m[2],10)||0));
+          var b = Math.max(0, Math.min(255, parseInt(m[3],10)||0));
+          var hx = '#' + [r,g,b].map(function(x){ var s=x.toString(16); return s.length===1?'0'+s:s; }).join('');
+          $input.val(hx);
+        }
+      })();
       $input.wpColorPicker({
         palettes: palette,
         change: function(event, ui){
           var hex = ui.color.toString();
-          var $alpha = $input.closest('.wp-picker-container').find('.uca-ics-alpha-range');
-          var a = $alpha.length ? (parseInt($alpha.val(),10) || 100)/100 : 1;
-          var rgb = hexToRgb(hex);
-          var out = rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + a + ')' : hex;
-          $input.val(out);
+          $input.val(hex);
           updatePreviewFromInputs();
         },
         clear: function(){
           updatePreviewFromInputs();
         }
       });
-      // Inject alpha input (0-100)
-      var $holder = $input.closest('.wp-picker-container');
-      if($holder.find('.uca-ics-alpha-wrap').length === 0){
-        var html = '<span class="uca-ics-alpha-wrap"><span class="uca-ics-alpha-label">Alpha</span><input type="number" min="0" max="100" step="1" value="'+ Math.round(startAlpha*100) +'" class="uca-ics-alpha-input"/></span>';
-        $holder.find('.wp-picker-input-wrap').append(html);
-        function applyAlpha(val){
-          var hex = $holder.find('input.wp-color-picker').val();
-          var v = parseInt(val,10);
-          if (isNaN(v)) v = 100;
-          if (v < 0) v = 0; if (v > 100) v = 100;
-          var a = v/100;
-          var rgb = hexToRgb(hex);
-          if(rgb){
-            $input.val('rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + a + ')');
-            updatePreviewFromInputs();
-          }
-          return v;
-        }
-        var alphaDebounce;
-        $holder.on('keyup', '.uca-ics-alpha-input', function(){
-          var el = this;
-          clearTimeout(alphaDebounce);
-          alphaDebounce = setTimeout(function(){ applyAlpha(el.value); }, 150);
-        });
-        $holder.on('change', '.uca-ics-alpha-input', function(){
-          var v = applyAlpha(this.value);
-          this.value = String(v);
-        });
-      }
+      // No alpha control
     });
   }
 
@@ -232,6 +204,22 @@
   });
   $(initColorPickers);
   $(document).on('focus', '.uca-ics-color', initColorPickers);
+
+  // Elements drag and drop ordering
+  function initElementsSortable(){
+    var $list = $('#uca-ics-elements-list');
+    if(!$list.length || $list.data('sortable-init')) return;
+    $list.sortable({
+      handle: '.uca-ics-el-handle',
+      update: function(){
+        var keys = [];
+        $list.find('.uca-ics-el').each(function(){ keys.push($(this).data('key')); });
+        $('#uca-ics-elements-order').val(keys.join(','));
+      }
+    });
+    $list.data('sortable-init', true);
+  }
+  $(initElementsSortable);
 
   // Only one accordion open at a time (use summary click for reliable behavior)
   $(document).on('click', '#uca-ics-style-form details > summary', function(){

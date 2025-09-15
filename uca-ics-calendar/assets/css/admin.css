@@ -67,10 +67,13 @@
   display: block;
 }
 
+/* Elements drag list */
+#uca-ics-elements-list { list-style: none; padding: 0; margin: 0; }
+#uca-ics-elements-list .uca-ics-el { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; margin-bottom: 8px; }
+#uca-ics-elements-list .uca-ics-el-handle { cursor: move; color: #666; }
+
 /* Always show the color value input alongside the picker */
 .wp-picker-container .wp-color-result { display: none; }
 .wp-picker-container .wp-picker-input-wrap { display: flex !important; align-items: center; gap: 8px; }
 .wp-picker-container .wp-picker-holder { z-index: 10; }
-.uca-ics-alpha-wrap { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; }
-.uca-ics-alpha-wrap input[type="number"] { width: 70px; }
-.uca-ics-alpha-wrap .uca-ics-alpha-label { color: #555; font-size: 12px; }
+/* Removed alpha control styles (transparency disabled) */

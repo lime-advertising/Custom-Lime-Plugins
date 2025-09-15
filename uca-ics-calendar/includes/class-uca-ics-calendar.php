@@ -167,33 +167,60 @@ class UCA_ICS_Calendar
 
                         $start_fmt = uca_ics_format_dt($start, $atts['datefmt']);
                         $end_fmt   = uca_ics_format_dt($end,   $atts['datefmt']);
+                        $opts_local = get_option(UCA_ICS_OPT, []);
+                        $order_csv  = isset($opts_local['elements_order']) ? (string) $opts_local['elements_order'] : 'when,summary,location,desc';
+                        $order      = array_values(array_filter(array_map('trim', explode(',', $order_csv))));
+                        $allowed    = ['when','summary','location','desc'];
+                        foreach ($allowed as $k) if (! in_array($k, $order, true)) $order[] = $k;
+                        $show = [
+                            'when'     => ! empty($opts_local['show_when']),
+                            'summary'  => ! empty($opts_local['show_summary']),
+                            'location' => ! empty($opts_local['show_location']),
+                            'desc'     => ! empty($opts_local['show_desc']),
+                            'badge'    => ! empty($opts_local['show_badge']),
+                        ];
                     ?>
                         <li class="uca-ics-item">
-                            <div class="uca-ics-when">
-                                <time class="uca-ics-start"><?php echo esc_html($start_fmt); ?></time>
-                                <?php if ($end_fmt && $end_fmt !== $start_fmt) : ?>
-                                    <span class="uca-ics-sep"> – </span>
-                                    <time class="uca-ics-end"><?php echo esc_html($end_fmt); ?></time>
-                                <?php endif; ?>
-                            </div>
-                            <div class="uca-ics-main">
+                            <?php
+                            // Prebuild blocks
+                            $blocks = [];
+                            if ($show['when']) {
+                                ob_start(); ?>
+                                <div class="uca-ics-when">
+                                    <time class="uca-ics-start"><?php echo esc_html($start_fmt); ?></time>
+                                    <?php if ($end_fmt && $end_fmt !== $start_fmt) : ?>
+                                        <span class="uca-ics-sep"> – </span>
+                                        <time class="uca-ics-end"><?php echo esc_html($end_fmt); ?></time>
+                                    <?php endif; ?>
+                                </div>
+                                <?php $blocks['when'] = ob_get_clean();
+                            }
+                            if ($show['summary']) {
+                                ob_start(); ?>
                                 <div class="uca-ics-summary">
                                     <?php if ($url) : ?>
                                         <a href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener"><?php echo esc_html($summary); ?></a>
                                     <?php else : ?>
                                         <?php echo esc_html($summary); ?>
                                     <?php endif; ?>
-                                    <?php if ($label) : ?>
+                                    <?php if ($label && $show['badge']) : ?>
                                         <span class="uca-ics-badge" aria-label="<?php echo esc_attr($label); ?>"><?php echo esc_html($label); ?></span>
                                     <?php endif; ?>
                                 </div>
-                                <?php if ($loc) : ?>
-                                    <div class="uca-ics-location"><?php echo esc_html($loc); ?></div>
-                                <?php endif; ?>
-                                <?php if ($desc) : ?>
-                                    <div class="uca-ics-desc"><?php echo esc_html($desc); ?></div>
-                                <?php endif; ?>
-                            </div>
+                                <?php $blocks['summary'] = ob_get_clean();
+                            }
+                            if ($show['location'] && $loc) {
+                                $blocks['location'] = '<div class="uca-ics-location">' . esc_html($loc) . '</div>';
+                            }
+                            if ($show['desc'] && $desc) {
+                                $blocks['desc'] = '<div class="uca-ics-desc">' . esc_html($desc) . '</div>';
+                            }
+
+                            // Output in configured order
+                            foreach ($order as $k) {
+                                if (! empty($blocks[$k])) echo $blocks[$k];
+                            }
+                            ?>
                         </li>
                     <?php endforeach; ?>
                 </ul>
