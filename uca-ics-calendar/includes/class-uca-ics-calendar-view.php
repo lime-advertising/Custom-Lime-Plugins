@@ -47,9 +47,30 @@ class UCA_ICS_Calendar_View
         <h2><?php esc_html_e('Calendar View Preview', 'uca-ics'); ?></h2>
         <p class="description"><?php esc_html_e('This is a preview of your configured feeds in a calendar layout. Use the [ics_calendar_view] shortcode to embed on the frontend.', 'uca-ics'); ?></p>
         <div id="<?php echo esc_attr($container_id); ?>" style="min-height:520px;border:1px solid #dcdcde;border-radius:6px;padding:8px;background:#fff;"></div>
+        <style>
+        .uca-ics-tooltip{position:absolute;z-index:99999;background:#111827;color:#fff;padding:8px 10px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.25);font-size:12px;line-height:1.4;max-width:280px;pointer-events:none;display:none}
+        .uca-ics-tooltip .uca-ics-tip-title{font-weight:600;margin:0 0 4px}
+        .uca-ics-tooltip .uca-ics-tip-location{color:#e5e7eb;margin:0 0 4px}
+        .uca-ics-tooltip .uca-ics-tip-desc{white-space:normal}
+        </style>
         <script>
         (function(){
             var evts = <?php echo wp_json_encode($events); ?>;
+            var tipEl;
+            function ensureTip(){ if (!tipEl){ tipEl = document.createElement('div'); tipEl.className='uca-ics-tooltip'; document.body.appendChild(tipEl);} return tipEl; }
+            function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]);}); }
+            function showTip(target, info){
+                var ep = info.event.extendedProps||{};
+                var html = '';
+                if (info.event.title) html += '<div class="uca-ics-tip-title">'+esc(info.event.title)+'</div>';
+                if (ep.location) html += '<div class="uca-ics-tip-location">'+esc(ep.location)+'</div>';
+                if (ep.description) html += '<div class="uca-ics-tip-desc">'+esc(ep.description).replace(/\n/g,'<br>')+'</div>';
+                var el = ensureTip();
+                el.innerHTML = html || esc(info.event.title || '');
+                el.style.display='block';
+            }
+            function hideTip(){ if (tipEl){ tipEl.style.display='none'; } }
+            function positionTipByEvent(e){ if (!tipEl || tipEl.style.display==='none') return; var x=e.clientX+12, y=e.clientY+12; var rect=tipEl.getBoundingClientRect(); var vw=window.innerWidth, vh=window.innerHeight; if (x+rect.width>vw-8) x = vw-rect.width-8; if (y+rect.height>vh-8) y = vh-rect.height-8; tipEl.style.left = (window.pageXOffset + x)+'px'; tipEl.style.top=(window.pageYOffset + y)+'px'; }
             function boot(){
                 if (!window.FullCalendar || !document.getElementById('<?php echo esc_js($container_id); ?>')) { setTimeout(boot, 50); return; }
                 var el = document.getElementById('<?php echo esc_js($container_id); ?>');
@@ -58,19 +79,11 @@ class UCA_ICS_Calendar_View
                     headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
                     events: evts,
                     eventDidMount: function(info){
-                        // Always show browser tooltips in admin preview
-                        var ep = info.event.extendedProps || {};
-                        var parts = [];
-                        if (ep.location) parts.push(ep.location);
-                        if (ep.description) parts.push(ep.description);
                         var target = info.el.querySelector('a, .fc-event-main') || info.el;
-                        if (parts.length) target.setAttribute('title', parts.join('\n'));
-                        // Debug log on hover so we can verify JS is firing
-                        try {
-                            target.addEventListener('mouseenter', function(){
-                                if (window.console && console.log) console.log('[UCA ICS] Hover (admin preview):', info.event.title || '(no title)');
-                            });
-                        } catch(e){}
+                        // Styled popover in admin preview
+                        target.addEventListener('mouseenter', function(e){ showTip(target, info); positionTipByEvent(e); });
+                        target.addEventListener('mousemove', positionTipByEvent);
+                        target.addEventListener('mouseleave', hideTip);
                     },
                     height: 'auto'
                 });
@@ -125,6 +138,14 @@ class UCA_ICS_Calendar_View
         $id = 'uca-ics-fc-' . wp_generate_uuid4();
         ob_start(); ?>
         <div id="<?php echo esc_attr($id); ?>" class="uca-ics-fc" style="min-height:<?php echo esc_attr($atts['height']); ?>;"></div>
+        <?php if (in_array(strtolower((string)($atts['tooltip'] ?? $atts['tooltips'])), ['yes','true','1','on'], true)) : ?>
+        <style>
+        .uca-ics-tooltip{position:absolute;z-index:99999;background:#111827;color:#fff;padding:8px 10px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.25);font-size:12px;line-height:1.4;max-width:280px;pointer-events:none;display:none}
+        .uca-ics-tooltip .uca-ics-tip-title{font-weight:600;margin:0 0 4px}
+        .uca-ics-tooltip .uca-ics-tip-location{color:#e5e7eb;margin:0 0 4px}
+        .uca-ics-tooltip .uca-ics-tip-desc{white-space:normal}
+        </style>
+        <?php endif; ?>
         <script>
         (function(){
             var evts = <?php echo wp_json_encode($events); ?>;
@@ -136,6 +157,21 @@ class UCA_ICS_Calendar_View
                 $enabled = in_array($tt_norm, ['yes','true','1','on'], true);
                 echo wp_json_encode($enabled);
             ?>;
+            var tipEl;
+            function ensureTip(){ if (!tipEl){ tipEl = document.createElement('div'); tipEl.className='uca-ics-tooltip'; document.body.appendChild(tipEl);} return tipEl; }
+            function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]);}); }
+            function showTip(target, info){
+                var ep = info.event.extendedProps||{};
+                var html = '';
+                if (info.event.title) html += '<div class="uca-ics-tip-title">'+esc(info.event.title)+'</div>';
+                if (ep.location) html += '<div class="uca-ics-tip-location">'+esc(ep.location)+'</div>';
+                if (ep.description) html += '<div class="uca-ics-tip-desc">'+esc(ep.description).replace(/\n/g,'<br>')+'</div>';
+                var el = ensureTip();
+                el.innerHTML = html || esc(info.event.title || '');
+                el.style.display='block';
+            }
+            function hideTip(){ if (tipEl){ tipEl.style.display='none'; } }
+            function positionTipByEvent(e){ if (!tipEl || tipEl.style.display==='none') return; var x=e.clientX+12, y=e.clientY+12; var rect=tipEl.getBoundingClientRect(); var vw=window.innerWidth, vh=window.innerHeight; if (x+rect.width>vw-8) x = vw-rect.width-8; if (y+rect.height>vh-8) y = vh-rect.height-8; tipEl.style.left = (window.pageXOffset + x)+'px'; tipEl.style.top=(window.pageYOffset + y)+'px'; }
             function boot(){
                 if (!window.FullCalendar || !document.getElementById('<?php echo esc_js($id); ?>')) { setTimeout(boot, 50); return; }
                 var el = document.getElementById('<?php echo esc_js($id); ?>');
@@ -146,19 +182,9 @@ class UCA_ICS_Calendar_View
                     eventDidMount: function(info){
                         var target = info.el.querySelector('a, .fc-event-main') || info.el;
                         if (enableTooltips) {
-                            // Debug log on hover for frontend when tooltips enabled
-                            try {
-                                target.addEventListener('mouseenter', function(){
-                                    if (window.console && console.log) console.log('[UCA ICS] Hover (frontend):', info.event.title || '(no title)');
-                                });
-                            } catch(e){}
-                            var ep = info.event.extendedProps || {};
-                            var parts = [];
-                            if (ep.location) parts.push(ep.location);
-                            if (ep.description) parts.push(ep.description);
-                            if (parts.length) {
-                                target.setAttribute('title', parts.join('\n'));
-                            }
+                            target.addEventListener('mouseenter', function(e){ showTip(target, info); positionTipByEvent(e); });
+                            target.addEventListener('mousemove', positionTipByEvent);
+                            target.addEventListener('mouseleave', hideTip);
                         }
                     },
                     height: 'auto'
@@ -186,7 +212,7 @@ class UCA_ICS_Calendar_View
         $events = is_array($data) && ! empty($data['events']) ? (array) $data['events'] : [];
         $out = [];
         foreach ($events as $e) {
-            $title = isset($e['summary']) ? (string) $e['summary'] : '';
+            $title = isset($e['summary']) ? uca_ics_unescape_ics_text((string) $e['summary']) : '';
             $start = isset($e['dtstart']['value']) ? (string) $e['dtstart']['value'] : '';
             $end   = isset($e['dtend']['value'])   ? (string) $e['dtend']['value']   : '';
             $url   = isset($e['url']) ? (string) $e['url'] : '';
