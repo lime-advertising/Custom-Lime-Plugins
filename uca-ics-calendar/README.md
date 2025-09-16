@@ -43,6 +43,7 @@ This plugin adds a shortcode, `[ics_calendar]`, that outputs a list of upcoming 
   - Adds Settings → ICS Calendar page.
   - Settings include a multiline “ICS Feeds” field (one per line, optional `Label|URL` format) and cache duration (minutes).
   - Sanitizes and saves options; triggers a cache refresh on save.
+  - Calendar View tab provides a live preview of events using FullCalendar (optional module).
 
 - `includes/helpers.php`
   - `uca_ics_parse_events()`: Lightweight ICS parser for VEVENTS. Handles line folding, reads these common fields: `DTSTART`, `DTEND`, `SUMMARY`, `LOCATION`, `DESCRIPTION`, `URL`, `UID`.
@@ -160,4 +161,16 @@ GPL-2.0-or-later. See the plugin header for details.
 ## Changelog
 
 - 1.0.0 — Initial release.
+### Calendar View Shortcode
+
+Shortcode: `[ics_calendar_view]`
+
+Attributes:
+- `feeds`: Optional override list (same format as `[ics_calendar]`).
+- `height`: CSS height for the calendar container. Default `600px`.
+- `view`: Initial view: `dayGridMonth` (default), `timeGridWeek`, or `timeGridDay`.
+
+Notes:
+- Uses FullCalendar v6 via CDN (`index.global.min.js`).
+- The Settings page adds a “Calendar View” tab to preview events in a calendar layout.
 

@@ -74,6 +74,16 @@ function uca_ics_parse_events($ics_raw)
 }
 
 /**
+ * Unescape ICS text per RFC 5545 (\n, \N -> newline; \\ -> backslash; \, -> comma; \; -> semicolon)
+ */
+function uca_ics_unescape_ics_text(string $text): string
+{
+    // Replace common escape sequences
+    $text = str_replace(['\\n', '\\N', '\\,', '\\;', '\\\\'], ["\n", "\n", ',', ';', '\\'], $text);
+    return $text;
+}
+
+/**
  * Convert ICS datetime string to WordPress-local DateTime and formatted text.
  */
 function uca_ics_format_dt($ics_dt, $format = 'M j, Y g:i a')

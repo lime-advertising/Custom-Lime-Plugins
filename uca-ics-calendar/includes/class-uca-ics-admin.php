@@ -612,6 +612,13 @@ class UCA_ICS_Admin
                 <a href="<?php echo esc_url(add_query_arg('tab', 'general', $base)); ?>" class="nav-tab <?php echo $active === 'general' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('General Settings', 'uca-ics'); ?></a>
                 <a href="<?php echo esc_url(add_query_arg('tab', 'fields', $base)); ?>" class="nav-tab <?php echo $active === 'fields' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Feed Details', 'uca-ics'); ?></a>
                 <a href="<?php echo esc_url(add_query_arg('tab', 'style', $base)); ?>" class="nav-tab <?php echo $active === 'style' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Styling', 'uca-ics'); ?></a>
+                <?php
+                /**
+                 * Allow extensions to add more tabs to the nav.
+                 * Action receives ($active, $base) and should echo <a> tags.
+                 */
+                do_action('uca_ics_tabs_nav', $active, $base);
+                ?>
             </h2>
 
             <?php if ($active === 'general') : ?>
@@ -649,6 +656,13 @@ class UCA_ICS_Admin
                     <li><?php esc_html_e('TZID parameter parsing is not implemented; Zulu (Z) times are converted from UTC to your site timezone.', 'uca-ics'); ?></li>
                     <li><?php esc_html_e('When aggregating multiple feeds, each event displays a badge with the source label.', 'uca-ics'); ?></li>
                 </ul>
+            <?php elseif ($active === 'calendar') : ?>
+                <?php
+                /**
+                 * Render content for the Calendar View tab (provided by optional module).
+                 */
+                do_action('uca_ics_tab_calendar');
+                ?>
             <?php else : ?>
                 <?php $opts = get_option(UCA_ICS_OPT, []); ?>
                 <form action="options.php" method="post" id="uca-ics-style-form">

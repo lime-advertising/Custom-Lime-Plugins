@@ -20,6 +20,10 @@ define( 'UCA_ICS_CRON_HOOK', 'uca_ics_refresh_hook' );
 require_once UCA_ICS_PATH . 'includes/helpers.php';
 require_once UCA_ICS_PATH . 'includes/class-uca-ics-calendar.php';
 require_once UCA_ICS_PATH . 'includes/class-uca-ics-admin.php';
+// Optional Calendar View module (admin tab + shortcode)
+if (file_exists(UCA_ICS_PATH . 'includes/class-uca-ics-calendar-view.php')) {
+    require_once UCA_ICS_PATH . 'includes/class-uca-ics-calendar-view.php';
+}
 
 add_action( 'plugins_loaded', function () {
     // Frontend + shortcode
@@ -27,6 +31,10 @@ add_action( 'plugins_loaded', function () {
     // Admin settings
     if ( is_admin() ) {
         ( new UCA_ICS_Admin() )->register();
+    }
+    // Optional Calendar View module
+    if ( class_exists( 'UCA_ICS_Calendar_View' ) ) {
+        ( new UCA_ICS_Calendar_View() )->register();
     }
 } );
 
