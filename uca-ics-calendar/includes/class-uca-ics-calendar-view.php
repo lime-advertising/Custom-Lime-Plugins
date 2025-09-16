@@ -4,6 +4,7 @@ if (! defined('ABSPATH')) exit;
 class UCA_ICS_Calendar_View
 {
     const CDN = 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js';
+    const LOCALES_CDN = 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/locales-all.global.min.js';
 
     public function register(): void
     {
@@ -35,6 +36,12 @@ class UCA_ICS_Calendar_View
         if ($active !== 'calendar') return;
         // Load FullCalendar (global build)
         wp_enqueue_script('uca-ics-fullcalendar', self::CDN, [], UCA_ICS_VER, true);
+        // Load locales if a non-default locale is configured
+        $opts = get_option(UCA_ICS_OPT, []);
+        $loc = isset($opts['cv_locale']) ? strtolower((string)$opts['cv_locale']) : '';
+        if ($loc && $loc !== 'en') {
+            wp_enqueue_script('uca-ics-fullcalendar-locales', self::LOCALES_CDN, ['uca-ics-fullcalendar'], UCA_ICS_VER, true);
+        }
     }
 
     public function render_tab_content(): void
@@ -43,14 +50,95 @@ class UCA_ICS_Calendar_View
         $feeds = uca_ics_collect_feeds('');
         $events = $this->get_events($feeds);
         $container_id = 'uca-ics-fc-admin';
+        $opts = get_option(UCA_ICS_OPT, []);
+        $loc = isset($opts['cv_locale']) ? (string) $opts['cv_locale'] : '';
+        $firstday = isset($opts['cv_firstday']) ? (int)$opts['cv_firstday'] : 0;
+        $weekends = ! empty($opts['cv_weekends']);
+        $daymax = isset($opts['cv_daymaxevents']) ? (string) $opts['cv_daymaxevents'] : '';
+        $slotmin = isset($opts['cv_slotmin']) ? (string)$opts['cv_slotmin'] : '';
+        $slotmax = isset($opts['cv_slotmax']) ? (string)$opts['cv_slotmax'] : '';
+        $slotdur = isset($opts['cv_slotduration']) ? (string)$opts['cv_slotduration'] : '';
+        $initdate = isset($opts['cv_init_date']) ? (string)$opts['cv_init_date'] : '';
+        $srcmap = $this->parse_sourcecolors(isset($opts['cv_sourcecolors']) ? (string)$opts['cv_sourcecolors'] : '');
+        $tip_bg = isset($opts['cv_tip_bg']) && $opts['cv_tip_bg'] !== '' ? (string)$opts['cv_tip_bg'] : '#111827';
+        $tip_color = isset($opts['cv_tip_color']) && $opts['cv_tip_color'] !== '' ? (string)$opts['cv_tip_color'] : '#ffffff';
+        $tip_title = isset($opts['cv_tip_title']) && $opts['cv_tip_title'] !== '' ? (string)$opts['cv_tip_title'] : '#ffffff';
         ?>
         <h2><?php esc_html_e('Calendar View Preview', 'uca-ics'); ?></h2>
+        <form action="options.php" method="post" style="margin:12px 0; padding:12px; border:1px solid #dcdcde; background:#fff; border-radius:6px;">
+            <?php settings_fields('uca_ics_group'); $o = $opts; ?>
+            <h3 style="margin:0 0 10px;"><?php esc_html_e('Calendar View Settings', 'uca-ics'); ?></h3>
+            <p><label><?php esc_html_e('Locale', 'uca-ics'); ?>:
+                <?php
+                $current_locale = isset($o['cv_locale']) ? (string)$o['cv_locale'] : '';
+                $locales = [
+                    '' => __('Default (English)', 'uca-ics'),
+                    'en' => 'English',
+                    'en-GB' => 'English (UK)',
+                    'fr' => 'Français',
+                    'de' => 'Deutsch',
+                    'es' => 'Español',
+                    'it' => 'Italiano',
+                    'nl' => 'Nederlands',
+                    'pt-BR' => 'Português (Brasil)',
+                    'pt' => 'Português (Portugal)',
+                    'sv' => 'Svenska',
+                    'fi' => 'Suomi',
+                    'da' => 'Dansk',
+                    'nb' => 'Norsk Bokmål',
+                    'pl' => 'Polski',
+                    'cs' => 'Čeština',
+                    'sk' => 'Slovenčina',
+                    'sl' => 'Slovenščina',
+                    'ro' => 'Română',
+                    'hu' => 'Magyar',
+                    'tr' => 'Türkçe',
+                    'ru' => 'Русский',
+                    'uk' => 'Українська',
+                    'ar' => 'العربية',
+                    'zh-cn' => '简体中文',
+                    'zh-tw' => '繁體中文',
+                    'ja' => '日本語',
+                    'ko' => '한국어',
+                    'hi' => 'हिन्दी',
+                ];
+                ?>
+                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_locale]" id="uca-ics-cv-locale">
+                    <?php foreach ($locales as $code => $label): ?>
+                        <option value="<?php echo esc_attr($code); ?>" <?php selected($current_locale, $code); ?>><?php echo esc_html($label); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label> <span class="description"><?php esc_html_e('Loads locale bundle automatically when non-English is selected.', 'uca-ics'); ?></span></p>
+            <p><label><?php esc_html_e('Week start (0=Sun…6=Sat)', 'uca-ics'); ?>:
+                <input type="number" min="0" max="6" step="1" class="small-text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_firstday]" value="<?php echo isset($o['cv_firstday']) ? (int)$o['cv_firstday'] : 0; ?>" />
+            </label>
+            <label style="margin-left:16px;"><input type="hidden" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_weekends]" value="0" /><input type="checkbox" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_weekends]" value="1" <?php checked(!empty($o['cv_weekends'])); ?> /> <?php esc_html_e('Show weekends', 'uca-ics'); ?></label></p>
+            <p><label><?php esc_html_e('Day max events', 'uca-ics'); ?>:
+                <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_daymaxevents]" value="<?php echo esc_attr($o['cv_daymaxevents'] ?? ''); ?>" placeholder="true, false, or 2" />
+            </label></p>
+            <p><label><?php esc_html_e('Time grid: Slot min', 'uca-ics'); ?>: <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_slotmin]" value="<?php echo esc_attr($o['cv_slotmin'] ?? ''); ?>" placeholder="08:00" /></label>
+               <label style="margin-left:12px;"><?php esc_html_e('Slot max', 'uca-ics'); ?>: <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_slotmax]" value="<?php echo esc_attr($o['cv_slotmax'] ?? ''); ?>" placeholder="20:00" /></label>
+               <label style="margin-left:12px;"><?php esc_html_e('Slot duration', 'uca-ics'); ?>: <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_slotduration]" value="<?php echo esc_attr($o['cv_slotduration'] ?? ''); ?>" placeholder="00:30" /></label></p>
+            <p><label><?php esc_html_e('Initial date (YYYY-MM-DD)', 'uca-ics'); ?>:
+                <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_init_date]" value="<?php echo esc_attr($o['cv_init_date'] ?? ''); ?>" placeholder="2025-01-01" />
+            </label></p>
+            <p><label><?php esc_html_e('Per-source colors (Label:#hex;Label2:#hex)', 'uca-ics'); ?>:
+                <input type="text" class="regular-text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_sourcecolors]" value="<?php echo esc_attr($o['cv_sourcecolors'] ?? ''); ?>" placeholder="General:#2563EB;Music:#059669" />
+            </label></p>
+            <p><strong><?php esc_html_e('Tooltip theme', 'uca-ics'); ?></strong></p>
+            <p>
+                <label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_tip_bg]" value="<?php echo esc_attr($o['cv_tip_bg'] ?? ''); ?>" placeholder="#111827" /></label>
+                <label style="margin-left:12px;">&nbsp;<?php esc_html_e('Text', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_tip_color]" value="<?php echo esc_attr($o['cv_tip_color'] ?? ''); ?>" placeholder="#ffffff" /></label>
+                <label style="margin-left:12px;">&nbsp;<?php esc_html_e('Title', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[cv_tip_title]" value="<?php echo esc_attr($o['cv_tip_title'] ?? ''); ?>" placeholder="#ffffff" /></label>
+            </p>
+            <?php submit_button(__('Save Calendar Settings', 'uca-ics')); ?>
+        </form>
         <p class="description"><?php esc_html_e('This is a preview of your configured feeds in a calendar layout. Use the [ics_calendar_view] shortcode to embed on the frontend.', 'uca-ics'); ?></p>
         <div id="<?php echo esc_attr($container_id); ?>" style="min-height:520px;border:1px solid #dcdcde;border-radius:6px;padding:8px;background:#fff;"></div>
         <style>
-        .uca-ics-tooltip{position:absolute;z-index:99999;background:#111827;color:#fff;padding:8px 10px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.25);font-size:12px;line-height:1.4;max-width:280px;pointer-events:none;display:none}
-        .uca-ics-tooltip .uca-ics-tip-title{font-weight:600;margin:0 0 4px}
-        .uca-ics-tooltip .uca-ics-tip-location{color:#e5e7eb;margin:0 0 4px}
+        .uca-ics-tooltip{position:absolute;z-index:99999;background:<?php echo esc_html($tip_bg); ?>;color:<?php echo esc_html($tip_color); ?>;padding:8px 10px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.25);font-size:12px;line-height:1.4;max-width:280px;pointer-events:none;display:none}
+        .uca-ics-tooltip .uca-ics-tip-title{font-weight:600;margin:0 0 4px;color:<?php echo esc_html($tip_title); ?>}
+        .uca-ics-tooltip .uca-ics-tip-location{opacity:.85;margin:0 0 4px}
         .uca-ics-tooltip .uca-ics-tip-desc{white-space:normal}
         </style>
         <script>
@@ -84,8 +172,22 @@ class UCA_ICS_Calendar_View
                         target.addEventListener('mouseenter', function(e){ showTip(target, info); positionTipByEvent(e); });
                         target.addEventListener('mousemove', positionTipByEvent);
                         target.addEventListener('mouseleave', hideTip);
+                        // Per-source colors
+                        try {
+                            var m = <?php echo wp_json_encode($srcmap); ?>;
+                            var src = (info.event.extendedProps && info.event.extendedProps.source) ? String(info.event.extendedProps.source).toLowerCase() : '';
+                            if (src && m[src]) { info.el.style.backgroundColor = m[src]; info.el.style.borderColor = m[src]; }
+                        } catch(e){}
                     },
                     height: 'auto'
+                    <?php if ($loc) : ?>, locale: <?php echo wp_json_encode($loc); ?><?php endif; ?>
+                    <?php if ($firstday !== null) : ?>, firstDay: <?php echo (int)$firstday; ?><?php endif; ?>
+                    , weekends: <?php echo $weekends ? 'true' : 'false'; ?>
+                    <?php if ($daymax !== '') : ?>, dayMaxEvents: <?php echo preg_match('/^\d+$/', $daymax) ? (int)$daymax : (strtolower($daymax)==='true' ? 'true' : 'false'); ?><?php endif; ?>
+                    <?php if ($slotmin) : ?>, slotMinTime: <?php echo wp_json_encode($slotmin); ?><?php endif; ?>
+                    <?php if ($slotmax) : ?>, slotMaxTime: <?php echo wp_json_encode($slotmax); ?><?php endif; ?>
+                    <?php if ($slotdur) : ?>, slotDuration: <?php echo wp_json_encode($slotdur); ?><?php endif; ?>
+                    <?php if ($initdate) : ?>, initialDate: <?php echo wp_json_encode($initdate); ?><?php endif; ?>
                 });
                 calendar.render();
             }
@@ -115,6 +217,9 @@ class UCA_ICS_Calendar_View
         if (! wp_script_is('uca-ics-fullcalendar', 'registered')) {
             wp_register_script('uca-ics-fullcalendar', self::CDN, [], UCA_ICS_VER, true);
         }
+        if (! wp_script_is('uca-ics-fullcalendar-locales', 'registered')) {
+            wp_register_script('uca-ics-fullcalendar-locales', self::LOCALES_CDN, ['uca-ics-fullcalendar'], UCA_ICS_VER, true);
+        }
     }
 
     public function shortcode($atts): string
@@ -128,21 +233,32 @@ class UCA_ICS_Calendar_View
             'tooltip'  => null,
         ], $atts);
 
+        $opts = get_option(UCA_ICS_OPT, []);
         $feeds = uca_ics_collect_feeds($atts['feeds']);
         if (empty($feeds)) return '';
         $events = $this->get_events($feeds);
 
         // Ensure assets
         wp_enqueue_script('uca-ics-fullcalendar');
+        $locale = isset($opts['cv_locale']) ? (string) $opts['cv_locale'] : '';
+        if ($locale && strtolower($locale) !== 'en') {
+            wp_enqueue_script('uca-ics-fullcalendar-locales');
+        }
 
         $id = 'uca-ics-fc-' . wp_generate_uuid4();
         ob_start(); ?>
         <div id="<?php echo esc_attr($id); ?>" class="uca-ics-fc" style="min-height:<?php echo esc_attr($atts['height']); ?>;"></div>
+        <?php
+        $tip_bg = isset($opts['cv_tip_bg']) && $opts['cv_tip_bg'] !== '' ? (string)$opts['cv_tip_bg'] : '#111827';
+        $tip_color = isset($opts['cv_tip_color']) && $opts['cv_tip_color'] !== '' ? (string)$opts['cv_tip_color'] : '#ffffff';
+        $tip_title = isset($opts['cv_tip_title']) && $opts['cv_tip_title'] !== '' ? (string)$opts['cv_tip_title'] : '#ffffff';
+        $srcmap = $this->parse_sourcecolors(isset($opts['cv_sourcecolors']) ? (string)$opts['cv_sourcecolors'] : '');
+        ?>
         <?php if (in_array(strtolower((string)($atts['tooltip'] ?? $atts['tooltips'])), ['yes','true','1','on'], true)) : ?>
         <style>
-        .uca-ics-tooltip{position:absolute;z-index:99999;background:#111827;color:#fff;padding:8px 10px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.25);font-size:12px;line-height:1.4;max-width:280px;pointer-events:none;display:none}
-        .uca-ics-tooltip .uca-ics-tip-title{font-weight:600;margin:0 0 4px}
-        .uca-ics-tooltip .uca-ics-tip-location{color:#e5e7eb;margin:0 0 4px}
+        .uca-ics-tooltip{position:absolute;z-index:99999;background:<?php echo esc_html($tip_bg); ?>;color:<?php echo esc_html($tip_color); ?>;padding:8px 10px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.25);font-size:12px;line-height:1.4;max-width:280px;pointer-events:none;display:none}
+        .uca-ics-tooltip .uca-ics-tip-title{font-weight:600;margin:0 0 4px;color:<?php echo esc_html($tip_title); ?>}
+        .uca-ics-tooltip .uca-ics-tip-location{opacity:.85;margin:0 0 4px}
         .uca-ics-tooltip .uca-ics-tip-desc{white-space:normal}
         </style>
         <?php endif; ?>
@@ -157,6 +273,16 @@ class UCA_ICS_Calendar_View
                 $enabled = in_array($tt_norm, ['yes','true','1','on'], true);
                 echo wp_json_encode($enabled);
             ?>;
+            var locale = <?php echo wp_json_encode($locale); ?>;
+            var fcFirstDay = <?php echo isset($opts['cv_firstday']) ? (int)$opts['cv_firstday'] : 0; ?>;
+            var fcWeekends = <?php echo !empty($opts['cv_weekends']) ? 'true' : 'false'; ?>;
+            var fcDayMaxRaw = <?php echo wp_json_encode((string)($opts['cv_daymaxevents'] ?? '')); ?>;
+            var fcSlotMin = <?php echo wp_json_encode((string)($opts['cv_slotmin'] ?? '')); ?>;
+            var fcSlotMax = <?php echo wp_json_encode((string)($opts['cv_slotmax'] ?? '')); ?>;
+            var fcSlotDuration = <?php echo wp_json_encode((string)($opts['cv_slotduration'] ?? '')); ?>;
+            var fcInitialDate = <?php echo wp_json_encode((string)($opts['cv_init_date'] ?? '')); ?>;
+            var sourceColors = <?php echo wp_json_encode($srcmap); ?>;
+            function dayMaxValue(raw){ if(!raw) return null; if(/^\d+$/.test(raw)) return parseInt(raw,10); var s=String(raw).toLowerCase(); if(s==='true') return true; if(s==='false') return false; return null; }
             var tipEl;
             function ensureTip(){ if (!tipEl){ tipEl = document.createElement('div'); tipEl.className='uca-ics-tooltip'; document.body.appendChild(tipEl);} return tipEl; }
             function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]);}); }
@@ -181,6 +307,11 @@ class UCA_ICS_Calendar_View
                     events: evts,
                     eventDidMount: function(info){
                         var target = info.el.querySelector('a, .fc-event-main') || info.el;
+                        // Per-source colors
+                        try {
+                            var src = (info.event.extendedProps && info.event.extendedProps.source) ? String(info.event.extendedProps.source).toLowerCase() : '';
+                            if (src && sourceColors[src]) { info.el.style.backgroundColor = sourceColors[src]; info.el.style.borderColor = sourceColors[src]; }
+                        } catch(e){}
                         if (enableTooltips) {
                             target.addEventListener('mouseenter', function(e){ showTip(target, info); positionTipByEvent(e); });
                             target.addEventListener('mousemove', positionTipByEvent);
@@ -188,6 +319,15 @@ class UCA_ICS_Calendar_View
                         }
                     },
                     height: 'auto'
+                    <?php ?>
+                    <?php if (!empty($opts['cv_locale'])) : ?>, locale: <?php echo wp_json_encode($locale); ?><?php endif; ?>
+                    , firstDay: fcFirstDay
+                    , weekends: fcWeekends
+                    , dayMaxEvents: (dayMaxValue(fcDayMaxRaw) ?? false)
+                    <?php if (!empty($opts['cv_slotmin'])) : ?>, slotMinTime: fcSlotMin<?php endif; ?>
+                    <?php if (!empty($opts['cv_slotmax'])) : ?>, slotMaxTime: fcSlotMax<?php endif; ?>
+                    <?php if (!empty($opts['cv_slotduration'])) : ?>, slotDuration: fcSlotDuration<?php endif; ?>
+                    <?php if (!empty($opts['cv_init_date'])) : ?>, initialDate: fcInitialDate<?php endif; ?>
                 });
                 calendar.render();
             }
@@ -262,5 +402,24 @@ class UCA_ICS_Calendar_View
             return sprintf('%s-%s-%sT%s:%s:%s', $m[1], $m[2], $m[3], $m[4], $m[5], $m[6]);
         }
         return '';
+    }
+
+    private function parse_sourcecolors(string $raw): array
+    {
+        $map = [];
+        $raw = trim($raw);
+        if ($raw === '') return $map;
+        $pairs = preg_split('/\s*;\s*/', $raw);
+        foreach ($pairs as $p) {
+            if ($p === '') continue;
+            $bits = array_map('trim', explode(':', $p, 2));
+            if (count($bits) !== 2) continue;
+            list($label, $color) = $bits;
+            if ($label === '' || $color === '') continue;
+            $hex = function_exists('uca_ics_sanitize_css_color') ? uca_ics_sanitize_css_color($color) : sanitize_text_field($color);
+            if (! $hex) continue;
+            $map[strtolower($label)] = $hex;
+        }
+        return $map;
     }
 }

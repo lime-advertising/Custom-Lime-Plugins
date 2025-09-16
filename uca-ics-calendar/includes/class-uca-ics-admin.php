@@ -133,6 +133,19 @@ class UCA_ICS_Admin
                 'style_btn_border_width' => '',
                 'style_btn_radius'       => '',
                 'style_custom_css' => '',
+                // Calendar View defaults
+                'cv_locale'        => '',
+                'cv_firstday'      => 0,
+                'cv_weekends'      => 1,
+                'cv_daymaxevents'  => '',
+                'cv_slotmin'       => '',
+                'cv_slotmax'       => '',
+                'cv_slotduration'  => '',
+                'cv_init_date'     => '',
+                'cv_sourcecolors'  => '',
+                'cv_tip_bg'        => '',
+                'cv_tip_color'     => '',
+                'cv_tip_title'     => '',
             ],
         ]);
 
@@ -546,6 +559,51 @@ class UCA_ICS_Admin
         }
         if (array_key_exists('button_url', $input)) {
             $out['button_url'] = esc_url_raw(trim((string)$input['button_url']));
+        }
+
+        // Calendar View defaults (sanitization)
+        // Locale
+        if (array_key_exists('cv_locale', $input)) {
+            $out['cv_locale'] = sanitize_text_field((string) $input['cv_locale']);
+        }
+        // First day 0-6
+        if (array_key_exists('cv_firstday', $input)) {
+            $d = (int) $input['cv_firstday'];
+            if ($d < 0) $d = 0; if ($d > 6) $d = 6;
+            $out['cv_firstday'] = $d;
+        }
+        // Weekends checkbox
+        $out['cv_weekends'] = ! empty($input['cv_weekends']) ? 1 : 0;
+        // dayMaxEvents: '', 'true', 'false', or integer
+        if (array_key_exists('cv_daymaxevents', $input)) {
+            $v = trim((string) $input['cv_daymaxevents']);
+            if ($v !== '' && ! preg_match('/^(true|false|\d+)$/i', $v)) $v = '';
+            $out['cv_daymaxevents'] = $v;
+        }
+        // Slots HH:MM
+        foreach (['cv_slotmin','cv_slotmax','cv_slotduration'] as $k) {
+            if (array_key_exists($k, $input)) {
+                $v = trim((string) $input[$k]);
+                if ($v !== '' && ! preg_match('/^\d{2}:\d{2}$/', $v)) $v = '';
+                $out[$k] = $v;
+            }
+        }
+        // Initial date YYYY-MM-DD
+        if (array_key_exists('cv_init_date', $input)) {
+            $v = trim((string) $input['cv_init_date']);
+            if ($v !== '' && ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) $v = '';
+            $out['cv_init_date'] = $v;
+        }
+        // Source colors raw mapping
+        if (array_key_exists('cv_sourcecolors', $input)) {
+            $out['cv_sourcecolors'] = sanitize_text_field((string) $input['cv_sourcecolors']);
+        }
+        // Tooltip theme colors
+        foreach (['cv_tip_bg','cv_tip_color','cv_tip_title'] as $k) {
+            if (array_key_exists($k, $input)) {
+                $c = function_exists('uca_ics_sanitize_css_color') ? uca_ics_sanitize_css_color((string) $input[$k]) : sanitize_text_field((string) $input[$k]);
+                $out[$k] = $c;
+            }
         }
 
         // Surface validation notices on settings screen
