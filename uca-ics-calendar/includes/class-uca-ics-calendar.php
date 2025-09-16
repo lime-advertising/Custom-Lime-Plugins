@@ -98,6 +98,7 @@ class UCA_ICS_Calendar
 
     public function shortcode($atts, $content = ''): string
     {
+        $raw_atts = is_array($atts) ? $atts : [];
         $atts = shortcode_atts([
             'limit'    => 20,
             'showpast' => 'no',
@@ -165,8 +166,41 @@ class UCA_ICS_Calendar
                         $url     = $e['url'] ?? '';
                         $label   = $e['_source_label'] ?? '';
 
-                        $start_fmt = uca_ics_format_dt($start, $atts['datefmt']);
-                        $end_fmt   = uca_ics_format_dt($end,   $atts['datefmt']);
+                        // Resolve date format: shortcode override or global setting
+                        $opts_local = get_option(UCA_ICS_OPT, []);
+                        $user_datefmt = isset($raw_atts['datefmt']) ? trim((string)$raw_atts['datefmt']) : '';
+                        $fmt_choice = $user_datefmt !== '' ? $user_datefmt : ($opts_local['date_format_choice'] ?? 'site');
+                        if ($fmt_choice === 'site') {
+                            $fmt = trim(get_option('date_format') . ' ' . get_option('time_format'));
+                        } elseif ($fmt_choice === 'custom') {
+                            $fmt = (string)($opts_local['date_format_custom'] ?? 'M j, Y g:i a');
+                        } else {
+                            $fmt = (string)$fmt_choice;
+                        }
+                        $start_only = ! empty($opts_local['start_date_only']);
+                        if ($start_only) {
+                            // Date-only output; derive from selection
+                            if ($fmt_choice === 'site') {
+                                $fmt_start = get_option('date_format');
+                            } elseif ($fmt_choice === 'custom') {
+                                $fmt_start = $fmt;
+                            } else {
+                                // Strip time from known presets
+                                $map_date_only = [
+                                    'M j, Y g:i a' => 'M j, Y',
+                                    'F j, Y g:i a' => 'F j, Y',
+                                    'Y-m-d H:i'    => 'Y-m-d',
+                                ];
+                                $fmt_start = $map_date_only[$fmt_choice] ?? get_option('date_format');
+                            }
+                            $fmt_end = '';
+                        } else {
+                            $fmt_start = $fmt;
+                            $fmt_end   = $fmt;
+                        }
+
+                        $start_fmt = uca_ics_format_dt($start, $fmt_start);
+                        $end_fmt   = $fmt_end ? uca_ics_format_dt($end, $fmt_end) : '';
                         $opts_local = get_option(UCA_ICS_OPT, []);
                         $order_csv  = isset($opts_local['elements_order']) ? (string) $opts_local['elements_order'] : 'when,summary,location,desc';
                         $order      = array_values(array_filter(array_map('trim', explode(',', $order_csv))));
@@ -188,7 +222,7 @@ class UCA_ICS_Calendar
                                 ob_start(); ?>
                                 <div class="uca-ics-when">
                                     <time class="uca-ics-start"><?php echo esc_html($start_fmt); ?></time>
-                                    <?php if ($end_fmt && $end_fmt !== $start_fmt) : ?>
+                                    <?php if (!$start_only && $end_fmt && $end_fmt !== $start_fmt) : ?>
                                         <span class="uca-ics-sep"> – </span>
                                         <time class="uca-ics-end"><?php echo esc_html($end_fmt); ?></time>
                                     <?php endif; ?>

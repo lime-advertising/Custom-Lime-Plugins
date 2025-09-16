@@ -81,6 +81,10 @@ class UCA_ICS_Admin
                 'show_location' => 1,
                 'show_desc'     => 1,
                 'show_badge'    => 1,
+                // Date format preferences
+                'date_format_choice' => 'site',
+                'date_format_custom' => '',
+                'start_date_only'    => 0,
                 'style_custom_css' => '',
             ],
         ]);
@@ -396,12 +400,24 @@ class UCA_ICS_Admin
             foreach ($parts as $p) if (in_array($p, $allowed, true) && ! in_array($p, $filtered, true)) $filtered[] = $p;
             foreach ($allowed as $p) if (! in_array($p, $filtered, true)) $filtered[] = $p; // append missing to end
             $out['elements_order'] = implode(',', $filtered);
-        }
-        foreach (['when','summary','location','desc','badge'] as $k) {
-            $key = 'show_' . $k;
-            if (array_key_exists($key, $input)) {
+            // When elements section is submitted, treat unchecked boxes as 0
+            foreach (['when','summary','location','desc','badge'] as $k) {
+                $key = 'show_' . $k;
                 $out[$key] = ! empty($input[$key]) ? 1 : 0;
             }
+        }
+
+        // Date format preferences
+        if (array_key_exists('date_format_choice', $input)) {
+            $choice = (string) $input['date_format_choice'];
+            $allowed = ['site','M j, Y g:i a','F j, Y g:i a','Y-m-d H:i','custom'];
+            $out['date_format_choice'] = in_array($choice, $allowed, true) ? $choice : 'site';
+        }
+        if (array_key_exists('date_format_custom', $input)) {
+            $out['date_format_custom'] = sanitize_text_field((string) $input['date_format_custom']);
+        }
+        if (array_key_exists('start_date_only', $input)) {
+            $out['start_date_only'] = ! empty($input['start_date_only']) ? 1 : 0;
         }
 
         // Surface validation notices on settings screen
@@ -510,11 +526,33 @@ class UCA_ICS_Admin
                 <form action="options.php" method="post" id="uca-ics-style-form">
                     <?php settings_fields('uca_ics_group'); ?>
 
-                    <details class="general_styles" open>
+                    <details class="general_styles" open data-section="general">
                         <summary><strong><?php esc_html_e('General', 'uca-ics'); ?></strong></summary>
                         <p>
                             <label><input type="hidden" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_compact]" value="0" />
                                 <input type="checkbox" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_compact]" value="1" <?php checked(!empty($opts['style_compact'])); ?> /> <?php esc_html_e('Compact layout', 'uca-ics'); ?></label>
+                        </p>
+                        <p>
+                            <label><?php esc_html_e('Date format', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[date_format_choice]" id="uca-ics-date-format-choice">
+                                    <?php $df = $opts['date_format_choice'] ?? 'site'; ?>
+                                    <option value="site" <?php selected($df,'site'); ?>><?php esc_html_e('Site default (Settings → General)', 'uca-ics'); ?></option>
+                                    <option value="M j, Y g:i a" <?php selected($df,'M j, Y g:i a'); ?>>M j, Y g:i a</option>
+                                    <option value="F j, Y g:i a" <?php selected($df,'F j, Y g:i a'); ?>>F j, Y g:i a</option>
+                                    <option value="Y-m-d H:i" <?php selected($df,'Y-m-d H:i'); ?>>Y-m-d H:i</option>
+                                    <option value="custom" <?php selected($df,'custom'); ?>><?php esc_html_e('Custom…', 'uca-ics'); ?></option>
+                                </select>
+                            </label>
+                        </p>
+                        <p>
+                            <label><?php esc_html_e('Custom format', 'uca-ics'); ?>:
+                                <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[date_format_custom]" value="<?php echo esc_attr($opts['date_format_custom'] ?? ''); ?>" class="regular-text code" placeholder="M j, Y g:i a" />
+                            </label>
+                            <br><span class="description"><?php esc_html_e('PHP date format used by wp_date(). Examples: M j, Y g:i a (Jan 2, 2025 3:04 pm), Y-m-d H:i (2025-01-02 15:04)', 'uca-ics'); ?></span>
+                        </p>
+                        <p>
+                            <label><input type="hidden" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[start_date_only]" value="0" />
+                                <input type="checkbox" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[start_date_only]" value="1" <?php checked(!empty($opts['start_date_only'])); ?> /> <?php esc_html_e('Show only start date (no time)', 'uca-ics'); ?></label>
                         </p>
                         <p>
                             <label><?php esc_html_e('View', 'uca-ics'); ?>:
@@ -542,7 +580,7 @@ class UCA_ICS_Admin
                         </p>
                     </details>
 
-                    <details>
+                    <details data-section="card">
                         <summary><strong><?php esc_html_e('Card', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_bg_color]" value="<?php echo esc_attr($opts['style_bg_color'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Border', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_border_color]" value="<?php echo esc_attr($opts['style_border_color'] ?? ''); ?>" /></label></p>
@@ -562,7 +600,7 @@ class UCA_ICS_Admin
                         <p><label><?php esc_html_e('Title padding', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_title_padding]" value="<?php echo esc_attr($opts['style_title_padding'] ?? ''); ?>" /></label></p>
                     </details>
 
-                    <details>
+                    <details data-section="event">
                         <summary><strong><?php esc_html_e('Event Item', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_item_bg]" value="<?php echo esc_attr($opts['style_item_bg'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Border', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_item_border_color]" value="<?php echo esc_attr($opts['style_item_border_color'] ?? ''); ?>" /></label></p>
@@ -571,7 +609,7 @@ class UCA_ICS_Admin
                         <p><label><?php esc_html_e('Event spacing (gap)', 'uca-ics'); ?>: <input type="text" placeholder="12px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_list_gap]" value="<?php echo esc_attr($opts['style_list_gap'] ?? ''); ?>" /></label></p>
                     </details>
 
-                    <details>
+                    <details data-section="when">
                         <summary><strong><?php esc_html_e('Date/Time', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_color]" value="<?php echo esc_attr($opts['style_when_color'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>: <input type="text" placeholder="inherit" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_size]" value="<?php echo esc_attr($opts['style_when_size'] ?? ''); ?>" /></label></p>
@@ -587,7 +625,7 @@ class UCA_ICS_Admin
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_padding]" value="<?php echo esc_attr($opts['style_when_padding'] ?? ''); ?>" /></label></p>
                     </details>
 
-                    <details>
+                    <details data-section="link">
                         <summary><strong><?php esc_html_e('Summary Link', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Link weight', 'uca-ics'); ?>:
                                 <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_weight]">
@@ -607,7 +645,7 @@ class UCA_ICS_Admin
                             </label></p>
                     </details>
 
-                    <details>
+                    <details data-section="elements">
                         <summary><strong><?php esc_html_e('Elements', 'uca-ics'); ?></strong></summary>
                         <?php
                         $order_csv = isset($opts['elements_order']) ? (string) $opts['elements_order'] : 'when,summary,location,desc';
@@ -643,7 +681,7 @@ class UCA_ICS_Admin
                         <p class="description"><?php esc_html_e('Drag to reorder elements. Uncheck to hide an element.', 'uca-ics'); ?></p>
                     </details>
 
-                    <details>
+                    <details data-section="badge">
                         <summary><strong><?php esc_html_e('Badge', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_bg]" value="<?php echo esc_attr($opts['style_badge_bg'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Border', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_border]" value="<?php echo esc_attr($opts['style_badge_border'] ?? ''); ?>" /></label></p>
@@ -653,7 +691,7 @@ class UCA_ICS_Admin
                         <p><label><?php esc_html_e('Margin', 'uca-ics'); ?>: <input type="text" placeholder="0 0 0 0.5rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_margin]" value="<?php echo esc_attr($opts['style_badge_margin'] ?? ''); ?>" /></label></p>
                     </details>
 
-                    <details>
+                    <details data-section="desc">
                         <summary><strong><?php esc_html_e('Description', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_color]" value="<?php echo esc_attr($opts['style_desc_color'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>: <input type="text" placeholder="0.92rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_size]" value="<?php echo esc_attr($opts['style_desc_size'] ?? ''); ?>" /></label></p>
@@ -661,7 +699,7 @@ class UCA_ICS_Admin
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_padding]" value="<?php echo esc_attr($opts['style_desc_padding'] ?? ''); ?>" /></label></p>
                     </details>
 
-                    <details>
+                    <details data-section="location">
                         <summary><strong><?php esc_html_e('Location', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_color]" value="<?php echo esc_attr($opts['style_location_color'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>: <input type="text" placeholder="0.95rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_size]" value="<?php echo esc_attr($opts['style_location_size'] ?? ''); ?>" /></label></p>

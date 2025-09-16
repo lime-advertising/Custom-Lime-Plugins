@@ -32,8 +32,18 @@ add_action( 'plugins_loaded', function () {
 
 // Assets
 add_action( 'wp_enqueue_scripts', function () {
+    // Register and enqueue base stylesheet early so inline vars can attach before output
     wp_register_style( 'uca-ics-frontend', UCA_ICS_URL . 'assets/css/frontend.css', [], UCA_ICS_VER );
-} );
+    wp_enqueue_style( 'uca-ics-frontend' );
+    // Attach inline CSS variables from saved settings (site-wide)
+    if ( function_exists( 'uca_ics_style_inline_css' ) ) {
+        $opts   = get_option( UCA_ICS_OPT, [] );
+        $inline = uca_ics_style_inline_css( $opts );
+        if ( $inline ) {
+            wp_add_inline_style( 'uca-ics-frontend', $inline );
+        }
+    }
+}, 20 );
 
 // Optional: set up WP-Cron auto-refresh using the chosen cache interval.
 register_activation_hook( __FILE__, function () {

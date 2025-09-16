@@ -109,6 +109,18 @@
 
   $(document).on('input change', '#uca-ics-style-form input, #uca-ics-style-form textarea, #uca-ics-style-form select', updatePreviewFromInputs);
   $(updatePreviewFromInputs);
+  // Toggle custom date format field enabled state
+  function updateDateFormatControls(){
+    var $choice = $('#uca-ics-date-format-choice');
+    var $custom = $('input[name="uca_ics_settings[date_format_custom]"]');
+    if (!$choice.length || !$custom.length) return;
+    var v = $choice.val();
+    var isCustom = (v === 'custom');
+    $custom.prop('disabled', !isCustom);
+    $custom.toggleClass('disabled', !isCustom);
+  }
+  $(document).on('change', '#uca-ics-date-format-choice', updateDateFormatControls);
+  $(updateDateFormatControls);
 
   // Enable/disable Grid columns fields based on View selection
   function updateGridControls(){
@@ -221,13 +233,31 @@
   }
   $(initElementsSortable);
 
-  // Only one accordion open at a time (use summary click for reliable behavior)
+  // Only one accordion open at a time + persist last open section
   $(document).on('click', '#uca-ics-style-form details > summary', function(){
     var details = this.parentNode;
     var willOpen = !details.open; // state before the browser toggles it
     if (willOpen) {
       $('#uca-ics-style-form details').not(details).prop('open', false);
+      var sec = $(details).data('section') || '';
+      if (sec) {
+        try { localStorage.setItem('uca_ics_style_open', String(sec)); } catch(e){}
+      }
     }
     // let the default toggle proceed
+  });
+
+  // On load, open the last persisted section
+  $(function(){
+    try {
+      var sec = localStorage.getItem('uca_ics_style_open');
+      if (sec) {
+        var $target = $('#uca-ics-style-form details[data-section="'+sec+'"]');
+        if ($target.length) {
+          $('#uca-ics-style-form details').prop('open', false);
+          $target.prop('open', true);
+        }
+      }
+    } catch(e){}
   });
 })(jQuery);

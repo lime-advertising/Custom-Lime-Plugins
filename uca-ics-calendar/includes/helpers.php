@@ -224,10 +224,6 @@ function uca_ics_style_inline_css(array $opts): string
     if ($scale_mob > 2.0) $scale_mob = 2.0;
     $vars[] = "--uca-ics-scale-tablet: {$scale_tab};";
     $vars[] = "--uca-ics-scale-mobile: {$scale_mob};";
-    $css = '';
-    if ($vars) {
-        $css .= '.uca-ics-calendar{' . implode('', $vars) . "}\n";
-    }
     // Shorthand text-based variables (padding/margins/gaps/sizes)
     $map_text = [
         'style_card_padding'      => '--uca-ics-card-padding',
@@ -251,6 +247,12 @@ function uca_ics_style_inline_css(array $opts): string
             $v = sanitize_text_field((string) $opts[$opt_key]);
             $vars[] = $var_name . ': ' . $v . ';';
         }
+    }
+
+    // Build CSS once after all variables are collected
+    $css = '';
+    if ($vars) {
+        $css .= '.uca-ics-calendar{' . implode('', $vars) . "}\n";
     }
 
     if (! empty($opts['style_custom_css'])) {
