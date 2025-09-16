@@ -147,6 +147,36 @@ function uca_ics_style_inline_css(array $opts): string
         $c = sanitize_hex_color($opts['style_badge_border']);
         if ($c) $vars[] = "--uca-ics-badge-border: {$c};";
     }
+    // Element-specific border colors
+    if (! empty($opts['style_when_border_color'])) {
+        $c = sanitize_hex_color($opts['style_when_border_color']);
+        if ($c) $vars[] = "--uca-ics-when-border-color: {$c};";
+    }
+    if (! empty($opts['style_link_border_color'])) {
+        $c = sanitize_hex_color($opts['style_link_border_color']);
+        if ($c) $vars[] = "--uca-ics-link-border-color: {$c};";
+    }
+    if (! empty($opts['style_location_border_color'])) {
+        $c = sanitize_hex_color($opts['style_location_border_color']);
+        if ($c) $vars[] = "--uca-ics-location-border-color: {$c};";
+    }
+    if (! empty($opts['style_desc_border_color'])) {
+        $c = sanitize_hex_color($opts['style_desc_border_color']);
+        if ($c) $vars[] = "--uca-ics-desc-border-color: {$c};";
+    }
+    // Button colors
+    if (! empty($opts['style_btn_bg'])) {
+        $c = sanitize_hex_color($opts['style_btn_bg']);
+        if ($c) $vars[] = "--uca-ics-btn-bg: {$c};";
+    }
+    if (! empty($opts['style_btn_color'])) {
+        $c = sanitize_hex_color($opts['style_btn_color']);
+        if ($c) $vars[] = "--uca-ics-btn-color: {$c};";
+    }
+    if (! empty($opts['style_btn_border_color'])) {
+        $c = sanitize_hex_color($opts['style_btn_border_color']);
+        if ($c) $vars[] = "--uca-ics-btn-border-color: {$c};";
+    }
     if (! empty($opts['style_title_color'])) {
         $c = sanitize_hex_color($opts['style_title_color']);
         if ($c) $vars[] = "--uca-ics-title: {$c};";
@@ -167,6 +197,22 @@ function uca_ics_style_inline_css(array $opts): string
         $s = sanitize_text_field((string) $opts['style_when_size']);
         $vars[] = "--uca-ics-when-size: {$s};";
     }
+    // Date parts
+    if (! empty($opts['style_day_color'])) {
+        $c = sanitize_hex_color($opts['style_day_color']); if ($c) $vars[] = "--uca-ics-day-color: {$c};";
+    }
+    if (! empty($opts['style_day_size']))  { $vars[] = "--uca-ics-day-size: "  . sanitize_text_field((string)$opts['style_day_size'])  . ';'; }
+    if (! empty($opts['style_day_weight'])){ $vars[] = "--uca-ics-day-weight: ". sanitize_text_field((string)$opts['style_day_weight']). ';'; }
+    if (! empty($opts['style_month_color'])) {
+        $c = sanitize_hex_color($opts['style_month_color']); if ($c) $vars[] = "--uca-ics-month-color: {$c};";
+    }
+    if (! empty($opts['style_month_size']))  { $vars[] = "--uca-ics-month-size: "  . sanitize_text_field((string)$opts['style_month_size'])  . ';'; }
+    if (! empty($opts['style_month_weight'])){ $vars[] = "--uca-ics-month-weight: ". sanitize_text_field((string)$opts['style_month_weight']). ';'; }
+    if (! empty($opts['style_year_color'])) {
+        $c = sanitize_hex_color($opts['style_year_color']); if ($c) $vars[] = "--uca-ics-year-color: {$c};";
+    }
+    if (! empty($opts['style_year_size']))  { $vars[] = "--uca-ics-year-size: "  . sanitize_text_field((string)$opts['style_year_size'])  . ';'; }
+    if (! empty($opts['style_year_weight'])){ $vars[] = "--uca-ics-year-weight: ". sanitize_text_field((string)$opts['style_year_weight']). ';'; }
     if (! empty($opts['style_title_weight'])) {
         $w = sanitize_text_field((string) $opts['style_title_weight']);
         $vars[] = "--uca-ics-title-weight: {$w};";
@@ -174,6 +220,10 @@ function uca_ics_style_inline_css(array $opts): string
     if (! empty($opts['style_title_size'])) {
         $s = sanitize_text_field((string) $opts['style_title_size']);
         $vars[] = "--uca-ics-title-size: {$s};";
+    }
+    if (! empty($opts['style_title_align'])) {
+        $a = sanitize_text_field((string) $opts['style_title_align']);
+        $vars[] = "--uca-ics-title-align: {$a};";
     }
     if (! empty($opts['style_badge_color'])) {
         $c = sanitize_hex_color($opts['style_badge_color']);
@@ -191,6 +241,10 @@ function uca_ics_style_inline_css(array $opts): string
         $s = sanitize_text_field((string) $opts['style_desc_size']);
         $vars[] = "--uca-ics-desc-size: {$s};";
     }
+    if (! empty($opts['style_desc_align'])) {
+        $a = sanitize_text_field((string) $opts['style_desc_align']);
+        $vars[] = "--uca-ics-desc-align: {$a};";
+    }
     if (! empty($opts['style_location_color'])) {
         $c = sanitize_hex_color($opts['style_location_color']);
         if ($c) $vars[] = "--uca-ics-location: {$c};";
@@ -199,6 +253,10 @@ function uca_ics_style_inline_css(array $opts): string
         $s = sanitize_text_field((string) $opts['style_location_size']);
         $vars[] = "--uca-ics-location-size: {$s};"; // not used yet but available
     }
+    if (! empty($opts['style_location_align'])) {
+        $a = sanitize_text_field((string) $opts['style_location_align']);
+        $vars[] = "--uca-ics-location-align: {$a};";
+    }
     if (! empty($opts['style_link_weight'])) {
         $w = sanitize_text_field((string) $opts['style_link_weight']);
         $vars[] = "--uca-ics-link-weight: {$w};";
@@ -206,6 +264,30 @@ function uca_ics_style_inline_css(array $opts): string
     if (! empty($opts['style_link_decoration'])) {
         $d = sanitize_text_field((string) $opts['style_link_decoration']);
         $vars[] = "--uca-ics-link-decoration: {$d};";
+    }
+    if (! empty($opts['style_link_size'])) {
+        $s = sanitize_text_field((string) $opts['style_link_size']);
+        $vars[] = "--uca-ics-link-size: {$s};";
+    }
+    if (! empty($opts['style_link_style'])) {
+        $ls = sanitize_text_field((string) $opts['style_link_style']);
+        $vars[] = "--uca-ics-link-style: {$ls};";
+    }
+    if (! empty($opts['style_link_transform'])) {
+        $lt = sanitize_text_field((string) $opts['style_link_transform']);
+        $vars[] = "--uca-ics-link-transform: {$lt};";
+    }
+    if (! empty($opts['style_link_letterspacing'])) {
+        $ls2 = sanitize_text_field((string) $opts['style_link_letterspacing']);
+        $vars[] = "--uca-ics-link-letterspacing: {$ls2};";
+    }
+    if (! empty($opts['style_link_align'])) {
+        $a = sanitize_text_field((string) $opts['style_link_align']);
+        $vars[] = "--uca-ics-link-align: {$a};";
+    }
+    if (! empty($opts['style_when_align'])) {
+        $a = sanitize_text_field((string) $opts['style_when_align']);
+        $vars[] = "--uca-ics-when-align: {$a};";
     }
     // Layout: list/grid columns per breakpoint
     $is_grid = (! empty($opts['style_view']) && $opts['style_view'] === 'grid');
@@ -224,7 +306,7 @@ function uca_ics_style_inline_css(array $opts): string
     if ($scale_mob > 2.0) $scale_mob = 2.0;
     $vars[] = "--uca-ics-scale-tablet: {$scale_tab};";
     $vars[] = "--uca-ics-scale-mobile: {$scale_mob};";
-    // Shorthand text-based variables (padding/margins/gaps/sizes)
+    // Shorthand text-based variables (padding/margins/gaps/sizes + border widths/radii)
     $map_text = [
         'style_card_padding'      => '--uca-ics-card-padding',
         'style_card_margin'       => '--uca-ics-card-margin',
@@ -241,12 +323,42 @@ function uca_ics_style_inline_css(array $opts): string
         'style_desc_padding'      => '--uca-ics-desc-padding',
         'style_location_margin'   => '--uca-ics-location-margin',
         'style_location_padding'  => '--uca-ics-location-padding',
+        'style_card_border_width' => '--uca-ics-card-border-width',
+        'style_card_radius'       => '--uca-ics-card-radius',
+        'style_item_border_width' => '--uca-ics-item-border-width',
+        'style_item_radius'       => '--uca-ics-item-radius',
+        'style_when_border_width' => '--uca-ics-when-border-width',
+        'style_when_radius'       => '--uca-ics-when-radius',
+        'style_link_border_width' => '--uca-ics-link-border-width',
+        'style_link_radius'       => '--uca-ics-link-radius',
+        'style_location_border_width' => '--uca-ics-location-border-width',
+        'style_location_radius'       => '--uca-ics-location-radius',
+        'style_desc_border_width' => '--uca-ics-desc-border-width',
+        'style_desc_radius'       => '--uca-ics-desc-radius',
+        'style_badge_border_width'=> '--uca-ics-badge-border-width',
+        'style_badge_radius'      => '--uca-ics-badge-radius',
     ];
     foreach ($map_text as $opt_key => $var_name) {
         if (! empty($opts[$opt_key])) {
             $v = sanitize_text_field((string) $opts[$opt_key]);
             $vars[] = $var_name . ': ' . $v . ';';
         }
+    }
+    // Button text-based vars
+    if (! empty($opts['style_btn_padding'])) {
+        $vars[] = '--uca-ics-btn-padding: ' . sanitize_text_field((string)$opts['style_btn_padding']) . ';';
+    }
+    if (! empty($opts['style_btn_size'])) {
+        $vars[] = '--uca-ics-btn-size: ' . sanitize_text_field((string)$opts['style_btn_size']) . ';';
+    }
+    if (! empty($opts['style_btn_weight'])) {
+        $vars[] = '--uca-ics-btn-weight: ' . sanitize_text_field((string)$opts['style_btn_weight']) . ';';
+    }
+    if (! empty($opts['style_btn_border_width'])) {
+        $vars[] = '--uca-ics-btn-border-width: ' . sanitize_text_field((string)$opts['style_btn_border_width']) . ';';
+    }
+    if (! empty($opts['style_btn_radius'])) {
+        $vars[] = '--uca-ics-btn-radius: ' . sanitize_text_field((string)$opts['style_btn_radius']) . ';';
     }
 
     // Build CSS once after all variables are collected

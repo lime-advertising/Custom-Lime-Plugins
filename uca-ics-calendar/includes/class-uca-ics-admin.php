@@ -43,16 +43,34 @@ class UCA_ICS_Admin
                 'style_when_color' => '',
                 'style_when_weight' => '',
                 'style_when_size' => '',
+                // Date parts
+                'style_day_color'   => '',
+                'style_day_size'    => '',
+                'style_day_weight'  => '',
+                'style_month_color' => '',
+                'style_month_size'  => '',
+                'style_month_weight'=> '',
+                'style_year_color'  => '',
+                'style_year_size'   => '',
+                'style_year_weight' => '',
                 'style_title_weight' => '',
                 'style_title_size' => '',
+                'style_title_align' => '',
                 'style_badge_color' => '',
                 'style_badge_size' => '',
                 'style_desc_color' => '',
                 'style_desc_size' => '',
+                'style_desc_align' => '',
                 'style_location_color' => '',
                 'style_location_size' => '',
+                'style_location_align' => '',
                 'style_link_weight' => '',
                 'style_link_decoration' => '',
+                'style_link_size' => '',
+                'style_link_style' => '',
+                'style_link_transform' => '',
+                'style_link_letterspacing' => '',
+                'style_link_align' => '',
                 'style_view' => 'list',
                 'style_cols_desktop' => 1,
                 'style_cols_tablet' => 1,
@@ -74,6 +92,23 @@ class UCA_ICS_Admin
                 'style_desc_padding' => '',
                 'style_location_margin' => '',
                 'style_location_padding' => '',
+                // Border styles per element
+                'style_card_border_width' => '',
+                'style_card_radius'       => '',
+                'style_item_border_width' => '',
+                'style_item_radius'       => '',
+                'style_when_border_color' => '',
+                'style_when_border_width' => '',
+                'style_when_radius'       => '',
+                'style_link_border_color' => '',
+                'style_link_border_width' => '',
+                'style_link_radius'       => '',
+                'style_location_border_color' => '',
+                'style_location_border_width' => '',
+                'style_location_radius'       => '',
+                'style_desc_border_color' => '',
+                'style_desc_border_width' => '',
+                'style_desc_radius'       => '',
                 // Element visibility and ordering
                 'elements_order' => 'when,summary,location,desc',
                 'show_when'     => 1,
@@ -85,6 +120,18 @@ class UCA_ICS_Admin
                 'date_format_choice' => 'site',
                 'date_format_custom' => '',
                 'start_date_only'    => 0,
+                // Layout preset with CTA button
+                'layout_preset' => 'default',
+                'button_text'   => 'Open Calendar',
+                'button_url'    => '',
+                'style_btn_bg'      => '',
+                'style_btn_color'   => '',
+                'style_btn_padding' => '',
+                'style_btn_size'    => '',
+                'style_btn_weight'  => '',
+                'style_btn_border_color' => '',
+                'style_btn_border_width' => '',
+                'style_btn_radius'       => '',
                 'style_custom_css' => '',
             ],
         ]);
@@ -353,13 +400,30 @@ class UCA_ICS_Admin
                 if ($c) $out['style_title_color'] = $c;
             }
         }
+        // Button colors
+        foreach (['style_btn_bg','style_btn_color'] as $color_key_btn) {
+            if (array_key_exists($color_key_btn, $input)) {
+                $out[$color_key_btn] = '';
+                if (! empty($input[$color_key_btn])) {
+                    $c = function_exists('uca_ics_sanitize_css_color') ? uca_ics_sanitize_css_color((string) $input[$color_key_btn]) : sanitize_text_field((string) $input[$color_key_btn]);
+                    if ($c) $out[$color_key_btn] = $c;
+                }
+            }
+        }
         foreach (
             [
+                // Date parts
+                'style_day_color','style_month_color','style_year_color',
+                
                 'style_item_bg',
                 'style_when_color',
                 'style_badge_color',
                 'style_desc_color',
                 'style_location_color',
+                'style_when_border_color',
+                'style_link_border_color',
+                'style_location_border_color',
+                'style_desc_border_color',
             ] as $color_key
         ) {
             if (array_key_exists($color_key, $input)) {
@@ -372,19 +436,73 @@ class UCA_ICS_Admin
         }
         foreach (
             [
+                'style_day_size','style_day_weight',
+                'style_month_size','style_month_weight',
+                'style_year_size','style_year_weight',
                 'style_when_weight',
                 'style_when_size',
                 'style_title_weight',
                 'style_title_size',
+                'style_title_align',
                 'style_badge_size',
                 'style_desc_size',
+                'style_desc_align',
                 'style_location_size',
+                'style_location_align',
                 'style_link_weight',
                 'style_link_decoration',
+                'style_link_size',
+                'style_link_style',
+                'style_link_transform',
+                'style_link_letterspacing',
+                'style_link_align',
+                'style_when_align',
+                // Button text settings
+                'style_btn_padding',
+                'style_btn_size',
+                'style_btn_weight',
+                'style_btn_border_width',
+                'style_btn_radius',
             ] as $text_key
         ) {
             if (array_key_exists($text_key, $input)) {
                 $out[$text_key] = sanitize_text_field((string) ($input[$text_key] ?? ''));
+            }
+        }
+        // Text-based spacing controls
+        foreach ([
+            'style_card_padding',
+            'style_card_margin',
+            'style_list_gap',
+            'style_item_padding',
+            'style_item_margin',
+            'style_when_margin',
+            'style_when_padding',
+            'style_title_margin',
+            'style_title_padding',
+            'style_badge_padding',
+            'style_badge_margin',
+            'style_desc_margin',
+            'style_desc_padding',
+            'style_location_margin',
+            'style_location_padding',
+            'style_card_border_width',
+            'style_card_radius',
+            'style_item_border_width',
+            'style_item_radius',
+            'style_when_border_width',
+            'style_when_radius',
+            'style_link_border_width',
+            'style_link_radius',
+            'style_location_border_width',
+            'style_location_radius',
+            'style_desc_border_width',
+            'style_desc_radius',
+            'style_badge_border_width',
+            'style_badge_radius',
+        ] as $spacing_key) {
+            if (array_key_exists($spacing_key, $input)) {
+                $out[$spacing_key] = sanitize_text_field((string)$input[$spacing_key]);
             }
         }
         if (array_key_exists('style_custom_css', $input)) {
@@ -418,6 +536,16 @@ class UCA_ICS_Admin
         }
         if (array_key_exists('start_date_only', $input)) {
             $out['start_date_only'] = ! empty($input['start_date_only']) ? 1 : 0;
+        }
+        if (array_key_exists('layout_preset', $input)) {
+            $lp = (string)$input['layout_preset'];
+            $out['layout_preset'] = in_array($lp, ['default','split_button'], true) ? $lp : 'default';
+        }
+        if (array_key_exists('button_text', $input)) {
+            $out['button_text'] = sanitize_text_field((string)$input['button_text']);
+        }
+        if (array_key_exists('button_url', $input)) {
+            $out['button_url'] = esc_url_raw(trim((string)$input['button_url']));
         }
 
         // Surface validation notices on settings screen
@@ -554,6 +682,28 @@ class UCA_ICS_Admin
                             <label><input type="hidden" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[start_date_only]" value="0" />
                                 <input type="checkbox" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[start_date_only]" value="1" <?php checked(!empty($opts['start_date_only'])); ?> /> <?php esc_html_e('Show only start date (no time)', 'uca-ics'); ?></label>
                         </p>
+                        <hr>
+                        <p>
+                            <label><?php esc_html_e('Layout preset', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[layout_preset]" id="uca-ics-layout-preset">
+                                    <?php $lp = $opts['layout_preset'] ?? 'default'; ?>
+                                    <option value="default" <?php selected($lp,'default'); ?>><?php esc_html_e('Default list', 'uca-ics'); ?></option>
+                                    <option value="split_button" <?php selected($lp,'split_button'); ?>><?php esc_html_e('Date left, summary + button right', 'uca-ics'); ?></option>
+                                </select>
+                            </label>
+                        </p>
+                        <p id="uca-ics-button-text-wrap">
+                            <label><?php esc_html_e('Button text', 'uca-ics'); ?>:
+                                <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[button_text]" value="<?php echo esc_attr($opts['button_text'] ?? 'Open Calendar'); ?>" class="regular-text" />
+                            </label>
+                            <br><span class="description"><?php esc_html_e('Shown on the right; links to the event URL when present.', 'uca-ics'); ?></span>
+                        </p>
+                        <p id="uca-ics-button-url-wrap">
+                            <label><?php esc_html_e('Common button URL (optional)', 'uca-ics'); ?>:
+                                <input type="url" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[button_url]" value="<?php echo esc_attr($opts['button_url'] ?? ''); ?>" class="regular-text code" placeholder="https://example.com/calendar" />
+                            </label>
+                            <br><span class="description"><?php esc_html_e('If provided, all buttons link here and always show. If empty, buttons only show when an event URL exists.', 'uca-ics'); ?></span>
+                        </p>
                         <p>
                             <label><?php esc_html_e('View', 'uca-ics'); ?>:
                                 <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_view]" id="uca-ics-style-view">
@@ -584,6 +734,8 @@ class UCA_ICS_Admin
                         <summary><strong><?php esc_html_e('Card', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_bg_color]" value="<?php echo esc_attr($opts['style_bg_color'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Border', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_border_color]" value="<?php echo esc_attr($opts['style_border_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border width', 'uca-ics'); ?>: <input type="text" placeholder="1px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_card_border_width]" value="<?php echo esc_attr($opts['style_card_border_width'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border radius', 'uca-ics'); ?>: <input type="text" placeholder="10px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_card_radius]" value="<?php echo esc_attr($opts['style_card_radius'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="16px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_card_padding]" value="<?php echo esc_attr($opts['style_card_padding'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Margin', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_card_margin]" value="<?php echo esc_attr($opts['style_card_margin'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Title color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_title_color]" value="<?php echo esc_attr($opts['style_title_color'] ?? ''); ?>" /></label></p>
@@ -596,6 +748,14 @@ class UCA_ICS_Admin
                                     <?php endforeach; ?>
                                 </select>
                             </label></p>
+                        <p><label><?php esc_html_e('Title alignment', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_title_align]">
+                                    <?php $ta = $opts['style_title_align'] ?? '';
+                                    foreach (['','left','center','right','justify'] as $opt): ?>
+                                        <option value="<?php echo esc_attr($opt); ?>" <?php selected($ta, $opt); ?>><?php echo $opt === '' ? esc_html__('Default','uca-ics') : esc_html(ucfirst($opt)); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label></p>
                         <p><label><?php esc_html_e('Title margin', 'uca-ics'); ?>: <input type="text" placeholder="0 0 12px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_title_margin]" value="<?php echo esc_attr($opts['style_title_margin'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Title padding', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_title_padding]" value="<?php echo esc_attr($opts['style_title_padding'] ?? ''); ?>" /></label></p>
                     </details>
@@ -604,6 +764,8 @@ class UCA_ICS_Admin
                         <summary><strong><?php esc_html_e('Event Item', 'uca-ics'); ?></strong></summary>
                         <p><label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_item_bg]" value="<?php echo esc_attr($opts['style_item_bg'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Border', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_item_border_color]" value="<?php echo esc_attr($opts['style_item_border_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border width', 'uca-ics'); ?>: <input type="text" placeholder="1px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_item_border_width]" value="<?php echo esc_attr($opts['style_item_border_width'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border radius', 'uca-ics'); ?>: <input type="text" placeholder="8px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_item_radius]" value="<?php echo esc_attr($opts['style_item_radius'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="12px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_item_padding]" value="<?php echo esc_attr($opts['style_item_padding'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Margin', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_item_margin]" value="<?php echo esc_attr($opts['style_item_margin'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Event spacing (gap)', 'uca-ics'); ?>: <input type="text" placeholder="12px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_list_gap]" value="<?php echo esc_attr($opts['style_list_gap'] ?? ''); ?>" /></label></p>
@@ -623,6 +785,49 @@ class UCA_ICS_Admin
                             </label></p>
                         <p><label><?php esc_html_e('Margin', 'uca-ics'); ?>: <input type="text" placeholder="0 0 4px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_margin]" value="<?php echo esc_attr($opts['style_when_margin'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_padding]" value="<?php echo esc_attr($opts['style_when_padding'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_border_color]" value="<?php echo esc_attr($opts['style_when_border_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border width', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_border_width]" value="<?php echo esc_attr($opts['style_when_border_width'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border radius', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_radius]" value="<?php echo esc_attr($opts['style_when_radius'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Text alignment', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_when_align]">
+                                    <?php $wa = $opts['style_when_align'] ?? '';
+                                    foreach (['','left','center','right','justify'] as $opt): ?>
+                                        <option value="<?php echo esc_attr($opt); ?>" <?php selected($wa, $opt); ?>><?php echo $opt === '' ? esc_html__('Default','uca-ics') : esc_html(ucfirst($opt)); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label></p>
+                        <hr>
+                        <p class="date-parts-heading"><strong><?php esc_html_e('Date parts', 'uca-ics'); ?></strong></p>
+                        <p class="date-parts-day"><label><?php esc_html_e('Day color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_day_color]" value="<?php echo esc_attr($opts['style_day_color'] ?? ''); ?>" /></label>
+                           <label style="margin-left:12px;"><?php esc_html_e('Size', 'uca-ics'); ?>: <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_day_size]" value="<?php echo esc_attr($opts['style_day_size'] ?? ''); ?>" placeholder="inherit" /></label>
+                           <label style="margin-left:12px;"><?php esc_html_e('Weight', 'uca-ics'); ?>:
+                               <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_day_weight]">
+                                   <?php $dw=$opts['style_day_weight'] ?? ''; foreach (['','normal','500','600','700','bold'] as $opt): ?>
+                                       <option value="<?php echo esc_attr($opt); ?>" <?php selected($dw,$opt); ?>><?php echo $opt===''?esc_html__('Default','uca-ics'):esc_html($opt); ?></option>
+                                   <?php endforeach; ?>
+                               </select>
+                           </label>
+                        </p>
+                        <p class="date-parts-month"><label><?php esc_html_e('Month color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_month_color]" value="<?php echo esc_attr($opts['style_month_color'] ?? ''); ?>" /></label>
+                           <label style="margin-left:12px;"><?php esc_html_e('Size', 'uca-ics'); ?>: <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_month_size]" value="<?php echo esc_attr($opts['style_month_size'] ?? ''); ?>" placeholder="inherit" /></label>
+                           <label style="margin-left:12px;"><?php esc_html_e('Weight', 'uca-ics'); ?>:
+                               <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_month_weight]">
+                                   <?php $mw=$opts['style_month_weight'] ?? ''; foreach (['','normal','500','600','700','bold'] as $opt): ?>
+                                       <option value="<?php echo esc_attr($opt); ?>" <?php selected($mw,$opt); ?>><?php echo $opt===''?esc_html__('Default','uca-ics'):esc_html($opt); ?></option>
+                                   <?php endforeach; ?>
+                               </select>
+                           </label>
+                        </p>
+                        <p class="date-parts-year"><label><?php esc_html_e('Year color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_year_color]" value="<?php echo esc_attr($opts['style_year_color'] ?? ''); ?>" /></label>
+                           <label style="margin-left:12px;"><?php esc_html_e('Size', 'uca-ics'); ?>: <input type="text" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_year_size]" value="<?php echo esc_attr($opts['style_year_size'] ?? ''); ?>" placeholder="inherit" /></label>
+                           <label style="margin-left:12px;"><?php esc_html_e('Weight', 'uca-ics'); ?>:
+                               <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_year_weight]">
+                                   <?php $yw=$opts['style_year_weight'] ?? ''; foreach (['','normal','500','600','700','bold'] as $opt): ?>
+                                       <option value="<?php echo esc_attr($opt); ?>" <?php selected($yw,$opt); ?>><?php echo $opt===''?esc_html__('Default','uca-ics'):esc_html($opt); ?></option>
+                                   <?php endforeach; ?>
+                               </select>
+                           </label>
+                        </p>
                     </details>
 
                     <details data-section="link">
@@ -643,6 +848,39 @@ class UCA_ICS_Admin
                                     <?php endforeach; ?>
                                 </select>
                             </label></p>
+                        <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>:
+                                <input type="text" placeholder="inherit" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_size]" value="<?php echo esc_attr($opts['style_link_size'] ?? ''); ?>" />
+                            </label></p>
+                        <p><label><?php esc_html_e('Font style', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_style]">
+                                    <?php $ls = $opts['style_link_style'] ?? '';
+                                    foreach (['', 'normal', 'italic'] as $opt): ?>
+                                        <option value="<?php echo esc_attr($opt); ?>" <?php selected($ls, $opt); ?>><?php echo $opt === '' ? esc_html__('Default', 'uca-ics') : esc_html($opt); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label></p>
+                        <p><label><?php esc_html_e('Text transform', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_transform]">
+                                    <?php $lt = $opts['style_link_transform'] ?? '';
+                                    foreach (['', 'none', 'uppercase', 'capitalize', 'lowercase'] as $opt): ?>
+                                        <option value="<?php echo esc_attr($opt); ?>" <?php selected($lt, $opt); ?>><?php echo $opt === '' ? esc_html__('Default', 'uca-ics') : esc_html($opt); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label></p>
+                        <p><label><?php esc_html_e('Letter spacing', 'uca-ics'); ?>:
+                                <input type="text" placeholder="normal or e.g. 0.02em" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_letterspacing]" value="<?php echo esc_attr($opts['style_link_letterspacing'] ?? ''); ?>" />
+                            </label></p>
+                        <p><label><?php esc_html_e('Text alignment', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_align]">
+                                    <?php $la = $opts['style_link_align'] ?? '';
+                                    foreach (['','left','center','right','justify'] as $opt): ?>
+                                        <option value="<?php echo esc_attr($opt); ?>" <?php selected($la, $opt); ?>><?php echo $opt === '' ? esc_html__('Default','uca-ics') : esc_html(ucfirst($opt)); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label></p>
+                        <p><label><?php esc_html_e('Border color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_border_color]" value="<?php echo esc_attr($opts['style_link_border_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border width', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_border_width]" value="<?php echo esc_attr($opts['style_link_border_width'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border radius', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_link_radius]" value="<?php echo esc_attr($opts['style_link_radius'] ?? ''); ?>" /></label></p>
                     </details>
 
                     <details data-section="elements">
@@ -689,6 +927,27 @@ class UCA_ICS_Admin
                         <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>: <input type="text" placeholder="0.75rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_size]" value="<?php echo esc_attr($opts['style_badge_size'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="2px 8px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_padding]" value="<?php echo esc_attr($opts['style_badge_padding'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Margin', 'uca-ics'); ?>: <input type="text" placeholder="0 0 0 0.5rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_margin]" value="<?php echo esc_attr($opts['style_badge_margin'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border width', 'uca-ics'); ?>: <input type="text" placeholder="1px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_border_width]" value="<?php echo esc_attr($opts['style_badge_border_width'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border radius', 'uca-ics'); ?>: <input type="text" placeholder="999px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_badge_radius]" value="<?php echo esc_attr($opts['style_badge_radius'] ?? ''); ?>" /></label></p>
+                    </details>
+
+                    <details data-section="button">
+                        <summary><strong><?php esc_html_e('Button', 'uca-ics'); ?></strong></summary>
+                        <p><label><?php esc_html_e('Background', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_btn_bg]" value="<?php echo esc_attr($opts['style_btn_bg'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Text color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_btn_color]" value="<?php echo esc_attr($opts['style_btn_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_btn_border_color]" value="<?php echo esc_attr($opts['style_btn_border_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border width', 'uca-ics'); ?>: <input type="text" placeholder="1px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_btn_border_width]" value="<?php echo esc_attr($opts['style_btn_border_width'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border radius', 'uca-ics'); ?>: <input type="text" placeholder="6px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_btn_radius]" value="<?php echo esc_attr($opts['style_btn_radius'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="6px 12px" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_btn_padding]" value="<?php echo esc_attr($opts['style_btn_padding'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>: <input type="text" placeholder="0.9rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_btn_size]" value="<?php echo esc_attr($opts['style_btn_size'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Font weight', 'uca-ics'); ?>:
+                            <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_btn_weight]">
+                                <?php $bw=$opts['style_btn_weight'] ?? ''; foreach(['','normal','500','600','700','bold'] as $opt): ?>
+                                    <option value="<?php echo esc_attr($opt); ?>" <?php selected($bw,$opt); ?>><?php echo $opt===''?esc_html__('Default','uca-ics'):esc_html($opt); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label></p>
+                        <p class="description"><?php esc_html_e('These styles affect the button shown in the split layout preset.', 'uca-ics'); ?></p>
                     </details>
 
                     <details data-section="desc">
@@ -697,6 +956,17 @@ class UCA_ICS_Admin
                         <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>: <input type="text" placeholder="0.92rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_size]" value="<?php echo esc_attr($opts['style_desc_size'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Margin', 'uca-ics'); ?>: <input type="text" placeholder="6px 0 0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_margin]" value="<?php echo esc_attr($opts['style_desc_margin'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_padding]" value="<?php echo esc_attr($opts['style_desc_padding'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_border_color]" value="<?php echo esc_attr($opts['style_desc_border_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border width', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_border_width]" value="<?php echo esc_attr($opts['style_desc_border_width'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border radius', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_radius]" value="<?php echo esc_attr($opts['style_desc_radius'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Text alignment', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_desc_align]">
+                                    <?php $da = $opts['style_desc_align'] ?? '';
+                                    foreach (['','left','center','right','justify'] as $opt): ?>
+                                        <option value="<?php echo esc_attr($opt); ?>" <?php selected($da, $opt); ?>><?php echo $opt === '' ? esc_html__('Default','uca-ics') : esc_html(ucfirst($opt)); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label></p>
                     </details>
 
                     <details data-section="location">
@@ -705,34 +975,30 @@ class UCA_ICS_Admin
                         <p><label><?php esc_html_e('Font size', 'uca-ics'); ?>: <input type="text" placeholder="0.95rem" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_size]" value="<?php echo esc_attr($opts['style_location_size'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Margin', 'uca-ics'); ?>: <input type="text" placeholder="2px 0 0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_margin]" value="<?php echo esc_attr($opts['style_location_margin'] ?? ''); ?>" /></label></p>
                         <p><label><?php esc_html_e('Padding', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_padding]" value="<?php echo esc_attr($opts['style_location_padding'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border color', 'uca-ics'); ?>: <input type="text" class="uca-ics-color" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_border_color]" value="<?php echo esc_attr($opts['style_location_border_color'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border width', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_border_width]" value="<?php echo esc_attr($opts['style_location_border_width'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Border radius', 'uca-ics'); ?>: <input type="text" placeholder="0" name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_radius]" value="<?php echo esc_attr($opts['style_location_radius'] ?? ''); ?>" /></label></p>
+                        <p><label><?php esc_html_e('Text alignment', 'uca-ics'); ?>:
+                                <select name="<?php echo esc_attr(UCA_ICS_OPT); ?>[style_location_align]">
+                                    <?php $loa = $opts['style_location_align'] ?? '';
+                                    foreach (['','left','center','right','justify'] as $opt): ?>
+                                        <option value="<?php echo esc_attr($opt); ?>" <?php selected($loa, $opt); ?>><?php echo $opt === '' ? esc_html__('Default','uca-ics') : esc_html(ucfirst($opt)); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label></p>
+                    </details>
+
+                    <details data-section="custom_css">
+                        <summary><strong><?php esc_html_e('Custom CSS', 'uca-ics'); ?></strong></summary>
+                        <p>
+                            <?php $this->field_style_custom_css(); ?>
+                        </p>
+                        <p class="description"><?php esc_html_e('Your CSS is injected after the plugin styles. For safety, prefix selectors with .uca-ics-calendar to limit scope.', 'uca-ics'); ?></p>
                     </details>
 
                     <?php submit_button(__('Save Changes', 'uca-ics')); ?>
                 </form>
-                <hr>
-                <h2><?php esc_html_e('Preview', 'uca-ics'); ?></h2>
-                <div id="uca-ics-style-preview-wrapper">
-                    <div class="uca-ics-calendar uca-ics--multi<?php echo ! empty($opts['style_compact']) ? ' uca-ics--compact' : ''; ?>" id="uca-ics-style-preview">
-                        <h3 class="uca-ics-title"><?php esc_html_e('Upcoming Events', 'uca-ics'); ?></h3>
-                        <ul class="uca-ics-list">
-                            <li class="uca-ics-item">
-                                <div class="uca-ics-when"><time class="uca-ics-start">Jan 12, 2025 10:00 am</time> <span class="uca-ics-sep"> – </span> <time class="uca-ics-end">Jan 12, 2025 11:00 am</time></div>
-                                <div class="uca-ics-main">
-                                    <div class="uca-ics-summary"><a href="#">Sample Event Title</a> <span class="uca-ics-badge">Music</span></div>
-                                    <div class="uca-ics-location">Main Hall</div>
-                                    <div class="uca-ics-desc">Short event description goes here.</div>
-                                </div>
-                            </li>
-                            <li class="uca-ics-item">
-                                <div class="uca-ics-when"><time class="uca-ics-start">Jan 15, 2025 9:00 am</time></div>
-                                <div class="uca-ics-main">
-                                    <div class="uca-ics-summary">Another Event <span class="uca-ics-badge">General</span></div>
-                                    <div class="uca-ics-location">Room 201</div>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+                
             <?php endif; ?>
         </div>
 <?php
@@ -865,18 +1131,6 @@ class UCA_ICS_Admin
             'all'
         );
         wp_enqueue_style('wp-color-picker');
-        // Load frontend styles so the Styling preview renders correctly
-        wp_enqueue_style(
-            'uca-ics-frontend',
-            UCA_ICS_URL . 'assets/css/frontend.css',
-            [],
-            UCA_ICS_VER
-        );
-        // Apply saved styling as inline CSS for initial preview state
-        $opts = get_option(UCA_ICS_OPT, []);
-        $inline = function_exists('uca_ics_style_inline_css') ? uca_ics_style_inline_css($opts) : '';
-        if ($inline) {
-            wp_add_inline_style('uca-ics-frontend', $inline);
-        }
+        // Preview removed: no need to load frontend styles here
     }
 }

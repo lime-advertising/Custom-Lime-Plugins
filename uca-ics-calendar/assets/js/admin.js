@@ -79,6 +79,34 @@
     setVar('--uca-ics-desc-padding', data.get('uca_ics_settings[style_desc_padding]'));
     setVar('--uca-ics-location-margin', data.get('uca_ics_settings[style_location_margin]'));
     setVar('--uca-ics-location-padding', data.get('uca_ics_settings[style_location_padding]'));
+    // Border variables for card and elements
+    setVar('--uca-ics-card-border-width', data.get('uca_ics_settings[style_card_border_width]'));
+    setVar('--uca-ics-card-radius', data.get('uca_ics_settings[style_card_radius]'));
+    setVar('--uca-ics-item-border-width', data.get('uca_ics_settings[style_item_border_width]'));
+    setVar('--uca-ics-item-radius', data.get('uca_ics_settings[style_item_radius]'));
+    setVar('--uca-ics-when-border-color', data.get('uca_ics_settings[style_when_border_color]'));
+    setVar('--uca-ics-when-border-width', data.get('uca_ics_settings[style_when_border_width]'));
+    setVar('--uca-ics-when-radius', data.get('uca_ics_settings[style_when_radius]'));
+    setVar('--uca-ics-link-border-color', data.get('uca_ics_settings[style_link_border_color]'));
+    setVar('--uca-ics-link-border-width', data.get('uca_ics_settings[style_link_border_width]'));
+    setVar('--uca-ics-link-radius', data.get('uca_ics_settings[style_link_radius]'));
+    setVar('--uca-ics-location-border-color', data.get('uca_ics_settings[style_location_border_color]'));
+    setVar('--uca-ics-location-border-width', data.get('uca_ics_settings[style_location_border_width]'));
+    setVar('--uca-ics-location-radius', data.get('uca_ics_settings[style_location_radius]'));
+    setVar('--uca-ics-desc-border-color', data.get('uca_ics_settings[style_desc_border_color]'));
+    setVar('--uca-ics-desc-border-width', data.get('uca_ics_settings[style_desc_border_width]'));
+    setVar('--uca-ics-desc-radius', data.get('uca_ics_settings[style_desc_radius]'));
+    setVar('--uca-ics-badge-border-width', data.get('uca_ics_settings[style_badge_border_width]'));
+    setVar('--uca-ics-badge-radius', data.get('uca_ics_settings[style_badge_radius]'));
+    // Button styling
+    setVar('--uca-ics-btn-bg', data.get('uca_ics_settings[style_btn_bg]'));
+    setVar('--uca-ics-btn-color', data.get('uca_ics_settings[style_btn_color]'));
+    setVar('--uca-ics-btn-padding', data.get('uca_ics_settings[style_btn_padding]'));
+    setVar('--uca-ics-btn-size', data.get('uca_ics_settings[style_btn_size]'));
+    setVar('--uca-ics-btn-weight', data.get('uca_ics_settings[style_btn_weight]'));
+    setVar('--uca-ics-btn-border-color', data.get('uca_ics_settings[style_btn_border_color]'));
+    setVar('--uca-ics-btn-border-width', data.get('uca_ics_settings[style_btn_border_width]'));
+    setVar('--uca-ics-btn-radius', data.get('uca_ics_settings[style_btn_radius]'));
 
     var view = data.get('uca_ics_settings[style_view]') || 'list';
     // Columns per breakpoint
@@ -105,6 +133,9 @@
     var compact = data.get('uca_ics_settings[style_compact]') === '1';
     $preview.toggleClass('uca-ics--compact', !!compact);
     $preview.toggleClass('uca-ics--grid', view === 'grid');
+    // Toggle split preset class
+    var preset = data.get('uca_ics_settings[layout_preset]') || 'default';
+    $preview.toggleClass('uca-ics--preset-split', preset === 'split_button');
   }
 
   $(document).on('input change', '#uca-ics-style-form input, #uca-ics-style-form textarea, #uca-ics-style-form select', updatePreviewFromInputs);
@@ -121,6 +152,17 @@
   }
   $(document).on('change', '#uca-ics-date-format-choice', updateDateFormatControls);
   $(updateDateFormatControls);
+
+  // Toggle button text visibility based on layout preset
+  function updateLayoutControls(){
+    var v = $('#uca-ics-layout-preset').val();
+    var $wrap = $('#uca-ics-button-text-wrap');
+    var $wrap2 = $('#uca-ics-button-url-wrap');
+    var $btnSection = $('#uca-ics-style-form details[data-section="button"]');
+    if (v === 'split_button') { $wrap.show(); $wrap2.show(); $btnSection.show(); } else { $wrap.hide(); $wrap2.hide(); $btnSection.hide(); }
+  }
+  $(document).on('change', '#uca-ics-layout-preset', function(){ updateLayoutControls(); });
+  $(updateLayoutControls);
 
   // Enable/disable Grid columns fields based on View selection
   function updateGridControls(){
