@@ -47,7 +47,12 @@ class Admin {
                     <tbody>
                         <tr>
                             <th scope="row"><?php esc_html_e('Repository URL', 'ssgs'); ?></th>
-                            <td><input type="text" class="regular-text" name="settings[repo]" value="<?php echo esc_attr($settings['repo']); ?>"></td>
+                            <td>
+                                <input type="text" class="regular-text" name="settings[repo]" value="<?php echo esc_attr($settings['repo']); ?>">
+                                <?php if (!empty($settings['repo']) && $href = esc_url(self::repoLink($settings['repo']))): ?>
+                                    <p><a href="<?php echo $href; ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Open repository', 'ssgs'); ?></a></p>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                         <tr>
                             <th scope="row"><?php esc_html_e('Branch', 'ssgs'); ?></th>
@@ -62,11 +67,11 @@ class Admin {
                         <tr>
                             <th scope="row"><?php esc_html_e('Authentication', 'ssgs'); ?></th>
                             <td>
-                                <fieldset>
-                                    <label><input type="radio" name="settings[auth][mode]" value="ssh" <?php checked($settings['auth']['mode'], 'ssh'); ?>> <?php esc_html_e('SSH deploy key (recommended)', 'ssgs'); ?></label><br>
-                                    <label><input type="radio" name="settings[auth][mode]" value="https-token" <?php checked($settings['auth']['mode'], 'https-token'); ?>> <?php esc_html_e('HTTPS + Personal Access Token', 'ssgs'); ?></label>
-                                </fieldset>
-                                <div id="ssgsm-auth-token" <?php if ($settings['auth']['mode'] !== 'https-token') echo 'style="display:none"'; ?>>
+                         <fieldset>
+                            <label><input type="radio" name="settings[auth][mode]" value="ssh" <?php checked($settings['auth']['mode'], 'ssh'); ?>> <?php esc_html_e('SSH deploy key (recommended)', 'ssgs'); ?></label><br>
+                            <label><input type="radio" name="settings[auth][mode]" value="https-token" <?php checked($settings['auth']['mode'], 'https-token'); ?>> <?php esc_html_e('HTTPS + Personal Access Token', 'ssgs'); ?></label>
+                        </fieldset>
+                        <div id="ssgsm-auth-token" <?php if ($settings['auth']['mode'] !== 'https-token') echo 'style="display:none"'; ?>>
                                     <p class="description"><?php esc_html_e('Paste a GitHub Personal Access Token (with repo access). Leave the token field blank to keep the stored value.', 'ssgs'); ?></p>
                                     <p>
                                         <label><?php esc_html_e('Username (optional)', 'ssgs'); ?><br>
@@ -128,6 +133,12 @@ class Admin {
                 <input type="hidden" name="action" value="ssgsm_export_now">
                 <?php submit_button(__('Export & Push Now', 'ssgs'), 'secondary', ''); ?>
             </form>
+            <?php
+            $last = Support\get_last_export();
+            if ($last):
+                printf('<p><em>%s %s (%s)</em></p>', esc_html__('Last export:', 'ssgs'), esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last)), human_time_diff($last));
+            endif;
+            ?>
         </div>
         <script>
             (function() {
@@ -198,6 +209,22 @@ class Admin {
         exit;
     }
 
+    private static function repoLink(string $repo): ?string {
+        if ($repo === '') {
+            return null;
+        }
+
+        if (preg_match('~git@([^:]+):(.+)~', $repo, $m)) {
+            return sprintf('https://%s/%s', $m[1], ltrim($m[2], '/'));
+        }
+
+        if (preg_match('~https://~', $repo)) {
+            return $repo;
+        }
+
+        return null;
+    }
+
     public static function exportNow(): void {
         if (!current_user_can('manage_options')) {
             wp_die(__('Insufficient permissions', 'ssgs'));
@@ -206,6 +233,7 @@ class Admin {
 
         try {
             (new Exporter())->exportAndPushAll();
+            Support\update_last_export(time());
             set_transient('ssgsm_notice', ['type' => 'success', 'text' => __('Export completed.', 'ssgs')], 5);
         } catch (RuntimeException $e) {
             Logger::log('export', 'Manual export failed: ' . $e->getMessage(), 1);

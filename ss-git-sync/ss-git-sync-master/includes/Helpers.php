@@ -47,6 +47,15 @@ function load_settings(string $option, array $defaults): array {
     return $settings;
 }
 
+function update_last_export(int $timestamp): void {
+    update_option('ssgsm_last_export', $timestamp, false);
+}
+
+function get_last_export(): ?int {
+    $ts = get_option('ssgsm_last_export');
+    return is_numeric($ts) ? (int) $ts : null;
+}
+
 function save_settings(string $option, array $settings): void {
     $settings['projects'] = normalize_projects($settings['projects'] ?? []);
     $settings['project_ids'] = sanitize_project_ids($settings['project_ids'] ?? []);

@@ -31,6 +31,7 @@ class Importer {
         $sameCommit = ($before !== '' && $before === $after);
         $importedAny = false;
 
+        $importedSlugs = [];
         foreach ($this->settings['projects'] as $slug => $filename) {
             $path = $this->projectPath($filename);
             if (!file_exists($path)) {
@@ -43,11 +44,15 @@ class Importer {
                 if ($this->importProject($slug, $path, $existingId)) {
                     $this->markFileImported($filename, $after);
                     $importedAny = true;
+                    $importedSlugs[] = $slug;
                 }
             }
         }
 
-        if (!$importedAny && $sameCommit) {
+        if ($importedAny && !empty($importedSlugs)) {
+            $lastImports = array_fill_keys($importedSlugs, time());
+            Support\update_last_import_timestamps($lastImports);
+        } elseif (!$importedAny && $sameCommit) {
             Logger::log('import', 'No changes detected after pull.');
         }
     }
@@ -68,6 +73,7 @@ class Importer {
                 Plugin::saveSettings($settings);
                 $this->settings = $settings;
             }
+            $this->markLastImport($slug);
 
             return true;
         }
@@ -263,6 +269,15 @@ class Importer {
         }
 
         return null;
+    }
+
+    private function markLastImport(string $slug): void {
+        $slug = sanitize_title($slug);
+        if ($slug === '') {
+            return;
+        }
+
+        Support\update_last_import_timestamps([$slug => time()]);
     }
 
     private function fallbackImport(string $slug): void {

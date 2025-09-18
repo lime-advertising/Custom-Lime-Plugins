@@ -88,6 +88,50 @@ function normalize_auth(array $auth): array {
     ];
 }
 
+function update_last_import(array $projects): void {
+    $existing = get_option('ssgss_last_imports', []);
+    if (!is_array($existing)) {
+        $existing = [];
+    }
+
+    $now = time();
+    foreach ($projects as $slug => $filename) {
+        $slug = sanitize_title((string) $slug);
+        if ($slug === '') {
+            continue;
+        }
+        $existing[$slug] = $now;
+    }
+
+    update_option('ssgss_last_imports', $existing, false);
+}
+
+function get_last_imports(): array {
+    $stored = get_option('ssgss_last_imports', []);
+    if (!is_array($stored)) {
+        return [];
+    }
+
+    return array_map('intval', $stored);
+}
+
+function update_last_import_timestamps(array $projects): void {
+    $existing = get_option('ssgss_last_imports', []);
+    if (!is_array($existing)) {
+        $existing = [];
+    }
+
+    foreach ($projects as $slug => $timestamp) {
+        $slug = sanitize_title((string) $slug);
+        if ($slug === '' || !is_numeric($timestamp)) {
+            continue;
+        }
+        $existing[$slug] = (int) $timestamp;
+    }
+
+    update_option('ssgss_last_imports', $existing, false);
+}
+
 function encrypt_secret(string $value): string {
     if ($value === '') {
         return '';

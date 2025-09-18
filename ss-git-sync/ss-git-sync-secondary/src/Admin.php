@@ -47,7 +47,12 @@ class Admin {
                     <tbody>
                         <tr>
                             <th scope="row"><?php esc_html_e('Repository URL', 'ssgs'); ?></th>
-                            <td><input type="text" class="regular-text" name="settings[repo]" value="<?php echo esc_attr($settings['repo']); ?>"></td>
+                            <td>
+                                <input type="text" class="regular-text" name="settings[repo]" value="<?php echo esc_attr($settings['repo']); ?>">
+                                <?php if (!empty($settings['repo']) && $href = esc_url(self::repoLink($settings['repo']))): ?>
+                                    <p><a href="<?php echo $href; ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Open repository', 'ssgs'); ?></a></p>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                         <tr>
                             <th scope="row"><?php esc_html_e('Branch', 'ssgs'); ?></th>
@@ -144,6 +149,25 @@ class Admin {
                 <input type="hidden" name="action" value="ssgss_import_now">
                 <?php submit_button(__('Pull & Import Now', 'ssgs'), 'secondary', ''); ?>
             </form>
+            <?php
+            $lastImports = Support\get_last_imports();
+            if (!empty($lastImports)) {
+                echo '<h2>' . esc_html__('Last Import Timestamps', 'ssgs') . '</h2><ul>';
+                foreach ($settings['projects'] as $slug => $filename) {
+                    $slugSanitized = sanitize_title($slug);
+                    echo '<li><strong>' . esc_html($slug) . '</strong>: ';
+                    if (isset($lastImports[$slugSanitized])) {
+                        $ts = $lastImports[$slugSanitized];
+                        echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $ts));
+                        echo ' (' . esc_html(human_time_diff($ts)) . ' ' . esc_html__('ago', 'ssgs') . ')';
+                    } else {
+                        esc_html_e('Never imported', 'ssgs');
+                    }
+                    echo '</li>';
+                }
+                echo '</ul>';
+            }
+            ?>
         </div>
         <script>
             (function() {
@@ -231,6 +255,22 @@ class Admin {
 
         wp_safe_redirect(add_query_arg([], wp_get_referer() ?: admin_url('options-general.php?page=ssgss')));
         exit;
+    }
+
+    private static function repoLink(string $repo): ?string {
+        if ($repo === '') {
+            return null;
+        }
+
+        if (preg_match('~git@([^:]+):(.+)~', $repo, $m)) {
+            return sprintf('https://%s/%s', $m[1], ltrim($m[2], '/'));
+        }
+
+        if (preg_match('~https://~', $repo)) {
+            return $repo;
+        }
+
+        return null;
     }
 }
 
