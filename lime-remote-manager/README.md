@@ -17,6 +17,12 @@ This repository contains the Lime Remote Manager platform, comprising:
 
 The agent plugin auto-initialises once placed in the `mu-plugins` directory and exposes the signed `GET /wp-json/lrma/v1/info` endpoint.
 
+## Snapshot Processing
+
+- The controller’s “Trigger Snapshot” action queues a background job via the agent.
+- Jobs dump the relevant database tables, bundle uploads, and archive everything to `wp-content/uploads/lrm-snapshots/{blog_id}/snapshot.zip`.
+- Snapshot metadata is recorded in the `wp_lrm_snapshots` table (per managed site); monitor disk usage to ensure adequate space.
+
 ## Development Notes
 
 - PHP 8.1+ and WordPress 6.4+ are required.

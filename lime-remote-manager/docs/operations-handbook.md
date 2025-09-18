@@ -30,9 +30,10 @@ Each operation includes prerequisites, steps, and verification.
 - **Steps:**
   1. Open site detail → `Snapshots` tab → `Create Snapshot`.
   2. Choose scope (Full/DB/Uploads), confirm retention note.
-  3. Submit; note job ID returned.
+  3. Submit; note snapshot ID returned.
 - **Verification:**
-  - Job status transitions to `completed` within expected SLA.
+  - Cron job `lime_remote_agent_run_snapshot` finishes without errors.
+  - Archive exists under `wp-content/uploads/lrm-snapshots/{blog_id}/` with `snapshot.zip` and expected size recorded in database.
   - Snapshot listed with timestamp; check audit log entry.
 
 ### 4.2 Perform Rollback

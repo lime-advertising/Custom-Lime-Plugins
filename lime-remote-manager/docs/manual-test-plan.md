@@ -78,7 +78,7 @@
 ### 9.3 Functional Operations (Single Site)
 | ID | Title | Precondition | Steps | Expected Result |
 | -- | ----- | ------------ | ----- | ---------------- |
-| FO-S-01 | Trigger snapshot | Single-site paired | Create full snapshot via UI | Job completes; archive stored; audit log entry |
+| FO-S-01 | Trigger snapshot | Single-site paired | Create full snapshot via UI | Snapshot queued, cron runs, archive appears under `wp-content/uploads/lrm-snapshots/primary/` |
 | FO-S-02 | Change site URL | Snapshot <24h old | Update home/siteurl to new staging domain, confirm token | Site accessible at new URL; old URL redirects if configured |
 | FO-S-03 | Rollback snapshot | Existing snapshot available | Initiate rollback to prior snapshot | Content reverts; audit log records action |
 | FO-S-04 | Disable site | Stakeholder approval documented | Initiate delete/disable flow with reason | Site status = Disabled; front-end shows maintenance page |
@@ -86,7 +86,7 @@
 ### 9.4 Functional Operations (Multisite)
 | ID | Title | Precondition | Steps | Expected Result |
 | -- | ----- | ------------ | ----- | ---------------- |
-| FO-M-01 | Snapshot subsite | Multisite paired | Trigger snapshot for `stage-beta` | Subsite snapshot stored under correct blog ID |
+| FO-M-01 | Snapshot subsite | Multisite paired | Trigger snapshot for `stage-beta` | Snapshot queued, archive stored under `wp-content/uploads/lrm-snapshots/{blog_id}/` |
 | FO-M-02 | Change subsite domain/path | Snapshot fresh | Update domain/path for `stage-beta` | Subsite accessible at new domain/path; network admin reflects change |
 | FO-M-03 | Delete subsite | Approval captured | Delete `stage-gamma` subsite | Subsite removed from list; primary site untouched |
 | FO-M-04 | Protect primary site | Attempt to delete blog_id=1 | Execute delete flow on primary subsite | Operation blocked with informative error |
@@ -104,7 +104,7 @@
 | -- | ----- | ------------ | ----- | ---------------- |
 | AL-01 | Audit log completeness | Actions executed | Review `Remote Manager → Logs` | Each action recorded with user, timestamp, payload diff |
 | AL-02 | Log export | Logs available | Export CSV for date range | CSV downloads, contains expected records |
-| AL-03 | Snapshot metadata | Snapshots created | Inspect `wp_lrm_snapshots` table | Entries correspond to UI snapshots |
+| AL-03 | Snapshot metadata | Snapshots created | Inspect `wp_lrm_snapshots` table | Entries correspond to UI snapshots with path/file size |
 
 ### 9.7 Negative & Regression Cases
 | ID | Title | Precondition | Steps | Expected Result |
@@ -128,4 +128,3 @@
 - **Contact List:** Same as Operations Handbook Appendix 9.2.
 - **Revision History:**
   - v0.1 (Sep 2025) – Initial manual test plan drafted.
-

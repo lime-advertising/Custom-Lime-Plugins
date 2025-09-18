@@ -3,6 +3,7 @@
 namespace LimeRM\Agent\REST\Actions;
 
 use LimeRM\Agent\Security\RequestValidator;
+use LimeRM\Agent\Snapshot\SnapshotService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Server;
@@ -18,9 +19,13 @@ class SnapshotEndpoint
     /** @var RequestValidator */
     private $validator;
 
-    public function __construct(RequestValidator $validator)
+    /** @var SnapshotService */
+    private $service;
+
+    public function __construct(RequestValidator $validator, SnapshotService $service)
     {
         $this->validator = $validator;
+        $this->service = $service;
     }
 
     public function register(): void
@@ -40,21 +45,45 @@ class SnapshotEndpoint
     {
         $mode = $request->get_param('mode') ?: 'full';
         $blogId = (int) $request->get_param('blog_id');
+        $confirm = $request->get_param('confirm_token');
 
-        if (\is_multisite() && $blogId > 0) {
-            if (! \current_user_can('manage_network')) {
-                return new WP_Error('lrm_snapshot_capability', \__('Insufficient capability.', 'lime-remote-agent'), ['status' => 403]);
-            }
-        } elseif (! \current_user_can('manage_options')) {
-            return new WP_Error('lrm_snapshot_capability', \__('Insufficient capability.', 'lime-remote-agent'), ['status' => 403]);
+        if ($confirm !== 'SNAPSHOT') {
+            return new WP_Error('lrm_snapshot_confirm', \__('Confirmation token missing or invalid.', 'lime-remote-agent'), ['status' => 400]);
         }
 
-        // Snapshot orchestration will be implemented soon.
+        if (\is_multisite() && $blogId > 0) {
+            if ($blogId === 1) {
+                return new WP_Error('lrm_snapshot_primary_blocked', \__('Primary site snapshots must be run without specifying a blog_id.', 'lime-remote-agent'), ['status' => 400]);
+            }
+        }
+
+        /**
+         * Allow hosting environments to short-circuit or approve snapshot requests.
+         */
+        $allowed = \apply_filters('lime_remote_agent_allow_snapshot', true, [
+            'mode'    => $mode,
+            'blog_id' => $blogId,
+        ]);
+
+        if (! $allowed) {
+            return new WP_Error('lrm_snapshot_blocked', \__('Snapshot request blocked by server policy.', 'lime-remote-agent'), ['status' => 403]);
+        }
+
+        $allowedModes = ['full', 'db', 'uploads'];
+
+        if (! in_array($mode, $allowedModes, true)) {
+            return new WP_Error('lrm_snapshot_mode', \__('Snapshot mode is invalid.', 'lime-remote-agent'), ['status' => 400]);
+        }
+
+        $result = $this->service->queueSnapshot([
+            'mode'    => $mode,
+            'blog_id' => $blogId,
+        ]);
+
         return [
-            'status'        => 'accepted',
-            'mode'          => $mode,
-            'blog_id'       => $blogId ?: null,
-            'message'       => \__('Snapshot request accepted. Processing pipeline to be implemented.', 'lime-remote-agent'),
+            'status'       => 'queued',
+            'snapshot_id'  => $result['snapshot_id'],
+            'message'      => \__('Snapshot request accepted.', 'lime-remote-agent'),
         ];
     }
 
@@ -69,4 +98,3 @@ class SnapshotEndpoint
         return true;
     }
 }
-

@@ -301,7 +301,9 @@ class AdminMenu
 
                 return [
                     'data'    => $data,
-                    'message' => \__('Snapshot request accepted.', 'lime-remote-controller'),
+                    'message' => isset($data['snapshot_id'])
+                        ? sprintf(\__('Snapshot queued (ID #%d).', 'lime-remote-controller'), (int) $data['snapshot_id'])
+                        : \__('Snapshot request accepted.', 'lime-remote-controller'),
                 ];
 
             case 'snapshot':

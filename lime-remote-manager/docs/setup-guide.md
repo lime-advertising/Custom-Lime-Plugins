@@ -51,7 +51,8 @@
 2. Verify the main file `lime-remote-agent.php` autoloads without errors.
 3. Run `wp plugin list` to confirm the MU-plugin is visible as `true` under `Must Use` column.
 4. Retrieve the generated shared secret either via `wp lime-remote secret` or by temporarily defining `LIMERM_AGENT_ADMIN_UI` as `true` in `wp-config.php` and visiting **Tools → Lime Remote Agent**. Store the secret securely and remove/disable the constant after use.
-5. (Optional) Run `wp lime-remote health-check` to validate prerequisites.
+5. Ensure the web server user can write to `wp-content/uploads/` — snapshots are stored under `wp-content/uploads/lrm-snapshots/` (per blog).
+6. (Optional) Run `wp lime-remote health-check` to validate prerequisites.
 
 ### 4.4 Network Adjustments
 1. Add controller IP(s) to any firewalls or WAF allowlists on the managed site.
@@ -82,17 +83,17 @@
 ## 6. Post-Install Tasks
 - Schedule secret rotation cadence (e.g., quarterly) and document storage location.
 - Configure IP allowlists both on agent servers and controller outbound firewall.
-- Verify Action Scheduler queue contains snapshot/rollback hooks and is processing.
+- Verify WP-Cron is processing and that `lime_remote_agent_run_snapshot` events complete successfully.
 - Enable optional offsite snapshot storage (S3/Wasabi) via controller settings.
 - Set up monitoring alerts (StatsD/Sentry) following internal policy.
 
 ## 7. Validation Checklist
 - [ ] Controller dashboard displays new site with accurate status.
 - [ ] Manual `GET /wp-json/lrma/v1/info` (signed via controller) succeeds.
-- [ ] Test snapshot completes (observe job ID, ensure stored in `lrm-snapshots`).
+- [ ] Test snapshot completes (observe snapshot ID, confirm archive appears under `wp-content/uploads/lrm-snapshots/`).
 - [ ] Perform non-destructive action (e.g., health refresh) and confirm audit log entry.
 - [ ] For multisite, confirm subsite list matches `wp site list` output.
-- [ ] Verify cron events scheduled (`lrm_agent_snapshot_prune`, `lrm_controller_log_prune`).
+- [ ] Verify cron events scheduled (e.g., `lime_remote_agent_run_snapshot`, `lrm_controller_log_prune`).
 
 ## 8. Appendix
 ### 8.1 Quick Reference Commands
