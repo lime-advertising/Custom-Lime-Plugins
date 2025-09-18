@@ -58,6 +58,33 @@ class Admin {
                             <td><input type="text" class="regular-text" name="settings[exports]" value="<?php echo esc_attr($settings['exports']); ?>"></td>
                         </tr>
                         <tr>
+                            <th scope="row"><?php esc_html_e('Authentication', 'ssgs'); ?></th>
+                            <td>
+                                <fieldset>
+                                    <label><input type="radio" name="settings[auth][mode]" value="ssh" <?php checked($settings['auth']['mode'], 'ssh'); ?>> <?php esc_html_e('SSH deploy key (recommended)', 'ssgs'); ?></label><br>
+                                    <label><input type="radio" name="settings[auth][mode]" value="https-token" <?php checked($settings['auth']['mode'], 'https-token'); ?>> <?php esc_html_e('HTTPS + Personal Access Token', 'ssgs'); ?></label>
+                                </fieldset>
+                                <div id="ssgss-auth-token" <?php if ($settings['auth']['mode'] !== 'https-token') echo 'style="display:none"'; ?>>
+                                    <p class="description"><?php esc_html_e('Paste a GitHub Personal Access Token that can read the repository. Leave the token field blank to keep the stored value.', 'ssgs'); ?></p>
+                                    <p>
+                                        <label><?php esc_html_e('Username (optional)', 'ssgs'); ?><br>
+                                            <input type="text" name="settings[auth][username]" value="<?php echo esc_attr($settings['auth']['username']); ?>">
+                                        </label>
+                                    </p>
+                                    <p>
+                                        <label><?php esc_html_e('Personal Access Token', 'ssgs'); ?><br>
+                                            <input type="password" name="settings[auth][token]" value="" autocomplete="new-password">
+                                        </label>
+                                    </p>
+                                    <?php if (!empty($settings['auth']['token'])) : ?>
+                                        <p class="description"><?php esc_html_e('A token is currently stored. Tick the box below to remove it.', 'ssgs'); ?></p>
+                                        <label><input type="checkbox" name="settings[auth][clear]" value="1"> <?php esc_html_e('Clear stored token on save', 'ssgs'); ?></label>
+                                    <?php endif; ?>
+                                </div>
+                                <p class="description"><?php esc_html_e('Tokens are encrypted in the database. Choose HTTPS mode if you cannot manage SSH keys on this server.', 'ssgs'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
                             <th scope="row"><?php esc_html_e('Cron Frequency', 'ssgs'); ?></th>
                             <td>
                                 <select name="settings[cron]">
@@ -121,15 +148,27 @@ class Admin {
         <script>
             (function() {
                 const btn = document.getElementById('ssgss-add-project');
-                if (!btn) return;
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const tbody = document.getElementById('ssgss-project-rows');
-                    const tpl = document.getElementById('ssgss-project-template');
-                    if (tbody && tpl) {
-                        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
-                    }
-                });
+                if (btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const tbody = document.getElementById('ssgss-project-rows');
+                        const tpl = document.getElementById('ssgss-project-template');
+                        if (tbody && tpl) {
+                            tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
+                        }
+                    });
+                }
+
+                const authRadios = document.querySelectorAll('input[name="settings[auth][mode]"]');
+                const tokenWrap = document.getElementById('ssgss-auth-token');
+                if (authRadios.length && tokenWrap) {
+                    const toggle = () => {
+                        const selected = document.querySelector('input[name="settings[auth][mode]"]:checked');
+                        tokenWrap.style.display = selected && selected.value === 'https-token' ? '' : 'none';
+                    };
+                    authRadios.forEach(radio => radio.addEventListener('change', toggle));
+                    toggle();
+                }
             })();
         </script>
         <?php
@@ -152,6 +191,21 @@ class Admin {
         $settings = Plugin::getSettings();
         $merged   = array_merge($settings, $raw);
         $merged['projects'] = Support\normalize_projects($projects);
+
+        $auth = $raw['auth'] ?? [];
+        $mode = isset($auth['mode']) && $auth['mode'] === 'https-token' ? 'https-token' : 'ssh';
+        $merged['auth']['mode'] = $mode;
+        $merged['auth']['username'] = sanitize_text_field($auth['username'] ?? '');
+
+        $newToken = isset($auth['token']) ? trim((string) $auth['token']) : '';
+        $clearToken = !empty($auth['clear']);
+        if ($clearToken) {
+            $merged['auth']['token'] = '';
+        } elseif ($newToken !== '') {
+            $merged['auth']['token'] = Support\encrypt_secret($newToken);
+        } else {
+            $merged['auth']['token'] = $settings['auth']['token'] ?? '';
+        }
 
         Plugin::saveSettings($merged);
         Cron::refreshSchedule();

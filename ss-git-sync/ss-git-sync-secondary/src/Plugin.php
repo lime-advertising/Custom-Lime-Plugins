@@ -23,6 +23,11 @@ class Plugin {
             'exports'     => SSGSS_PATH . 'exports/',
             'projects'    => [],
             'project_ids' => [],
+            'auth'        => [
+                'mode'     => 'ssh',
+                'token'    => '',
+                'username' => '',
+            ],
             'cron'        => 'hourly',
         ];
     }

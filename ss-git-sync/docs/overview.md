@@ -4,6 +4,7 @@
 - **ss-git-sync-master/** – install only on the source site. Exports selected Smart Slider 3 projects to Git.
 - **ss-git-sync-secondary/** – install on every downstream site. Pulls `.ss3` files from Git, deletes any old copy of the slider, and re-imports the latest version.
 - Each plugin bundles its own Git wrapper, logging, and settings helpers so you can drop the folder straight into `wp-content/plugins/`.
+- Both plugins support SSH deploy keys and HTTPS Personal Access Tokens (stored encrypted) so teams can choose the authentication model that best fits their environment.
 
 ## Master Flow
 1. Configure repository URL, branch, exports directory, and the project map (alias → `.ss3`).

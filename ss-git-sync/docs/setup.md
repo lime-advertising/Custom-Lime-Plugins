@@ -10,9 +10,10 @@
 1. Upload `ss-git-sync-master/` to `wp-content/plugins/` and activate it.
 2. Ensure the plugin’s `exports/` folder is writable by the web user.
 3. Configure the plugin (Settings → **SS Git Sync (Master)**):
-   - Repository URL (SSH strongly recommended).
+   - Repository URL (SSH strongly recommended, HTTPS supported).
    - Branch name (default `main`).
    - Export directory (defaults to the plugin folder).
+   - Authentication: choose SSH or HTTPS token (tokens are stored encrypted; leave the token field blank on later saves to keep the existing value).
    - Project map: Smart Slider alias → filename (e.g. `homepage_hero` → `homepage_hero.ss3`).
 4. Click **Save Settings**. The form persists values immediately—no more disappearing fields.
 5. Trigger **Export & Push Now** to create the initial commit and push.
@@ -23,6 +24,7 @@
 3. Configure the plugin (Settings → **SS Git Sync (Secondary)**):
    - Repository URL/branch pointing to the same Git repo as the master.
    - Export directory (defaults to the plugin folder).
+   - Authentication mode (SSH or HTTPS token). Tokens are stored encrypted and never displayed once saved.
    - Cron frequency for automated pulls (e.g. hourly).
    - Project map matching the master alias → filename entries.
 4. Save the settings. The project list remains intact after saving.

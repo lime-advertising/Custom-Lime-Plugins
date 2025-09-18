@@ -41,19 +41,21 @@ Navigate to **Settings → SS Git Sync (Master)**:
 1. **Repository URL** – SSH URL is recommended (e.g. `git@github.com:org/slider-sync.git`).
 2. **Branch** – defaults to `main`; change if you track a different branch.
 3. **Exports Directory** – defaults to the plugin’s `exports/` folder.
-4. **Project Map** – add one row per Smart Slider project using the slider alias and the desired `.ss3` filename (e.g. `homepage_hero` → `homepage_hero.ss3`).
-5. Click **Save Settings**.
-6. Press **Export & Push Now** to export all mapped sliders, commit the `.ss3` files, and push to the configured repository.
+4. **Authentication** – choose between SSH deploy keys (recommended) or HTTPS + Personal Access Token. When HTTPS is selected, the token is stored encrypted; leave the field blank on subsequent saves to keep the existing token or tick “Clear stored token” to remove it.
+5. **Project Map** – add one row per Smart Slider project using the slider alias and the desired `.ss3` filename (e.g. `homepage_hero` → `homepage_hero.ss3`).
+6. Click **Save Settings**.
+7. Press **Export & Push Now** to export all mapped sliders, commit the `.ss3` files, and push to the configured repository.
 
 ## Configuring the Secondary Plugin
 On each downstream site, go to **Settings → SS Git Sync (Secondary)**:
 
 1. Set **Repository URL** and **Branch** to match the master.
 2. Optionally adjust the **Exports Directory** (defaults to the plugin folder).
-3. Pick a **Cron Frequency** (e.g. hourly). This schedules the importer via `ssgss_cron_sync`.
-4. Recreate the same **Project Map** (alias → `.ss3` filename) used on the master site.
-5. Click **Save Settings**.
-6. Press **Pull & Import Now** to clone/refresh the repo, delete any existing slider with that alias, import the new `.ss3`, and cache the Smart Slider ID.
+3. Choose the authentication method (SSH deploy key or HTTPS token). HTTPS tokens are encrypted and never displayed after saving.
+4. Pick a **Cron Frequency** (e.g. hourly). This schedules the importer via `ssgss_cron_sync`.
+5. Recreate the same **Project Map** (alias → `.ss3` filename) used on the master site.
+6. Click **Save Settings**.
+7. Press **Pull & Import Now** to clone/refresh the repo, delete any existing slider with that alias, import the new `.ss3`, and cache the Smart Slider ID.
 
 ## Typical Workflow
 1. Edit a Smart Slider project on the master site.

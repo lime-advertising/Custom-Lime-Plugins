@@ -21,11 +21,8 @@ class Importer {
     }
 
     public function pullAndImportAll(): void {
-        if (empty($this->settings['repo'])) {
-            throw new RuntimeException('Repository URL not configured.');
-        }
-
-        $this->git->ensureRepo($this->settings['repo'], $this->settings['branch']);
+        $remote = $this->resolveRemote();
+        $this->git->ensureRepo($remote, $this->settings['branch']);
 
         $before = $this->git->currentCommit();
         $this->git->pull($this->settings['branch']);
@@ -176,6 +173,54 @@ class Importer {
 
     private function projectPath(string $filename): string {
         return trailingslashit($this->settings['exports']) . ltrim($filename, '/');
+    }
+
+    private function resolveRemote(): string {
+        $remote = trim((string) ($this->settings['repo'] ?? ''));
+        if ($remote === '') {
+            throw new RuntimeException('Repository URL not configured.');
+        }
+
+        $auth = $this->settings['auth'] ?? [];
+        if (($auth['mode'] ?? 'ssh') === 'https-token') {
+            $token = Support\decrypt_secret($auth['token'] ?? '');
+            if ($token === '') {
+                throw new RuntimeException('HTTPS token mode selected but no token is stored.');
+            }
+            $username = sanitize_text_field($auth['username'] ?? '');
+            $remote = $this->buildHttpsRemote($remote, $username, $token);
+        }
+
+        return $remote;
+    }
+
+    private function buildHttpsRemote(string $base, string $username, string $token): string {
+        $parts = wp_parse_url($base);
+        if (!$parts || empty($parts['host'])) {
+            if (preg_match('~git@([^:]+):(.+)~', $base, $m)) {
+                $parts = [
+                    'scheme' => 'https',
+                    'host'   => $m[1],
+                    'path'   => '/' . ltrim($m[2], '/'),
+                ];
+            } else {
+                throw new RuntimeException('Invalid repository URL.');
+            }
+        }
+
+        $scheme = $parts['scheme'] ?? 'https';
+        $host   = $parts['host'];
+        $port   = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $path   = $parts['path'] ?? '';
+        $query  = isset($parts['query']) ? '?' . $parts['query'] : '';
+
+        if ($username === '') {
+            $auth = rawurlencode('x-oauth-basic') . ':' . rawurlencode($token);
+        } else {
+            $auth = rawurlencode($username) . ':' . rawurlencode($token);
+        }
+
+        return sprintf('%s://%s@%s%s%s%s', $scheme, $auth, $host, $port, $path, $query);
     }
 
     private function resolveProjectId(string $slug): ?int {

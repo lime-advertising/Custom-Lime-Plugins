@@ -22,6 +22,11 @@ class Plugin {
             'exports'     => SSGSM_PATH . 'exports/',
             'projects'    => [],
             'project_ids' => [],
+            'auth'        => [
+                'mode'     => 'ssh',
+                'token'    => '',
+                'username' => '',
+            ],
         ];
     }
 
