@@ -1601,24 +1601,46 @@ final class CPT_Hub_Publisher
     {
         $a = shortcode_atts([
             'cpt' => '',
+            'cpts' => '',
             'n' => 10,
             'paged' => 1,
             'location' => '',
+            'tax' => '',
+            'terms' => '',
         ], $atts, 'cphub_list');
-        $cpt = sanitize_key($a['cpt']);
-        if (!$cpt) return '';
+        $requested = [];
+        foreach (['cpt', 'cpts'] as $key) {
+            if (empty($a[$key])) continue;
+            $parts = array_map('trim', explode(',', (string)$a[$key]));
+            foreach ($parts as $part) {
+                $slug = sanitize_key($part);
+                if ($slug !== '') $requested[] = $slug;
+            }
+        }
+        $cpts = array_values(array_unique($requested));
+        if (!$cpts) return '';
+        $primary_cpt = $cpts[0];
         $n = max(1, intval($a['n']));
         $paged = max(1, intval($a['paged']));
         $loc = sanitize_key($a['location']);
+        $tax_slug = sanitize_key($a['tax']);
+        $term_slugs = array_values(array_filter(array_map('sanitize_key', array_map('trim', explode(',', (string)$a['terms'])))));
 
         // Enqueue styles for this CPT
-        $assets_css = $this->enqueue_style_for_cpt($cpt);
-        $cfg = $this->get_styles_config($cpt);
-        $layout = $cfg['layout'];
-        $layout_type = isset($cfg['styles']['layout_type']) && $cfg['styles']['layout_type'] === 'grid' ? 'grid' : 'list';
+        $layout_map = [];
+        $css_map = [];
+        $layout_types = [];
+        foreach ($cpts as $slug) {
+            $css_map[$slug] = $this->enqueue_style_for_cpt($slug);
+            $cfg = $this->get_styles_config($slug);
+            $layout_map[$slug] = isset($cfg['layout']) && is_array($cfg['layout']) ? $cfg['layout'] : [];
+            $type = (isset($cfg['styles']['layout_type']) && $cfg['styles']['layout_type'] === 'grid') ? 'grid' : 'list';
+            $layout_types[$type] = true;
+        }
+        $wrap_class = (count($layout_types) === 1 && isset($layout_types['grid'])) ? 'cphub-grid' : 'cphub-list';
 
         $args = [
-            'post_type' => [$cpt],
+            'post_type' => $cpts,
             'post_status' => 'publish',
             'posts_per_page' => $n,
             'paged' => $paged,
@@ -1626,23 +1648,44 @@ final class CPT_Hub_Publisher
             'orderby' => 'date',
             'order' => 'DESC',
         ];
+        $tax_query = [];
         if ($loc && taxonomy_exists('location')) {
-            $args['tax_query'] = [[
+            $tax_query[] = [
                 'taxonomy' => 'location',
                 'field' => 'slug',
                 'terms' => [$loc, 'all-locations'],
                 'operator' => 'IN',
-            ]];
+            ];
+        }
+        if ($tax_slug && taxonomy_exists($tax_slug) && $term_slugs) {
+            $tax_query[] = [
+                'taxonomy' => $tax_slug,
+                'field' => 'slug',
+                'terms' => $term_slugs,
+                'operator' => 'IN',
+            ];
+        }
+        if ($tax_query) {
+            if (count($tax_query) > 1) {
+                $tax_query = array_merge(['relation' => 'AND'], $tax_query);
+            }
+            $args['tax_query'] = $tax_query;
         }
         $q = new WP_Query($args);
         if (!$q->have_posts()) return '';
 
         ob_start();
-        echo '<div class="' . esc_attr($layout_type === 'grid' ? 'cphub-grid' : 'cphub-list') . '">';
+        echo '<div class="' . esc_attr($wrap_class) . '">';
         while ($q->have_posts()) {
             $q->the_post();
             $item = $this->map_post_to_feed_item(get_post());
-            echo $this->render_card_from_item($item, $cpt, $layout, $assets_css);
+            $item_cpt = isset($item['post_type']) ? sanitize_key((string)$item['post_type']) : $primary_cpt;
+            if (!$item_cpt || !isset($layout_map[$item_cpt])) {
+                $item_cpt = $primary_cpt;
+            }
+            $layout = $layout_map[$item_cpt] ?? $layout_map[$primary_cpt] ?? [];
+            $assets_css = $css_map[$item_cpt] ?? $css_map[$primary_cpt] ?? '';
+            echo $this->render_card_from_item($item, $item_cpt, $layout, $assets_css);
         }
         wp_reset_postdata();
         echo '</div>';

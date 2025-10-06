@@ -1209,26 +1209,69 @@ final class CPT_Hub_Consumer
     {
         $a = shortcode_atts([
             'cpt' => '',
+            'cpts' => '',
             'n' => 10,
             'paged' => 1,
+            'tax' => '',
+            'terms' => '',
         ], $atts, 'cphub_list');
-        $cpt = sanitize_key($a['cpt']);
-        if (!$cpt) return '';
-        // Ensure CSS is enqueued at render time so timing is correct
-        $this->enqueue_style_for_cpt($cpt);
-        $items = $this->get_cached_items($cpt);
+        $requested = [];
+        foreach (['cpt', 'cpts'] as $key) {
+            if (empty($a[$key])) continue;
+            $parts = array_map('trim', explode(',', (string)$a[$key]));
+            foreach ($parts as $part) {
+                $slug = sanitize_key($part);
+                if ($slug !== '') $requested[] = $slug;
+            }
+        }
+        $cpts = array_values(array_unique($requested));
+        if (!$cpts) return '';
+        $items = [];
+        $layout_types = [];
+        foreach ($cpts as $slug) {
+            $this->enqueue_style_for_cpt($slug);
+            $this->mark_need_style($slug);
+            $subset = $this->get_cached_items($slug);
+            if ($subset) {
+                $items = array_merge($items, $subset);
+            }
+            $layout_types[$this->get_layout_type($slug)] = true;
+        }
         if (!$items) return '';
-        $this->mark_need_style($cpt);
         $n = max(1, intval($a['n']));
         $paged = max(1, intval($a['paged']));
+        $tax_slug = sanitize_key($a['tax']);
+        $term_slugs = array_values(array_filter(array_map('sanitize_key', array_map('trim', explode(',', (string)$a['terms'])))));
+        if ($tax_slug && $term_slugs) {
+            $items = array_values(array_filter($items, function ($item) use ($tax_slug, $term_slugs) {
+                if (empty($item['tax_terms']) || !is_array($item['tax_terms'])) return false;
+                foreach ($item['tax_terms'] as $tt) {
+                    if (!is_array($tt)) continue;
+                    if (($tt['tax'] ?? '') === $tax_slug && in_array($tt['slug'] ?? '', $term_slugs, true)) {
+                        return true;
+                    }
+                }
+                return false;
+            }));
+            if (!$items) return '';
+        }
+        usort($items, function ($a, $b) {
+            $ta = isset($a['date']) ? strtotime((string)$a['date']) : 0;
+            $tb = isset($b['date']) ? strtotime((string)$b['date']) : 0;
+            if ($ta === $tb) return 0;
+            return ($ta > $tb) ? -1 : 1;
+        });
         $offset = ($paged - 1) * $n;
         $slice = array_slice($items, $offset, $n);
-        $layout_type = $this->get_layout_type($cpt);
-        $wrap_class = $layout_type === 'grid' ? 'cphub-grid' : 'cphub-list';
+        if (!$slice) return '';
+        $wrap_class = (count($layout_types) === 1 && isset($layout_types['grid'])) ? 'cphub-grid' : 'cphub-list';
         ob_start();
         echo '<div class="' . esc_attr($wrap_class) . '">';
         foreach ($slice as $it) {
-            echo $this->render_card($it, $cpt);
+            $item_cpt = isset($it['post_type']) ? sanitize_key((string)$it['post_type']) : ($cpts[0] ?? '');
+            if (!$item_cpt) $item_cpt = $cpts[0];
+            $this->mark_need_style($item_cpt);
+            echo $this->render_card($it, $item_cpt);
         }
         echo '</div>';
         return ob_get_clean();
