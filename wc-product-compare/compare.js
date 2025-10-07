@@ -1,7 +1,65 @@
 jQuery(document).ready(function ($) {
   let compareList = JSON.parse(localStorage.getItem("compareList")) || [];
+  const cardClassSetting = (wcp_ajax.card_class || "").trim();
+  const cardClassTokens = cardClassSetting
+    .split(/\s+/)
+    .map((cls) => cls.replace(/^\./, ""))
+    .filter(Boolean);
 
   sessionStorage.removeItem("wcp_open_modal");
+
+  function findCardElement(element) {
+    if (!cardClassTokens.length) return null;
+    let current = element ? element.parentElement : null;
+
+    while (current) {
+      if (
+        current.classList &&
+        cardClassTokens.every((className) => current.classList.contains(className))
+      ) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+
+    return null;
+  }
+
+  function applyCardClassLogic() {
+    if (!cardClassTokens.length) {
+      document.querySelectorAll(".wcp-button-group").forEach((groupEl) => {
+        groupEl.style.display = "";
+        const compareEl = groupEl.querySelector(".wcp-compare-button");
+        if (compareEl) {
+          compareEl.style.display = "";
+        }
+      });
+      return;
+    }
+
+    document.querySelectorAll(".wcp-button-group").forEach((groupEl) => {
+      const cardEl = findCardElement(groupEl);
+      if (!cardEl) {
+        groupEl.style.display = "none";
+        return;
+      }
+
+      const compareEl = groupEl.querySelector(".wcp-compare-button");
+      const hasAddToCart = !!cardEl.querySelector(".add_to_cart_button");
+      if (hasAddToCart) {
+        groupEl.style.display = "none";
+        if (compareEl) {
+          compareEl.style.display = "none";
+        }
+        return;
+      }
+
+      groupEl.style.display = "";
+      if (compareEl) {
+        compareEl.style.display = "";
+      }
+    });
+  }
 
   function saveCompareList() {
     localStorage.setItem("compareList", JSON.stringify(compareList));
@@ -18,6 +76,7 @@ jQuery(document).ready(function ($) {
         $(this).text("Compare");
       }
     });
+    applyCardClassLogic();
   }
 
   function updateCompareShortcodeIcon() {
@@ -58,6 +117,7 @@ jQuery(document).ready(function ($) {
           $("#wcp-compare-modal").show();
 
           // JS Event Tracking for Compare Actions
+          window.dataLayer = window.dataLayer || [];
           window.dataLayer.push({
             event: "compare_modal_open",
             product_ids: compareList,
@@ -120,6 +180,7 @@ jQuery(document).ready(function ($) {
     updateModal();
 
     // JS Event Tracking for Compare Actions
+    window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
       event: "compare_remove",
       product_id: idToRemove,
@@ -152,4 +213,9 @@ jQuery(document).ready(function ($) {
   if (sessionStorage.getItem("wcp_open_modal") === "yes") {
     updateModal();
   }
+
+  $(document.body).on("updated_wc_div", function () {
+    updateCompareButtons();
+    updateCompareShortcodeIcon();
+  });
 });

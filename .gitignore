@@ -1,0 +1,40 @@
+.DS_Store
+Thumbs.db
+
+# IDE / tooling
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+
+# Node / front-end build
+node_modules/
+dist/
+build/
+*.log
+
+# PHP / Composer
+vendor/
+
+# Environment files
+.env
+.env.*
+
+# WordPress
+wp-config.php
+wp-config-sample.php
+wp-content/advanced-cache.php
+wp-content/backup-db/
+wp-content/backups/
+wp-content/blogs.dir/
+wp-content/cache/
+wp-content/languages/
+wp-content/mu-plugins/
+wp-content/upgrade/
+wp-content/uploads/
+wp-content/wp-cache-config.php
+wp-content/debug.log
+wp-content/php-errors.log
+wp-content/object-cache.php
+wp-content/plugins/hello.php

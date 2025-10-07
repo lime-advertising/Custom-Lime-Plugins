@@ -11,10 +11,16 @@ if (!defined('ABSPATH')) exit;
 
 // Enqueue scripts and styles
 add_action('wp_enqueue_scripts', function () {
+    $options = get_option('wcp_settings', []);
+    if (!is_array($options)) {
+        $options = [];
+    }
+
     wp_enqueue_style('wcp-compare-style', plugin_dir_url(__FILE__) . 'compare.css');
     wp_enqueue_script('wcp-compare-script', plugin_dir_url(__FILE__) . 'compare.js', ['jquery'], null, true);
     wp_localize_script('wcp-compare-script', 'wcp_ajax', [
         'ajax_url' => admin_url('admin-ajax.php'),
+        'card_class' => isset($options['product_card_class']) ? sanitize_text_field($options['product_card_class']) : '',
     ]);
 });
 
@@ -27,13 +33,16 @@ function wcp_add_buttons_wrapper()
     global $product;
     $product_url = get_permalink($product->get_id());
 
-    $options = get_option('wcp_settings');
+    $options = get_option('wcp_settings', []);
+    if (!is_array($options)) {
+        $options = [];
+    }
 
     if (!empty($options['enable_compare'])) {
         $label = $options['compare_button_label'] ?? '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" stroke-width="0.00024000000000000003"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M1,8A1,1,0,0,1,2,7H9.586L7.293,4.707A1,1,0,1,1,8.707,3.293l4,4a1,1,0,0,1,0,1.414l-4,4a1,1,0,1,1-1.414-1.414L9.586,9H2A1,1,0,0,1,1,8Zm21,7H14.414l2.293-2.293a1,1,0,0,0-1.414-1.414l-4,4a1,1,0,0,0,0,1.414l4,4a1,1,0,0,0,1.414-1.414L14.414,17H22a1,1,0,0,0,0-2Z"></path></g></svg>';
         echo '<div class="wcp-button-group">';
         echo '<a href="' . esc_url($product_url) . '" class="wcp-view-product">View</a>';
-        echo '<button class="wcp-compare-button" data-product-id="' . esc_attr($product->get_id()) . '">' . esc_html($label) . '</button>';
+        echo '<button class="wcp-compare-button" data-product-id="' . esc_attr($product->get_id()) . '">' . wp_kses_post($label) . '</button>';
         echo '</div>';
     }
 }

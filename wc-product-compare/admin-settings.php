@@ -17,11 +17,32 @@ add_action('admin_init', function () {
         'enable_compare',
         'Enable Compare Buttons',
         function () {
-            $options = get_option('wcp_settings');
+            $options = get_option('wcp_settings', []);
+            if (!is_array($options)) {
+                $options = [];
+            }
 ?>
         <input type="hidden" name="wcp_settings[enable_compare]" value="0" />
         <input type="checkbox" name="wcp_settings[enable_compare]" value="1" <?php checked(1, $options['enable_compare'] ?? 1); ?> />
 
+    <?php
+        },
+        'wcp-settings',
+        'wcp_main_section'
+    );
+
+    add_settings_field(
+        'product_card_class',
+        'Product Card CSS Class',
+        function () {
+            $options = get_option('wcp_settings', []);
+            if (!is_array($options)) {
+                $options = [];
+            }
+            $value = isset($options['product_card_class']) ? esc_attr($options['product_card_class']) : '';
+?>
+        <input type="text" name="wcp_settings[product_card_class]" value="<?php echo $value; ?>" class="regular-text" placeholder="e.g. lf-product-card" />
+        <p class="description">Optional. Limit compare buttons to product cards with this class. Leave blank for default behaviour.</p>
     <?php
         },
         'wcp-settings',
