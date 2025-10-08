@@ -29,12 +29,20 @@ add_action('plugins_loaded', function() {
     require_once LF_PLUGIN_DIR . 'includes/class-lf-frontend.php';
     require_once LF_PLUGIN_DIR . 'includes/class-lf-ajax.php';
     require_once LF_PLUGIN_DIR . 'includes/class-lf-elementor-widget.php';
+    require_once LF_PLUGIN_DIR . 'includes/product-background/class-lf-product-background.php';
+    require_once LF_PLUGIN_DIR . 'includes/related-products/class-lf-related-products.php';
 
     // Init
     LF_Admin::init();
     LF_Frontend::init();
     LF_AJAX::init();
     LF_Elementor_Widget::maybe_register();
+    LF_Product_Background::init();
+    LF_Related_Products::init();
+
+    add_filter('woocommerce_placeholder_img_src', function($src){
+        return LF_Helpers::placeholder_image_url();
+    });
 });
 
 // Activation defaults

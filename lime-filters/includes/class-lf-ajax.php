@@ -1,14 +1,19 @@
 <?php
-if ( ! defined( 'ABSPATH' ) ) { exit; }
+if (! defined('ABSPATH')) {
+    exit;
+}
 
-class LF_AJAX {
-    public static function init() {
+class LF_AJAX
+{
+    public static function init()
+    {
         add_action('wp_ajax_lime_filter_products', [__CLASS__, 'handle']);
         add_action('wp_ajax_nopriv_lime_filter_products', [__CLASS__, 'handle']);
     }
 
-    public static function handle() {
-        check_ajax_referer('lf_nonce','nonce');
+    public static function handle()
+    {
+        check_ajax_referer('lf_nonce', 'nonce');
 
         $category   = sanitize_text_field($_POST['category'] ?? '');
         $orderby    = sanitize_text_field($_POST['orderby'] ?? 'menu_order');
@@ -17,7 +22,7 @@ class LF_AJAX {
         $pagination = isset($_POST['pagination']) && $_POST['pagination'] === 'yes';
         $per_page   = isset($_POST['per_page']) ? max(0, (int) $_POST['per_page']) : 0;
         $show_counts = isset($_POST['show_counts']) && $_POST['show_counts'] === 'yes' ? 'yes' : 'no';
-        $columns     = isset($_POST['columns']) ? self::sanitize_columns_request($_POST['columns']) : ['desktop'=>0,'tablet'=>0,'mobile'=>0];
+        $columns     = isset($_POST['columns']) ? self::sanitize_columns_request($_POST['columns']) : ['desktop' => 0, 'tablet' => 0, 'mobile' => 0];
 
         $response = self::get_products_html($category, $filters, $orderby, $page, $pagination, $per_page, $show_counts, $columns);
         if (!is_array($response)) {
@@ -35,7 +40,8 @@ class LF_AJAX {
         wp_send_json_success($response);
     }
 
-    public static function get_products_html($category = '', $filters = [], $orderby = 'menu_order', $page = 1, $pagination_enabled = false, $per_page = 0, $show_counts = 'no', $columns_config = []) {
+    public static function get_products_html($category = '', $filters = [], $orderby = 'menu_order', $page = 1, $pagination_enabled = false, $per_page = 0, $show_counts = 'no', $columns_config = [])
+    {
         $filters = self::sanitize_filters($filters);
         $per_page_value = self::products_per_page($per_page);
         $columns_config = self::sanitize_columns_request($columns_config);
@@ -85,41 +91,48 @@ class LF_AJAX {
                 $permalink = get_permalink();
                 $title     = get_the_title();
                 $thumbnail = $product->get_image('woocommerce_thumbnail');
+                if (!$thumbnail || strpos($thumbnail, 'woocommerce-placeholder') !== false) {
+                    $thumbnail = '<img src="' . esc_url(LF_Helpers::placeholder_image_url()) . '" alt="" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail lf-placeholder" />';
+                }
                 $price     = $product->get_price_html();
+                $sku       = $product->get_sku();
                 $categories = self::category_links(get_the_ID());
 
                 $button_html = self::render_product_actions($product);
 
-                ?>
+?>
                 <article class="lf-product">
-                  <a class="lf-product__thumb" href="<?php echo esc_url($permalink); ?>">
-                    <?php echo $thumbnail; ?>
-                  </a>
-                  <div class="lf-product__body">
-                    <?php if ($categories) : ?>
-                      <div class="lf-product__cats"><?php echo $categories; ?></div>
-                    <?php endif; ?>
-                    <h3 class="lf-product__title">
-                      <a href="<?php echo esc_url($permalink); ?>"><?php echo esc_html($title); ?></a>
-                    </h3>
-                    <?php if ($price) : ?>
-                      <div class="lf-product__price"><?php echo $price; ?></div>
-                    <?php endif; ?>
-                  </div>
-                  <?php if (!empty($button_html)) : ?>
-                    <div class="lf-product__actions">
-                      <?php echo $button_html; ?>
+                    <a class="lf-product__thumb" href="<?php echo esc_url($permalink); ?>">
+                        <?php echo $thumbnail; ?>
+                        <?php if ($sku) : ?>
+                            <div class="lf-product__sku"><?php echo esc_html($sku); ?></div>
+                        <?php endif; ?>
+                    </a>
+                    <div class="lf-product__body">
+                        <?php if ($categories) : ?>
+                            <div class="lf-product__cats"><?php echo $categories; ?></div>
+                        <?php endif; ?>
+                        <h3 class="lf-product__title">
+                            <a href="<?php echo esc_url($permalink); ?>"><?php echo esc_html($title); ?></a>
+                        </h3>
+                        <?php if ($price) : ?>
+                            <div class="lf-product__price"><?php echo $price; ?></div>
+                        <?php endif; ?>
                     </div>
-                  <?php endif; ?>
+                    <?php if (!empty($button_html)) : ?>
+                        <div class="lf-product__actions">
+                            <?php echo $button_html; ?>
+                        </div>
+                    <?php endif; ?>
                 </article>
-                <?php
+<?php
             }
 
             echo '</div>';
             $products_html = ob_get_clean();
             wp_reset_postdata();
         } else {
-            $products_html = '<p class="lf-no-results">'.esc_html__('No products match your filters.','lime-filters').'</p>';
+            $products_html = '<p class="lf-no-results">' . esc_html__('No products match your filters.', 'lime-filters') . '</p>';
         }
 
         if ($pagination_enabled) {
@@ -140,7 +153,8 @@ class LF_AJAX {
         ];
     }
 
-    protected static function build_query_args($category, $filters, $orderby, $page = 1, $per_page = 0) {
+    protected static function build_query_args($category, $filters, $orderby, $page = 1, $per_page = 0)
+    {
         $tax_query = self::build_tax_query($category, $filters);
 
         $args = [
@@ -180,7 +194,8 @@ class LF_AJAX {
         return $args;
     }
 
-    protected static function sanitize_filters($filters) {
+    protected static function sanitize_filters($filters)
+    {
         if (!is_array($filters)) {
             return [];
         }
@@ -200,7 +215,8 @@ class LF_AJAX {
         return $sanitized;
     }
 
-    protected static function build_tax_query($category, $filters) {
+    protected static function build_tax_query($category, $filters)
+    {
         $tax_query = ['relation' => 'AND'];
 
         if ($category) {
@@ -227,7 +243,8 @@ class LF_AJAX {
         return $tax_query;
     }
 
-    protected static function products_per_page($requested = 0) {
+    protected static function products_per_page($requested = 0)
+    {
         $requested = (int) $requested;
         $max = (int) apply_filters('lime_filters_max_per_page', 48);
         if ($requested > 0) {
@@ -245,7 +262,8 @@ class LF_AJAX {
         return max(1, $per_page);
     }
 
-    protected static function grid_columns() {
+    protected static function grid_columns()
+    {
         $default = function_exists('wc_get_default_products_per_row') ? wc_get_default_products_per_row() : 3;
         $value = (int) apply_filters('lime_filters_grid_columns', $default);
         if ($value < 1) {
@@ -257,7 +275,8 @@ class LF_AJAX {
         return $value;
     }
 
-    protected static function category_links($product_id) {
+    protected static function category_links($product_id)
+    {
         $terms = get_the_terms($product_id, 'product_cat');
         if (!$terms || is_wp_error($terms)) {
             return '';
@@ -275,7 +294,8 @@ class LF_AJAX {
         return implode(', ', $links);
     }
 
-    protected static function render_product_actions($product) {
+    protected static function render_product_actions($product)
+    {
         if (! $product instanceof WC_Product) {
             return '';
         }
@@ -296,14 +316,15 @@ class LF_AJAX {
 
         $actions[] = sprintf(
             '<a class="lf-button lf-button--secondary" href="%s">%s</a>',
-            esc_url( get_permalink( $product->get_id() ) ),
-            esc_html__( 'View', 'lime-filters' )
+            esc_url(get_permalink($product->get_id())),
+            esc_html__('View', 'lime-filters')
         );
 
         return implode('', $actions);
     }
 
-    protected static function supports_add_to_cart($product) {
+    protected static function supports_add_to_cart($product)
+    {
         $allowed = apply_filters('lime_filters_add_to_cart_categories', ['accessories', 'parts']);
         if (!$allowed) {
             return false;
@@ -316,7 +337,8 @@ class LF_AJAX {
         return (bool) array_intersect($allowed, $slugs);
     }
 
-    protected static function get_add_to_cart_button($product) {
+    protected static function get_add_to_cart_button($product)
+    {
         if (!function_exists('woocommerce_template_loop_add_to_cart')) {
             return '';
         }
@@ -345,7 +367,8 @@ class LF_AJAX {
         return $button;
     }
 
-    protected static function build_filters_payload($args, $selected_filters, $attributes, $include_categories, $show_counts) {
+    protected static function build_filters_payload($args, $selected_filters, $attributes, $include_categories, $show_counts)
+    {
         if (!$include_categories && empty($attributes)) {
             return [];
         }
@@ -389,7 +412,8 @@ class LF_AJAX {
         return $payload;
     }
 
-    protected static function collect_product_ids($args) {
+    protected static function collect_product_ids($args)
+    {
         $ids_args = $args;
         $ids_args['posts_per_page'] = -1;
         $ids_args['paged'] = 1;
@@ -405,7 +429,8 @@ class LF_AJAX {
         return $ids;
     }
 
-    protected static function build_taxonomy_filter_group($taxonomy, $label, $product_ids, $selected_filters, $show_counts) {
+    protected static function build_taxonomy_filter_group($taxonomy, $label, $product_ids, $selected_filters, $show_counts)
+    {
         $selected_slugs = isset($selected_filters[$taxonomy]) ? (array) $selected_filters[$taxonomy] : [];
         $selected_slugs = array_values(array_unique(array_map('sanitize_text_field', $selected_slugs)));
 
@@ -439,7 +464,7 @@ class LF_AJAX {
             return [];
         }
 
-        uasort($terms_by_slug, function($a, $b){
+        uasort($terms_by_slug, function ($a, $b) {
             return strcasecmp($a->name, $b->name);
         });
 
@@ -473,7 +498,8 @@ class LF_AJAX {
         ];
     }
 
-    protected static function term_counts_for_products($taxonomy, $product_ids) {
+    protected static function term_counts_for_products($taxonomy, $product_ids)
+    {
         $counts = [];
         if (empty($product_ids)) {
             return $counts;
@@ -497,7 +523,8 @@ class LF_AJAX {
         return $counts;
     }
 
-    protected static function sanitize_columns_request($columns) {
+    protected static function sanitize_columns_request($columns)
+    {
         $defaults = ['desktop' => 0, 'tablet' => 0, 'mobile' => 0];
         if (!is_array($columns)) {
             return $defaults;
@@ -513,7 +540,8 @@ class LF_AJAX {
         return $defaults;
     }
 
-    protected static function resolve_columns_config($columns, $category = '') {
+    protected static function resolve_columns_config($columns, $category = '')
+    {
         $desktop_default = self::grid_columns();
         $tablet_default  = (int) apply_filters('lime_filters_default_columns_tablet', max(1, min(3, $desktop_default)), $category);
         $mobile_default  = (int) apply_filters('lime_filters_default_columns_mobile', 1, $category);
@@ -533,7 +561,8 @@ class LF_AJAX {
         return $resolved;
     }
 
-    protected static function render_pagination($query, $current_page) {
+    protected static function render_pagination($query, $current_page)
+    {
         $total_pages = (int) $query->max_num_pages;
         if ($total_pages <= 1) {
             return '';
@@ -562,7 +591,8 @@ class LF_AJAX {
         );
     }
 
-    protected static function get_compare_button($product) {
+    protected static function get_compare_button($product)
+    {
         $product_id = $product->get_id();
         if (!$product_id) {
             return '';

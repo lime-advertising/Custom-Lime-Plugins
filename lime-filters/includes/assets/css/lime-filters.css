@@ -312,13 +312,40 @@ body.lf-offcanvas-open {
   display: block;
   position: relative;
   aspect-ratio: 1/1;
-  background: #f7f7f7;
+  background: #000000;
+  background-image: url(https://staging2.kucht.ca/wp-content/plugins/lime-filters/includes/assets/images/Kucht%20Products%20BG.png);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .lf-product__thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.lf-product__sku {
+  position: absolute;
+  width: 100%;
+  height: 48px;
+  left: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    #c39a3f 9.62%,
+    #f7e787 49.52%,
+    #c39a3f 89.9%
+  );
+  color: #000;
+  font-weight: 800;
+  font-size: 18px;
+  padding: 6px;
+  border-radius: 0;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* font-family: "Marcellus", sans-serif; */
 }
 .lf-product__body {
   flex: 1;

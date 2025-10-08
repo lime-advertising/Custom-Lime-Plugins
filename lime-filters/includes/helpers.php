@@ -64,6 +64,14 @@ class LF_Helpers {
         return $attr;
     }
 
+    public static function placeholder_image_url() {
+        $path = LF_PLUGIN_DIR . 'includes/assets/images/Kucht Placeholder.png';
+        if (!file_exists($path)) {
+            return wc_placeholder_img_src();
+        }
+        return LF_PLUGIN_URL . 'includes/assets/images/Kucht Placeholder.png';
+    }
+
     public static function attributes_for_context($context_slug) {
         $map = self::mapping();
         $key = $context_slug !== '' ? $context_slug : '__shop__';
