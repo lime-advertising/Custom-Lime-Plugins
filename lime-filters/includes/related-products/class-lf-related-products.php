@@ -98,6 +98,9 @@ class LF_Related_Products
                 if (!$thumbnail || strpos($thumbnail, 'woocommerce-placeholder') !== false) {
                     $thumbnail = '<img src="' . esc_url(LF_Helpers::placeholder_image_url()) . '" alt="" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail lf-placeholder" />';
                 }
+                if ($thumbnail && class_exists('LF_Product_Background') && method_exists('LF_Product_Background', 'apply_background_wrapper')) {
+                    $thumbnail = LF_Product_Background::apply_background_wrapper($thumbnail);
+                }
                 $price     = $related_product->get_price_html();
                 $sku       = $related_product->get_sku();
                 $categories = self::category_links($related_id);

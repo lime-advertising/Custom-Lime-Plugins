@@ -330,6 +330,10 @@ class LF_Product_Background {
         return '<span class="' . esc_attr($class) . '" style="' . esc_attr($style) . '">' . $html . '</span>';
     }
 
+    public static function apply_background_wrapper($html) {
+        return self::wrap_image_html($html);
+    }
+
     protected static function ensure_front_style() {
         if (self::$style_enqueued) {
             return;

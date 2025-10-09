@@ -1,3 +1,13 @@
+function getSwiperConstructor() {
+  if (typeof window.Swiper !== 'undefined') {
+    return window.Swiper;
+  }
+  if (window.elementorFrontend && elementorFrontend.utils && elementorFrontend.utils.swiper) {
+    return elementorFrontend.utils.swiper;
+  }
+  return null;
+}
+
 (function(){
   function parseSlides(value, fallback) {
     const parsed = parseInt(value, 10);
@@ -8,7 +18,8 @@
     if (!wrapper) return;
     const sliderEl = wrapper.querySelector('.lf-products--slider.swiper');
     if (!sliderEl) return;
-    if (typeof window.Swiper === 'undefined') {
+    const SwiperConstructor = getSwiperConstructor();
+    if (!SwiperConstructor) {
       return;
     }
 
@@ -44,7 +55,7 @@
       },
     };
 
-    const swiper = new Swiper(sliderEl, config);
+    const swiper = new SwiperConstructor(sliderEl, config);
     sliderEl.__lfSwiperInstance = swiper;
     wrapper.dataset.lfSliderInit = '1';
   }
@@ -141,28 +152,29 @@
     });
   }
 
+  function bootstrap(scope) {
+    initAll(scope || document);
+    initSliders(scope || document);
+    refreshActiveSliders(scope || document);
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function(){
-      initAll(document);
-      initSliders(document);
-      refreshActiveSliders(document);
+      bootstrap(document);
     });
   } else {
-    initAll(document);
-    initSliders(document);
-    refreshActiveSliders(document);
+    bootstrap(document);
   }
 
   if (window.jQuery) {
     window.jQuery(window).on('elementor/frontend/init', function(){
+      bootstrap(document);
       if (window.elementorFrontend && window.elementorFrontend.hooks) {
         window.elementorFrontend.hooks.addAction(
           'frontend/element_ready/lime-filters-category-tabs.default',
           function($scope){
             const node = $scope && $scope[0] ? $scope[0] : null;
-            initAll(node || document);
-            initSliders(node || document);
-            refreshActiveSliders(node || document);
+            bootstrap(node || document);
           }
         );
       }

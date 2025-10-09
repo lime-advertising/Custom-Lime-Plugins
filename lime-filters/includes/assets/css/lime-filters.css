@@ -361,6 +361,7 @@ body.lf-offcanvas-open {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1;
   /* font-family: "Marcellus", sans-serif; */
 }
 .lf-product__body {

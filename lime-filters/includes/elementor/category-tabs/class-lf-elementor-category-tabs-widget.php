@@ -33,13 +33,24 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
             'label' => __('Content', 'lime-filters'),
         ]);
 
-        $this->add_control('categories', [
-            'label' => __('Primary Categories', 'lime-filters'),
-            'type' => \Elementor\Controls_Manager::SELECT2,
-            'options' => $this->get_category_options(),
-            'multiple' => true,
+        $category_options = $this->get_category_options();
+
+        $reorder_repeater = new \Elementor\Repeater();
+        $reorder_repeater->add_control('category', [
+            'label' => __('Category', 'lime-filters'),
+            'type' => \Elementor\Controls_Manager::SELECT,
+            'options' => $category_options,
             'label_block' => true,
-            'description' => __('Select specific categories for each tab. Leave empty to auto-detect from Lime Filters mapping or top-level categories.', 'lime-filters'),
+            'default' => '',
+        ]);
+
+        $this->add_control('tabs', [
+            'label' => __('Custom Tab Order', 'lime-filters'),
+            'type' => \Elementor\Controls_Manager::REPEATER,
+            'fields' => $reorder_repeater->get_controls(),
+            'title_field' => '{{{ category }}}',
+            'prevent_empty' => false,
+            'description' => __('Add categories to display and drag to reorder. Leave empty to use automatic ordering.', 'lime-filters'),
         ]);
 
         $this->add_control('layout', [
@@ -119,15 +130,20 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
         }
 
         $settings = $this->get_settings_for_display();
-        $selected = isset($settings['categories']) ? (array) $settings['categories'] : [];
+        $ordered_tabs = isset($settings['tabs']) ? (array) $settings['tabs'] : [];
         $max_tabs = isset($settings['max_tabs']) ? (int) $settings['max_tabs'] : 4;
         if ($max_tabs < 1) {
             $max_tabs = 4;
         }
 
-        $categories = $this->resolve_categories($selected, $max_tabs);
+        $categories = $this->resolve_categories($max_tabs, $ordered_tabs);
         if (empty($categories)) {
             echo '<div class="lf-category-tabs"><div class="lf-category-tabs__empty">' . esc_html__('No categories available for the tabs widget.', 'lime-filters') . '</div></div>';
+            return;
+        }
+
+        if ($this->is_elementor_editor()) {
+            echo '<div class="lf-category-tabs"><div class="lf-category-tabs__empty">' . esc_html__('Interactive preview available on the front end. Save and view the page to see category tabs.', 'lime-filters') . '</div></div>';
             return;
         }
 
@@ -219,6 +235,7 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
         $terms = get_terms([
             'taxonomy'   => 'product_cat',
             'hide_empty' => false,
+            'parent'     => 0,
         ]);
 
         $options = [];
@@ -231,8 +248,20 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
         return $options;
     }
 
-    protected function resolve_categories(array $selected, $max_tabs) {
-        $slugs = array_values(array_filter(array_map('sanitize_title', $selected)));
+    protected function resolve_categories($max_tabs, array $ordered_tabs = []) {
+        $slugs = [];
+
+        if (!empty($ordered_tabs)) {
+            foreach ($ordered_tabs as $row) {
+                if (isset($row['category']) && $row['category'] !== '') {
+                    $sanitized = sanitize_title($row['category']);
+                    $term = get_term_by('slug', $sanitized, 'product_cat');
+                    if ($term && !is_wp_error($term) && (int) $term->parent === 0) {
+                        $slugs[] = $term->slug;
+                    }
+                }
+            }
+        }
 
         if (empty($slugs)) {
             if (class_exists('LF_Helpers')) {
@@ -241,7 +270,11 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
                     if ($slug === '__shop__') {
                         continue;
                     }
-                    $slugs[] = sanitize_title($slug);
+                    $sanitized = sanitize_title($slug);
+                    $term = get_term_by('slug', $sanitized, 'product_cat');
+                    if ($term && !is_wp_error($term) && (int) $term->parent === 0) {
+                        $slugs[] = $term->slug;
+                    }
                 }
             }
         }
@@ -270,7 +303,7 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
         $terms = [];
         foreach ($slugs as $slug) {
             $term = get_term_by('slug', $slug, 'product_cat');
-            if ($term && !is_wp_error($term)) {
+            if ($term && !is_wp_error($term) && (int) $term->parent === 0) {
                 $terms[] = $term;
             }
         }
@@ -426,6 +459,9 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
         $thumbnail = $product->get_image('woocommerce_thumbnail');
         if (!$thumbnail || strpos($thumbnail, 'woocommerce-placeholder') !== false) {
             $thumbnail = '<img src="' . esc_url(LF_Helpers::placeholder_image_url()) . '" alt="" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail lf-placeholder" />';
+        }
+        if ($thumbnail && class_exists('LF_Product_Background') && method_exists('LF_Product_Background', 'apply_background_wrapper')) {
+            $thumbnail = LF_Product_Background::apply_background_wrapper($thumbnail);
         }
         $price = $product->get_price_html();
         $sku   = $product->get_sku();
@@ -626,5 +662,20 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
             return [];
         }
         return array_map('sanitize_title', $terms);
+    }
+
+    protected function is_elementor_editor() {
+        if (!did_action('elementor/loaded')) {
+            return false;
+        }
+
+        $plugin = \Elementor\Plugin::$instance;
+        if (isset($plugin->editor) && method_exists($plugin->editor, 'is_edit_mode') && $plugin->editor->is_edit_mode()) {
+            return true;
+        }
+        if (isset($plugin->preview) && method_exists($plugin->preview, 'is_preview_mode') && $plugin->preview->is_preview_mode()) {
+            return true;
+        }
+        return false;
     }
 }
