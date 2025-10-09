@@ -24,5 +24,13 @@ class LF_Elementor_Widget {
                 $widgets_manager->register( new \LF_Elementor_Category_Tabs_Widget() );
             }
         }
+
+        $product_attributes_path = LF_PLUGIN_DIR . 'includes/elementor/product-attributes/class-lf-elementor-product-attributes-widget.php';
+        if (file_exists($product_attributes_path)) {
+            require_once $product_attributes_path;
+            if (class_exists('LF_Elementor_Product_Attributes_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Product_Attributes_Widget() );
+            }
+        }
     }
 }
