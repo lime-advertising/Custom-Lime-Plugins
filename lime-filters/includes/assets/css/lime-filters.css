@@ -285,14 +285,30 @@ body.lf-offcanvas-open {
   margin-top: 0;
 }
 .lf-products {
-  display: grid;
   gap: 20px;
   margin: 0;
   padding: 0;
   --lf-col-desktop: 4;
   --lf-col-tablet: 2;
   --lf-col-mobile: 1;
+}
+
+.lf-products:not(.lf-products--slider) {
+  display: grid;
   grid-template-columns: repeat(var(--lf-col-desktop), minmax(0, 1fr));
+}
+
+.lf-products--slider {
+  display: block;
+  overflow: visible;
+}
+
+.lf-products--slider .swiper-wrapper {
+  display: flex;
+}
+
+.lf-products--slider .swiper-slide {
+  height: auto;
 }
 .lf-product {
   display: flex;
@@ -313,7 +329,7 @@ body.lf-offcanvas-open {
   position: relative;
   aspect-ratio: 1/1;
   background: #000000;
-  background-image: url(https://staging2.kucht.ca/wp-content/plugins/lime-filters/includes/assets/images/Kucht%20Products%20BG.png);
+  background-image: url(/wp-content/plugins/lime-filters/includes/assets/images/Kucht%20Products%20BG.png);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -466,7 +482,7 @@ body.lf-offcanvas-open {
   .lf-layout-sidebar .lf-wrapper {
     position: relative;
   }
-  .lf-products {
+  .lf-products:not(.lf-products--slider) {
     grid-template-columns: repeat(var(--lf-col-tablet), minmax(0, 1fr));
   }
   .lf-mobile-bar {
@@ -511,7 +527,7 @@ body.lf-offcanvas-open {
 }
 
 @media (max-width: 575px) {
-  .lf-products {
+  .lf-products:not(.lf-products--slider) {
     grid-template-columns: repeat(var(--lf-col-mobile), minmax(0, 1fr));
   }
 }

@@ -13,8 +13,16 @@ class LF_Elementor_Widget {
         if (!class_exists('\Elementor\Widget_Base')) return;
 
         require_once __DIR__ . '/class-lf-elementor-filters-widget.php';
-        if (!class_exists('LF_Elementor_Filters_Widget')) return;
+        if (class_exists('LF_Elementor_Filters_Widget')) {
+            $widgets_manager->register( new \LF_Elementor_Filters_Widget() );
+        }
 
-        $widgets_manager->register( new \LF_Elementor_Filters_Widget() );
+        $tabs_widget_path = LF_PLUGIN_DIR . 'includes/elementor/category-tabs/class-lf-elementor-category-tabs-widget.php';
+        if (file_exists($tabs_widget_path)) {
+            require_once $tabs_widget_path;
+            if (class_exists('LF_Elementor_Category_Tabs_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Category_Tabs_Widget() );
+            }
+        }
     }
 }
