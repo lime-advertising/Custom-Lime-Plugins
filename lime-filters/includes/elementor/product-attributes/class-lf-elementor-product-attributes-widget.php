@@ -61,16 +61,6 @@ class LF_Elementor_Product_Attributes_Widget extends \Elementor\Widget_Base {
             ],
         ]);
 
-        $this->add_control('swatch_layout', [
-            'label' => __('Swatch Layout', 'lime-filters'),
-            'type' => Controls_Manager::SELECT,
-            'default' => 'row',
-            'options' => [
-                'row' => __('Row', 'lime-filters'),
-                'grid' => __('Grid', 'lime-filters'),
-            ],
-        ]);
-
         $this->end_controls_section();
 
         $this->start_controls_section('section_style_pills', [
@@ -137,70 +127,6 @@ class LF_Elementor_Product_Attributes_Widget extends \Elementor\Widget_Base {
 
         $this->end_controls_section();
 
-        $this->start_controls_section('section_style_swatches', [
-            'label' => __('Swatches', 'lime-filters'),
-            'tab'   => Controls_Manager::TAB_STYLE,
-        ]);
-
-        $this->add_control('swatch_bg_color', [
-            'label' => __('Background Color', 'lime-filters'),
-            'type' => Controls_Manager::COLOR,
-            'selectors' => [
-                '{{WRAPPER}} .lf-swatch' => 'background-color: {{VALUE}};',
-            ],
-        ]);
-
-        $this->add_control('swatch_text_color', [
-            'label' => __('Text Color', 'lime-filters'),
-            'type' => Controls_Manager::COLOR,
-            'selectors' => [
-                '{{WRAPPER}} .lf-swatch' => 'color: {{VALUE}};',
-            ],
-        ]);
-
-        $this->add_group_control(
-            Group_Control_Border::get_type(),
-            [
-                'name' => 'swatch_border',
-                'selector' => '{{WRAPPER}} .lf-swatch',
-            ]
-        );
-
-        $this->add_responsive_control('swatch_border_radius', [
-            'label' => __('Border Radius', 'lime-filters'),
-            'type' => Controls_Manager::DIMENSIONS,
-            'size_units' => ['px', 'em', '%'],
-            'selectors' => [
-                '{{WRAPPER}} .lf-swatch' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
-            ],
-        ]);
-
-        $this->add_responsive_control('swatch_padding', [
-            'label' => __('Padding', 'lime-filters'),
-            'type' => Controls_Manager::DIMENSIONS,
-            'size_units' => ['px', 'em'],
-            'selectors' => [
-                '{{WRAPPER}} .lf-swatch' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
-            ],
-        ]);
-
-        $this->add_responsive_control('swatch_gap', [
-            'label' => __('Gap', 'lime-filters'),
-            'type' => Controls_Manager::SLIDER,
-            'size_units' => ['px'],
-            'range' => [
-                'px' => [
-                    'min' => 0,
-                    'max' => 60,
-                ],
-            ],
-            'selectors' => [
-                '{{WRAPPER}} .lf-attribute-group__swatches' => 'gap: {{SIZE}}{{UNIT}};',
-            ],
-        ]);
-
-        $this->end_controls_section();
-
         $this->start_controls_section('section_style_labels', [
             'label' => __('Labels', 'lime-filters'),
             'tab'   => Controls_Manager::TAB_STYLE,
@@ -237,9 +163,11 @@ class LF_Elementor_Product_Attributes_Widget extends \Elementor\Widget_Base {
         $attribute_layout = isset($settings['attribute_layout']) ? $settings['attribute_layout'] : 'list';
         $swatch_layout = isset($settings['swatch_layout']) ? $settings['swatch_layout'] : 'row';
 
-        $content = $is_variable
-            ? $this->render_variable_attributes($product, $settings)
-            : $this->render_simple_attributes($product, $settings);
+        if ($product instanceof WC_Product_Variable) {
+            return;
+        }
+
+        $content = $this->render_simple_attributes($product, $settings);
 
         if ($content === '') {
             echo '<div class="lf-product-attributes lf-product-attributes--empty">' . esc_html__('No attributes available for this product.', 'lime-filters') . '</div>';
@@ -248,12 +176,9 @@ class LF_Elementor_Product_Attributes_Widget extends \Elementor\Widget_Base {
 
         $wrapper_classes = [
             'lf-product-attributes',
-            $is_variable ? 'lf-product-attributes--variable' : 'lf-product-attributes--simple',
+            'lf-product-attributes--simple',
             'lf-attributes-layout-' . sanitize_html_class($attribute_layout),
         ];
-        if ($is_variable) {
-            $wrapper_classes[] = 'lf-swatches-layout-' . sanitize_html_class($swatch_layout);
-        }
 
         ?>
         <div class="<?php echo esc_attr(implode(' ', $wrapper_classes)); ?>">
@@ -304,71 +229,6 @@ class LF_Elementor_Product_Attributes_Widget extends \Elementor\Widget_Base {
                 echo '</div></div>';
             }
         }
-        echo '</div>';
-        return ob_get_clean();
-    }
-
-    protected function render_variable_attributes(WC_Product_Variable $product, array $settings) {
-        $attributes = $product->get_variation_attributes();
-        if (empty($attributes)) {
-            return '';
-        }
-
-        $attribute_layout = isset($settings['attribute_layout']) ? $settings['attribute_layout'] : 'list';
-        $swatch_layout = isset($settings['swatch_layout']) ? $settings['swatch_layout'] : 'row';
-
-        $wrapper_classes = [
-            'lf-attribute-groups',
-            'lf-attribute-groups--swatches',
-        ];
-        $wrapper_classes[] = $attribute_layout === 'grid' ? 'lf-attribute-groups--grid' : 'lf-attribute-groups--list';
-
-        ob_start();
-        echo '<div class="' . esc_attr(implode(' ', $wrapper_classes)) . '">';
-
-        foreach ($attributes as $taxonomy => $options) {
-            if (empty($options)) {
-                continue;
-            }
-
-            $label = wc_attribute_label($taxonomy);
-            echo '<div class="lf-attribute-group">';
-            echo '<span class="lf-attribute-group__label">' . esc_html($label) . '</span>';
-            $swatch_wrap_classes = ['lf-attribute-group__swatches'];
-            if ($swatch_layout === 'grid') {
-                $swatch_wrap_classes[] = 'lf-attribute-group__swatches--grid';
-            }
-            echo '<div class="' . esc_attr(implode(' ', $swatch_wrap_classes)) . '" role="list">';
-
-            foreach ($options as $option_slug) {
-                $term = taxonomy_exists($taxonomy) ? get_term_by('slug', $option_slug, $taxonomy) : null;
-                $name = $term ? $term->name : $option_slug;
-                $color = $term ? sanitize_hex_color(get_term_meta($term->term_id, 'lf_swatch_color', true)) : '';
-                $image_id = $term ? absint(get_term_meta($term->term_id, 'lf_swatch_image_id', true)) : 0;
-                $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : '';
-
-                $swatch_classes = ['lf-swatch'];
-                $style_attr = '';
-                if ($image_url) {
-                    $swatch_classes[] = 'lf-swatch--image';
-                    $style_attr = 'style="background-image:url(' . esc_url($image_url) . ');"';
-                } elseif ($color) {
-                    $swatch_classes[] = 'lf-swatch--color';
-                    $style_attr = 'style="background-color:' . esc_attr($color) . ';"';
-                } else {
-                    $swatch_classes[] = 'lf-swatch--text';
-                }
-
-                echo '<span class="' . esc_attr(implode(' ', $swatch_classes)) . '" role="listitem" ' . $style_attr . ' title="' . esc_attr($name) . '">';
-                if (!$image_url && !$color) {
-                    echo esc_html($name);
-                }
-                echo '</span>';
-            }
-
-            echo '</div></div>';
-        }
-
         echo '</div>';
         return ob_get_clean();
     }
