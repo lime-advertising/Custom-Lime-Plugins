@@ -32,5 +32,30 @@ class LF_Elementor_Widget {
                 $widgets_manager->register( new \LF_Elementor_Product_Attributes_Widget() );
             }
         }
+
+        $product_info_tabs_path = LF_PLUGIN_DIR . 'includes/elementor/product-info/class-lf-elementor-product-info-tabs-widget.php';
+        if (file_exists($product_info_tabs_path)) {
+            require_once $product_info_tabs_path;
+            if (class_exists('LF_Elementor_Product_Info_Tabs_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Product_Info_Tabs_Widget() );
+            }
+        }
+
+        $product_affiliates_path = LF_PLUGIN_DIR . 'includes/elementor/product-affiliates/class-lf-elementor-product-affiliates-widget.php';
+        if (file_exists($product_affiliates_path)) {
+            require_once $product_affiliates_path;
+            if (class_exists('LF_Elementor_Product_Affiliates_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Product_Affiliates_Widget() );
+            }
+        }
+
+        $product_pricing_path = LF_PLUGIN_DIR . 'includes/elementor/product-pricing/class-lf-elementor-product-pricing-widget.php';
+        if (file_exists($product_pricing_path)) {
+            require_once $product_pricing_path;
+            if (class_exists('LF_Elementor_Product_Pricing_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Product_Pricing_Widget() );
+            }
+        }
+
     }
 }

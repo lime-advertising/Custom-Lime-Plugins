@@ -9,6 +9,7 @@ class LF_Frontend
   {
     add_shortcode('lime_filters', [__CLASS__, 'render_shortcode']);
     add_action('wp_enqueue_scripts', [__CLASS__, 'assets']);
+    add_filter('woocommerce_available_variation', [__CLASS__, 'ensure_variation_price_html'], 10, 3);
   }
 
   public static function assets()
@@ -299,5 +300,45 @@ class LF_Frontend
     }
     $value = min($value, 6);
     return $value;
+  }
+
+  public static function ensure_variation_price_html($variation_data, $product, $variation)
+  {
+    if (!empty($variation_data['price_html'])) {
+      return $variation_data;
+    }
+
+    if (! $variation instanceof WC_Product_Variation) {
+      return $variation_data;
+    }
+
+    $sale_price     = $variation->get_sale_price();
+    $regular_price  = $variation->get_regular_price();
+    $active_price   = $variation->get_price();
+
+    if ($active_price === '' || $active_price === null) {
+      return $variation_data;
+    }
+
+    $display_price        = wc_get_price_to_display($variation);
+    $display_regular_price = $regular_price !== ''
+      ? wc_get_price_to_display($variation, ['price' => $regular_price])
+      : $display_price;
+
+    if ($display_price === '' || $display_price === null) {
+      return $variation_data;
+    }
+
+    if ($sale_price !== '' && $sale_price !== null && $display_price < $display_regular_price) {
+      $price_html = wc_format_sale_price(wc_price($display_regular_price), wc_price($display_price));
+    } else {
+      $price_html = wc_price($display_price);
+    }
+
+    if ($price_html !== '') {
+      $variation_data['price_html'] = sprintf('<span class="price">%s</span>', $price_html);
+    }
+
+    return $variation_data;
   }
 }

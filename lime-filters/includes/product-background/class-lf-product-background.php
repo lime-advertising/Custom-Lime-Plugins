@@ -262,8 +262,8 @@ class LF_Product_Background {
                 $thumb_image = $main_image;
             }
 
-            $main_slides[]  = '<div class="swiper-slide">' . self::wrap_image_html($main_image) . '</div>';
-            $thumb_slides[] = '<div class="swiper-slide"><div class="lf-bg-gallery__thumb">' . self::wrap_image_html($thumb_image) . '</div></div>';
+            $main_slides[]  = '<div class="swiper-slide" data-image-id="' . esc_attr((int) $image_id) . '">' . self::wrap_image_html($main_image) . '</div>';
+            $thumb_slides[] = '<div class="swiper-slide" data-image-id="' . esc_attr((int) $image_id) . '"><div class="lf-bg-gallery__thumb">' . self::wrap_image_html($thumb_image) . '</div></div>';
         }
 
         if (empty($main_slides)) {
@@ -280,7 +280,7 @@ class LF_Product_Background {
             $columns_mobile
         );
 
-        $output  = '<div class="' . esc_attr(implode(' ', $wrapper_classes)) . '"' . $data_attrs . '>';
+        $output  = '<div class="' . esc_attr(implode(' ', $wrapper_classes)) . '" data-product-id="' . esc_attr($product->get_id()) . '"' . $data_attrs . '>';
         $output .= '<div class="lf-bg-gallery__main swiper"><div class="swiper-wrapper">' . implode('', $main_slides) . '</div>';
         $output .= '<div class="lf-bg-gallery__nav"><button type="button" class="lf-bg-gallery__prev" aria-label="' . esc_attr__('Previous image', 'lime-filters') . '">&lsaquo;</button><button type="button" class="lf-bg-gallery__next" aria-label="' . esc_attr__('Next image', 'lime-filters') . '">&rsaquo;</button></div></div>';
         $output .= '<div class="lf-bg-gallery__thumbs swiper"><div class="swiper-wrapper">' . implode('', $thumb_slides) . '</div></div>';

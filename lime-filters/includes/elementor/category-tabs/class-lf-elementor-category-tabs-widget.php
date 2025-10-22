@@ -463,7 +463,7 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
         if ($thumbnail && class_exists('LF_Product_Background') && method_exists('LF_Product_Background', 'apply_background_wrapper')) {
             $thumbnail = LF_Product_Background::apply_background_wrapper($thumbnail);
         }
-        $price = $product->get_price_html();
+        $price = LF_Helpers::product_price_columns($product);
         $sku   = $product->get_sku();
         $categories = $this->get_category_links($product_id);
 
@@ -503,9 +503,9 @@ class LF_Elementor_Category_Tabs_Widget extends \Elementor\Widget_Base {
                 <h3 class="lf-product__title">
                     <a href="<?php echo esc_url($permalink); ?>"><?php echo esc_html($title); ?></a>
                 </h3>
-                <?php if (!empty($price)) : ?>
-                    <div class="lf-product__price"><?php echo $price; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
-                <?php endif; ?>
+        <?php if (!empty($price)) : ?>
+            <div class="lf-product__price lf-product__price--columns"><?php echo $price; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+        <?php endif; ?>
             </div>
             <div class="lf-product__actions">
                 <?php echo implode('', $actions); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>

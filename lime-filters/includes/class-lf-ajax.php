@@ -97,7 +97,7 @@ class LF_AJAX
                 if ($thumbnail && class_exists('LF_Product_Background') && method_exists('LF_Product_Background', 'apply_background_wrapper')) {
                     $thumbnail = LF_Product_Background::apply_background_wrapper($thumbnail);
                 }
-                $price     = $product->get_price_html();
+                $price     = LF_Helpers::product_price_columns($product);
                 $sku       = $product->get_sku();
                 $categories = self::category_links(get_the_ID());
 
@@ -119,7 +119,7 @@ class LF_AJAX
                             <a href="<?php echo esc_url($permalink); ?>"><?php echo esc_html($title); ?></a>
                         </h3>
                         <?php if ($price) : ?>
-                            <div class="lf-product__price"><?php echo $price; ?></div>
+                            <div class="lf-product__price lf-product__price--columns"><?php echo $price; ?></div>
                         <?php endif; ?>
                     </div>
                     <?php if (!empty($button_html)) : ?>

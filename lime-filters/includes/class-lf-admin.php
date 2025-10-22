@@ -20,7 +20,11 @@ class LF_Admin {
     }
 
     public static function register_settings() {
-        register_setting('lime_filters_group', 'lime_filters_map');
+        register_setting('lime_filters_group', 'lime_filters_map', [
+            'type'              => 'array',
+            'sanitize_callback' => [__CLASS__, 'sanitize_map'],
+            'default'           => [],
+        ]);
         register_setting('lime_filters_group', 'lime_filters_brand_colors');
         register_setting('lime_filters_group', 'lime_filters_shop_show_categories');
     }
@@ -80,6 +84,62 @@ class LF_Admin {
         return $options;
     }
 
+    public static function sanitize_map($input) {
+        if (!is_array($input)) {
+            return [];
+        }
+
+        $output = [];
+
+        foreach ($input as $key => $value) {
+            $raw_key = is_string($key) ? $key : '';
+            if ($raw_key === '') {
+                continue;
+            }
+
+            $normalized_key = ($raw_key === '__shop__') ? '__shop__' : sanitize_title($raw_key);
+            if ($normalized_key === '') {
+                continue;
+            }
+
+            $values = [];
+
+            if (is_string($value)) {
+                $values = [$value];
+            } elseif (is_array($value)) {
+                $values = $value;
+            } else {
+                $values = [];
+            }
+
+            $items = [];
+            foreach ($values as $item) {
+                if (!is_string($item)) {
+                    continue;
+                }
+                $fragments = array_map('trim', explode(',', $item));
+                foreach ($fragments as $fragment) {
+                    if ($fragment === '') {
+                        continue;
+                    }
+                    if (class_exists('LF_Helpers') && method_exists('LF_Helpers', 'sanitize_attr_tax')) {
+                        $fragment = LF_Helpers::sanitize_attr_tax($fragment);
+                    } else {
+                        $fragment = sanitize_title($fragment);
+                    }
+                    if ($fragment !== '') {
+                        $items[] = $fragment;
+                    }
+                }
+            }
+
+            $items = array_values(array_unique($items));
+            $output[$normalized_key] = $items;
+        }
+
+        return $output;
+    }
+
     public static function render_page() {
         if (!current_user_can('manage_woocommerce')) return;
         $map    = get_option('lime_filters_map', []);
@@ -115,7 +175,12 @@ class LF_Admin {
                     </td>
                   </tr>
                   <?php
-                  $cats = get_terms(['taxonomy'=>'product_cat','hide_empty'=>false]);
+                  $cats = get_terms([
+                    'taxonomy'   => 'product_cat',
+                    'hide_empty' => false,
+                    'parent'     => 0,
+                    'orderby'    => 'name',
+                  ]);
                   if (!is_wp_error($cats)) {
                     foreach ($cats as $cat) {
                         $slug = $cat->slug;

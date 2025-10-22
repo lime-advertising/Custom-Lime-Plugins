@@ -367,6 +367,9 @@ body.lf-offcanvas-open {
 .lf-product__body {
   flex: 1;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .lf-product__cats {
   font-size: 12px;
@@ -395,6 +398,66 @@ body.lf-offcanvas-open {
 .lf-product__price {
   font-weight: 600;
   font-size: 16px;
+}
+.lf-product__price--columns {
+  font-weight: 400;
+  font-size: 14px;
+  margin-top: auto;
+}
+
+.lf-price-block {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.lf-price-block--single {
+  justify-content: flex-start;
+}
+
+.lf-price-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.lf-price-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+}
+
+.lf-price-col--regular .lf-price-value {
+  color: #aaa;
+  font-weight: 500;
+}
+
+.lf-price-col--sale .lf-price-value {
+  font-weight: 600;
+  color: var(--lf-accent);
+}
+
+.lf-price-value {
+  font-size: 16px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.lf-price-block--single .lf-price-value {
+  color: var(--lf-text);
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .lf-price-block {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
 }
 .lf-product__actions {
   padding: 14px 16px;
