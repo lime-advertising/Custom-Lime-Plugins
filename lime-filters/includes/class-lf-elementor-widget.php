@@ -57,5 +57,21 @@ class LF_Elementor_Widget {
             }
         }
 
+        $account_dashboard_path = LF_PLUGIN_DIR . 'includes/elementor/account-dashboard/class-lf-elementor-account-dashboard-widget.php';
+        if (file_exists($account_dashboard_path)) {
+            require_once $account_dashboard_path;
+            if (class_exists('LF_Elementor_Account_Dashboard_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Account_Dashboard_Widget() );
+            }
+        }
+
+        $account_icon_path = LF_PLUGIN_DIR . 'includes/elementor/account-icon/class-lf-elementor-account-icon-widget.php';
+        if (file_exists($account_icon_path)) {
+            require_once $account_icon_path;
+            if (class_exists('LF_Elementor_Account_Icon_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Account_Icon_Widget() );
+            }
+        }
+
     }
 }
