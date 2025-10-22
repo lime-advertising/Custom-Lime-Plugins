@@ -334,6 +334,9 @@ body.lf-offcanvas-open {
   background-position: center;
   background-repeat: no-repeat;
 }
+.lf-product__media {
+  position: relative;
+}
 .lf-product__thumb img {
   width: 100%;
   height: 100%;

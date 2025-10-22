@@ -13,7 +13,6 @@
 
 .lf-product-pricing__row--regular .lf-product-pricing__value {
   color: rgba(255, 255, 255, 0.65);
-  text-decoration: line-through;
 }
 
 .lf-product-pricing__row--starting .lf-product-pricing__value {

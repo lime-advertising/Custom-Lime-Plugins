@@ -84,51 +84,11 @@ class LF_AJAX
                 $query->the_post();
                 global $product;
                 $product = wc_get_product(get_the_ID());
-                if (! $product) {
+                if (!$product) {
                     continue;
                 }
 
-                $permalink = get_permalink();
-                $title     = get_the_title();
-                $thumbnail = $product->get_image('woocommerce_thumbnail');
-                if (!$thumbnail || strpos($thumbnail, 'woocommerce-placeholder') !== false) {
-                    $thumbnail = '<img src="' . esc_url(LF_Helpers::placeholder_image_url()) . '" alt="" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail lf-placeholder" />';
-                }
-                if ($thumbnail && class_exists('LF_Product_Background') && method_exists('LF_Product_Background', 'apply_background_wrapper')) {
-                    $thumbnail = LF_Product_Background::apply_background_wrapper($thumbnail);
-                }
-                $price     = LF_Helpers::product_price_columns($product);
-                $sku       = $product->get_sku();
-                $categories = self::category_links(get_the_ID());
-
-                $button_html = self::render_product_actions($product);
-
-?>
-                <article class="lf-product">
-                    <a class="lf-product__thumb" href="<?php echo esc_url($permalink); ?>">
-                        <?php echo $thumbnail; ?>
-                        <?php if ($sku) : ?>
-                            <div class="lf-product__sku"><?php echo esc_html($sku); ?></div>
-                        <?php endif; ?>
-                    </a>
-                    <div class="lf-product__body">
-                        <?php if ($categories) : ?>
-                            <div class="lf-product__cats"><?php echo $categories; ?></div>
-                        <?php endif; ?>
-                        <h3 class="lf-product__title">
-                            <a href="<?php echo esc_url($permalink); ?>"><?php echo esc_html($title); ?></a>
-                        </h3>
-                        <?php if ($price) : ?>
-                            <div class="lf-product__price lf-product__price--columns"><?php echo $price; ?></div>
-                        <?php endif; ?>
-                    </div>
-                    <?php if (!empty($button_html)) : ?>
-                        <div class="lf-product__actions">
-                            <?php echo $button_html; ?>
-                        </div>
-                    <?php endif; ?>
-                </article>
-<?php
+                echo self::render_product_card($product);
             }
 
             echo '</div>';
@@ -153,7 +113,76 @@ class LF_AJAX
             'per_page'    => $per_page_value,
             'filters'     => $filters_payload,
             'columns'     => $resolved_columns,
+            'wishlist'    => (class_exists('LF_Wishlist') && LF_Wishlist::is_enabled()) ? LF_Wishlist::current_ids() : [],
         ];
+    }
+
+    public static function render_product_card($product)
+    {
+        if (!$product instanceof WC_Product) {
+            return '';
+        }
+
+        $product_id = $product->get_id();
+        $permalink  = get_permalink($product_id);
+        $title      = $product->get_name();
+        $thumbnail  = $product->get_image('woocommerce_thumbnail');
+
+        if (!$thumbnail || strpos($thumbnail, 'woocommerce-placeholder') !== false) {
+            $thumbnail = '<img src="' . esc_url(LF_Helpers::placeholder_image_url()) . '" alt="" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail lf-placeholder" />';
+        }
+
+        if ($thumbnail && class_exists('LF_Product_Background') && method_exists('LF_Product_Background', 'apply_background_wrapper')) {
+            $thumbnail = LF_Product_Background::apply_background_wrapper($thumbnail);
+        }
+
+        $price      = LF_Helpers::product_price_columns($product);
+        $sku        = $product->get_sku();
+        $categories = self::category_links($product_id);
+
+        $previous_product = isset($GLOBALS['product']) ? $GLOBALS['product'] : null;
+        $GLOBALS['product'] = $product;
+        $actions    = self::render_product_actions($product);
+        $GLOBALS['product'] = $previous_product;
+
+        $wishlist_button = '';
+        if (class_exists('LF_Wishlist') && method_exists('LF_Wishlist', 'render_button')) {
+            $wishlist_button = LF_Wishlist::render_button($product);
+        }
+
+        ob_start();
+        ?>
+        <article class="lf-product">
+            <div class="lf-product__media">
+                <a class="lf-product__thumb" href="<?php echo esc_url($permalink); ?>">
+                    <?php echo $thumbnail; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                    <?php if ($sku) : ?>
+                        <div class="lf-product__sku"><?php echo esc_html($sku); ?></div>
+                    <?php endif; ?>
+                </a>
+                <?php if ($wishlist_button) : ?>
+                    <?php echo $wishlist_button; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                <?php endif; ?>
+            </div>
+            <div class="lf-product__body">
+                <?php if ($categories) : ?>
+                    <div class="lf-product__cats"><?php echo $categories; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+                <?php endif; ?>
+                <h3 class="lf-product__title">
+                    <a href="<?php echo esc_url($permalink); ?>"><?php echo esc_html($title); ?></a>
+                </h3>
+                <?php if ($price) : ?>
+                    <div class="lf-product__price lf-product__price--columns"><?php echo $price; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty(trim($actions))) : ?>
+                <div class="lf-product__actions">
+                    <?php echo $actions; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                </div>
+            <?php endif; ?>
+        </article>
+        <?php
+        return ob_get_clean();
     }
 
     protected static function build_query_args($category, $filters, $orderby, $page = 1, $per_page = 0)
@@ -320,7 +349,7 @@ class LF_AJAX
         $actions[] = sprintf(
             '<a class="lf-button lf-button--secondary" href="%s">%s</a>',
             esc_url(get_permalink($product->get_id())),
-            esc_html__('View', 'lime-filters')
+            esc_html__('View Product', 'lime-filters')
         );
 
         return implode('', $actions);

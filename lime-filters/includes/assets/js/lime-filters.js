@@ -329,6 +329,9 @@
             $root.attr('data-columns-mobile', resp.data.columns.mobile);
           }
         }
+        if (resp.data.wishlist !== undefined) {
+          $(document).trigger('lf:wishlist:update', [resp.data.wishlist]);
+        }
       }
     }).always(function(){
       $root.removeClass('lf-loading');

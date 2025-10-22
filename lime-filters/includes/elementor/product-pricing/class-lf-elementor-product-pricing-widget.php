@@ -119,6 +119,15 @@ class LF_Elementor_Product_Pricing_Widget extends \Elementor\Widget_Base
             return;
         }
 
+        wp_enqueue_style('lime-filters');
+
+        wp_enqueue_style(
+            'lf-product-pricing',
+            LF_PLUGIN_URL . 'includes/elementor/product-pricing/product-pricing.css',
+            ['lime-filters'],
+            LF_VERSION
+        );
+
         $settings = $this->get_settings_for_display();
         $prices = LF_Helpers::product_price_summary($product);
 

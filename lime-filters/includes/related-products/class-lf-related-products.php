@@ -92,104 +92,12 @@ class LF_Related_Products
                 if (!$related_product) {
                     continue;
                 }
-                $permalink = get_permalink($related_id);
-                $title     = $related_product->get_name();
-                $thumbnail = $related_product->get_image('woocommerce_thumbnail');
-                if (!$thumbnail || strpos($thumbnail, 'woocommerce-placeholder') !== false) {
-                    $thumbnail = '<img src="' . esc_url(LF_Helpers::placeholder_image_url()) . '" alt="" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail lf-placeholder" />';
-                }
-                if ($thumbnail && class_exists('LF_Product_Background') && method_exists('LF_Product_Background', 'apply_background_wrapper')) {
-                    $thumbnail = LF_Product_Background::apply_background_wrapper($thumbnail);
-                }
-                $price     = LF_Helpers::product_price_columns($related_product);
-                $sku       = $related_product->get_sku();
-                $categories = self::category_links($related_id);
-
-                $previous_product = isset($GLOBALS['product']) ? $GLOBALS['product'] : null;
-                $GLOBALS['product'] = $related_product;
-                ob_start();
-                woocommerce_template_loop_add_to_cart();
-                $add_to_cart = ob_get_clean();
-                $GLOBALS['product'] = $previous_product;
-                $compare_btn = self::get_compare_button($related_product);
-                $is_compare_allowed = $compare_btn !== '';
+                echo LF_AJAX::render_product_card($related_product); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
                 ?>
-                <article class="lf-product">
-                    <a class="lf-product__thumb" href="<?php echo esc_url($permalink); ?>">
-                        <?php echo $thumbnail; ?>
-                        <?php if ($sku) : ?>
-                            <div class="lf-product__sku"><?php echo esc_html($sku); ?></div>
-                        <?php endif; ?>
-                    </a>
-                    <div class="lf-product__body">
-                        <?php if ($categories) : ?>
-                            <div class="lf-product__cats"><?php echo $categories; ?></div>
-                        <?php endif; ?>
-                        <h3 class="lf-product__title">
-                            <a href="<?php echo esc_url($permalink); ?>"><?php echo esc_html($title); ?></a>
-                        </h3>
-                        <?php if (!empty($price)) : ?>
-                            <div class="lf-product__price lf-product__price--columns"><?php echo $price; ?></div>
-                        <?php endif; ?>
-                    </div>
-                    <div class="lf-product__actions">
-                        <?php if (!$is_compare_allowed) : ?>
-                            <?php echo $add_to_cart; ?>
-                        <?php endif; ?>
-                        <?php if ($compare_btn) : ?>
-                            <?php echo $compare_btn; ?>
-                        <?php endif; ?>
-                        <a class="lf-button lf-button--secondary" href="<?php echo esc_url($permalink); ?>"><?php esc_html_e('View Product', 'lime-filters'); ?></a>
-                    </div>
-                </article>
             <?php endforeach; ?>
         </div>
 <?php
         return ob_get_clean();
     }
 
-    protected static function category_links($product_id)
-    {
-        $terms = get_the_terms($product_id, 'product_cat');
-        if (!$terms || is_wp_error($terms)) {
-            return '';
-        }
-
-        $links = [];
-        foreach ($terms as $term) {
-            $url = get_term_link($term);
-            if (is_wp_error($url)) {
-                continue;
-            }
-            $links[] = sprintf('<a href="%s">%s</a>', esc_url($url), esc_html($term->name));
-        }
-
-        return implode(', ', $links);
-    }
-
-    protected static function get_compare_button($product)
-    {
-        if (!$product instanceof WC_Product) {
-            return '';
-        }
-
-        $product_id = $product->get_id();
-        if (!$product_id) {
-            return '';
-        }
-
-        $blocked = ['accessories', 'parts'];
-        $slugs = wp_get_post_terms($product_id, 'product_cat', ['fields' => 'slugs']);
-        if (!is_wp_error($slugs) && array_intersect($blocked, (array) $slugs)) {
-            return '';
-        }
-
-        $label = apply_filters('lime_filters_compare_button_label', __('Compare', 'lime-filters'), $product);
-
-        return sprintf(
-            '<button type="button" class="lf-button lf-button--ghost wcp-compare-button" data-product-id="%d">%s</button>',
-            (int) $product_id,
-            esc_html($label)
-        );
-    }
 }
