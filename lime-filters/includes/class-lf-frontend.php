@@ -10,6 +10,7 @@ class LF_Frontend
     add_shortcode('lime_filters', [__CLASS__, 'render_shortcode']);
     add_action('wp_enqueue_scripts', [__CLASS__, 'assets']);
     add_filter('woocommerce_available_variation', [__CLASS__, 'ensure_variation_price_html'], 10, 3);
+    add_action('template_redirect', [__CLASS__, 'track_product_view'], 20);
   }
 
   public static function assets()
@@ -341,4 +342,37 @@ class LF_Frontend
 
     return $variation_data;
   }
+
+  public static function track_product_view()
+  {
+    if (!function_exists('is_product') || !is_product()) {
+      return;
+    }
+
+    $product_id = get_the_ID();
+    if (!$product_id) {
+      return;
+    }
+
+    $cookie_name = 'lf_recently_viewed';
+    $raw = isset($_COOKIE[$cookie_name]) ? wp_unslash($_COOKIE[$cookie_name]) : '';
+    $ids = $raw !== '' ? array_filter(array_map('absint', explode('|', $raw))) : [];
+    $ids = array_values(array_diff($ids, [$product_id]));
+    array_unshift($ids, $product_id);
+    $ids = array_slice($ids, 0, 20);
+    $value = implode('|', $ids);
+
+    $expire = time() + DAY_IN_SECONDS * 30;
+    $path   = defined('COOKIEPATH') ? COOKIEPATH : '/';
+    $domain = defined('COOKIE_DOMAIN') ? COOKIE_DOMAIN : '';
+    setcookie($cookie_name, $value, $expire, $path, $domain, is_ssl(), true);
+    $_COOKIE[$cookie_name] = $value;
+
+    if (function_exists('wc_track_product_view')) {
+      wc_track_product_view();
+    } elseif (function_exists('woocommerce_track_product_view')) {
+      woocommerce_track_product_view();
+    }
+  }
+
 }

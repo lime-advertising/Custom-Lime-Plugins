@@ -283,4 +283,59 @@ class LF_Helpers {
 
         return $url ? esc_url_raw($url) : '';
     }
+
+    public static function recently_viewed_product_ids($limit = 10) {
+        $cookie_sources = ['lf_recently_viewed', 'woocommerce_recently_viewed'];
+        $cookie = '';
+        foreach ($cookie_sources as $name) {
+            if (isset($_COOKIE[$name]) && $_COOKIE[$name] !== '') {
+                $cookie = wp_unslash($_COOKIE[$name]);
+                if ($cookie !== '') {
+                    break;
+                }
+            }
+        }
+
+        if ($cookie === '') {
+            return [];
+        }
+
+        $ids = array_filter(array_map('absint', explode('|', $cookie)));
+        $ids = array_values(array_unique($ids));
+
+        if ($limit > 0) {
+            $ids = array_slice($ids, 0, $limit);
+        }
+
+        /**
+         * Filter the list of recently viewed product IDs.
+         *
+         * @param array $ids
+         * @param int   $limit
+         */
+        return apply_filters('lime_filters_recently_viewed_product_ids', $ids, $limit);
+    }
+
+    public static function recently_viewed_products($limit = 6) {
+        $ids = self::recently_viewed_product_ids($limit);
+        if (empty($ids)) {
+            return [];
+        }
+
+        $products = [];
+        foreach ($ids as $id) {
+            $product = wc_get_product($id);
+            if ($product instanceof WC_Product) {
+                $products[] = $product;
+            }
+        }
+
+        /**
+         * Filter the collection of recently viewed product objects.
+         *
+         * @param array $products
+         * @param int   $limit
+         */
+        return apply_filters('lime_filters_recently_viewed_products', $products, $limit);
+    }
 }

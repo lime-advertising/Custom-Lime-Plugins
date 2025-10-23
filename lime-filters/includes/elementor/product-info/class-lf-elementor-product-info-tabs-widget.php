@@ -261,10 +261,6 @@ class LF_Elementor_Product_Info_Tabs_Widget extends \Elementor\Widget_Base
         }
 
         $product_id = $product->get_id();
-        $show_notes = $this->get_acf_value($product_id, 'show_notes');
-        if (!$show_notes) {
-            return '';
-        }
 
         $entries = [];
         $note_map = [

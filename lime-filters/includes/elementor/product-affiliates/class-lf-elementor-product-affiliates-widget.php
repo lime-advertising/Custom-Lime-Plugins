@@ -93,6 +93,15 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
             'default' => '',
         ]);
 
+        $this->add_control('hide_categories', [
+            'label' => __('Hide In Categories', 'lime-filters'),
+            'type' => Controls_Manager::SELECT2,
+            'multiple' => true,
+            'label_block' => true,
+            'options' => $this->get_product_category_options(),
+            'description' => __('Select product categories where affiliate links should not appear.', 'lime-filters'),
+        ]);
+
         if (!empty($stores)) {
             $repeater = new \Elementor\Repeater();
             $repeater->add_control('row_label', [
@@ -133,6 +142,10 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
         }
 
         $settings = $this->get_settings_for_display();
+
+        if ($this->is_hidden_for_product($product, $settings)) {
+            return;
+        }
 
         $stores = LF_Helpers::affiliate_stores();
         if (empty($stores) || !is_array($stores)) {
@@ -232,6 +245,57 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
         );
 
         self::$assets_enqueued = true;
+    }
+
+    protected function get_product_category_options()
+    {
+        $terms = get_terms([
+            'taxonomy'   => 'product_cat',
+            'hide_empty' => false,
+            'parent'     => 0,
+        ]);
+
+        $options = [];
+        if (!is_wp_error($terms)) {
+            foreach ($terms as $term) {
+                $options[$term->term_id] = $term->name;
+            }
+        }
+
+        /**
+         * Filter the category options displayed in the affiliates widget.
+         *
+         * @param array $options
+         */
+        return apply_filters('lf_product_affiliates_category_options', $options);
+    }
+
+    protected function is_hidden_for_product(WC_Product $product, array $settings)
+    {
+        if (empty($settings['hide_categories']) || !is_array($settings['hide_categories'])) {
+            return false;
+        }
+
+        $excluded = array_filter(array_map('intval', $settings['hide_categories']));
+        if (empty($excluded)) {
+            return false;
+        }
+
+        $product_terms = $product->get_category_ids();
+        if (empty($product_terms)) {
+            return false;
+        }
+
+        $all_terms = $product_terms;
+        foreach ($product_terms as $term_id) {
+            $ancestors = get_ancestors($term_id, 'product_cat');
+            if (!empty($ancestors)) {
+                $all_terms = array_merge($all_terms, $ancestors);
+            }
+        }
+        $all_terms = array_unique(array_map('intval', $all_terms));
+
+        return (bool) array_intersect($excluded, $all_terms);
     }
 
     protected function get_current_product()

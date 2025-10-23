@@ -43,21 +43,6 @@ class LF_Elementor_Account_Dashboard_Widget extends \Elementor\Widget_Base
             'label' => __('Content', 'lime-filters'),
         ]);
 
-        $this->add_control('show_wishlist_teaser', [
-            'label' => __('Show Wishlist Teaser', 'lime-filters'),
-            'type' => Controls_Manager::SWITCHER,
-            'default' => 'yes',
-        ]);
-
-        $this->add_control('wishlist_title', [
-            'label' => __('Wishlist Heading', 'lime-filters'),
-            'type' => Controls_Manager::TEXT,
-            'default' => __('Your Wishlist', 'lime-filters'),
-            'condition' => [
-                'show_wishlist_teaser' => 'yes',
-            ],
-        ]);
-
         $this->add_control('recent_orders_limit', [
             'label' => __('Recent Orders Limit', 'lime-filters'),
             'type' => Controls_Manager::NUMBER,
@@ -170,7 +155,6 @@ class LF_Elementor_Account_Dashboard_Widget extends \Elementor\Widget_Base
             ? $this->build_dashboard_data($user, $settings)
             : $this->build_placeholder_data($settings);
 
-        $show_wishlist = $settings['show_wishlist_teaser'] === 'yes' && $data['wishlist']['enabled'];
         $show_support = $settings['show_support_block'] === 'yes';
         $show_rewards = $settings['show_reward_placeholder'] === 'yes';
 
@@ -191,11 +175,6 @@ class LF_Elementor_Account_Dashboard_Widget extends \Elementor\Widget_Base
             $this->render_stats($data['stats'], $show_rewards);
             $this->render_recent_orders($data['orders'], $data['orders_link']);
             $this->render_addresses($data['addresses']);
-
-            if ($show_wishlist) {
-                $title = isset($settings['wishlist_title']) && $settings['wishlist_title'] !== '' ? $settings['wishlist_title'] : __('Your Wishlist', 'lime-filters');
-                $this->render_wishlist_teaser($title, $data['wishlist']);
-            }
 
             if ($show_support) {
                 $this->render_support_block($settings);
@@ -268,7 +247,7 @@ class LF_Elementor_Account_Dashboard_Widget extends \Elementor\Widget_Base
 
     protected function build_placeholder_data(array $settings)
     {
-        $wishlist_enabled = $settings['show_wishlist_teaser'] === 'yes';
+        $wishlist_enabled = true;
 
         $navigation = $this->build_navigation_items(
             $wishlist_enabled,
@@ -677,33 +656,6 @@ class LF_Elementor_Account_Dashboard_Widget extends \Elementor\Widget_Base
         echo '</div>';
         echo '</section>';
     }
-
-    protected function render_wishlist_teaser($title, array $wishlist)
-    {
-        echo '<section class="lf-account-dashboard__section lf-account-dashboard__section--wishlist">';
-        echo '<div class="lf-account-dashboard__section-header">';
-        echo '<h3>' . esc_html($title) . '</h3>';
-        if (!empty($wishlist['url'])) {
-            echo '<a class="lf-account-dashboard__link" href="' . esc_url($wishlist['url']) . '">' . esc_html__('View full wishlist', 'lime-filters') . '</a>';
-        }
-        echo '</div>';
-
-        if (empty($wishlist['items'])) {
-            echo '<p class="lf-account-dashboard__empty">' . esc_html__('Your wishlist is currently empty.', 'lime-filters') . '</p>';
-            echo '</section>';
-            return;
-        }
-
-        echo '<div class="lf-account-dashboard__wishlist-grid">';
-        foreach ($wishlist['items'] as $card) {
-            echo '<div class="lf-account-dashboard__wishlist-item">';
-            echo $card; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            echo '</div>';
-        }
-        echo '</div>';
-        echo '</section>';
-    }
-
     protected function render_endpoint_content($endpoint, array $navigation)
     {
         $title = $this->get_endpoint_title($endpoint, $navigation);

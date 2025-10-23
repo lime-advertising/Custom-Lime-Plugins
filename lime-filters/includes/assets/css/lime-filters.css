@@ -510,7 +510,7 @@ body.lf-offcanvas-open {
 .lf-pagination {
   margin-top: 20px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
 }
 .lf-pagination:empty {
   margin-top: 0;
@@ -526,8 +526,12 @@ body.lf-offcanvas-open {
   background: var(--lf-bg);
   color: var(--lf-text);
   border-radius: 30px;
-  padding: 6px 14px;
+  padding: 0;
+  width: 33px;
+  height: 33px;
   cursor: pointer;
+  margin: 0;
+  font-size: 14px;
   transition: all 0.2s ease;
 }
 .lf-pagination__nav .lf-page:hover {

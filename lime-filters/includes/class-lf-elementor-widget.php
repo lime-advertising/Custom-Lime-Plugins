@@ -73,5 +73,13 @@ class LF_Elementor_Widget {
             }
         }
 
+        $recently_viewed_path = LF_PLUGIN_DIR . 'includes/elementor/recently-viewed/class-lf-elementor-recently-viewed-widget.php';
+        if (file_exists($recently_viewed_path)) {
+            require_once $recently_viewed_path;
+            if (class_exists('LF_Elementor_Recently_Viewed_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Recently_Viewed_Widget() );
+            }
+        }
+
     }
 }
