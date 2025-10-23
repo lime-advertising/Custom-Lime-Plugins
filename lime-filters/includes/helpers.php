@@ -338,4 +338,63 @@ class LF_Helpers {
          */
         return apply_filters('lime_filters_recently_viewed_products', $products, $limit);
     }
+
+    public static function upsell_products_for($product, $limit = 4) {
+        if (!($product instanceof WC_Product)) {
+            return [];
+        }
+
+        $upsell_ids = $product->get_upsell_ids();
+        if (empty($upsell_ids)) {
+            return [];
+        }
+
+        $upsell_ids = array_slice(array_filter(array_map('absint', $upsell_ids)), 0, max(1, (int) $limit));
+        if (empty($upsell_ids)) {
+            return [];
+        }
+
+        $products = [];
+        foreach ($upsell_ids as $upsell_id) {
+            $upsell = wc_get_product($upsell_id);
+            if (!$upsell instanceof WC_Product) {
+                continue;
+            }
+
+            $is_in_stock = $upsell->is_in_stock();
+            $is_purchasable = $upsell->is_purchasable();
+            $supports_simple_add = $upsell->get_type() === 'simple';
+
+            $status = '';
+            $status_label = '';
+            if (!$is_in_stock) {
+                $status = 'out_of_stock';
+                $status_label = __('View product (currently out of stock)', 'lime-filters');
+            } elseif (!$supports_simple_add) {
+                $status = 'requires_options';
+                $status_label = __('Choose options (opens product page)', 'lime-filters');
+            }
+
+            $products[] = [
+                'id'         => $upsell_id,
+                'title'      => $upsell->get_name(),
+                'price'      => $upsell->get_price_html(),
+                'image'      => $upsell->get_image('woocommerce_thumbnail'),
+                'url'        => get_permalink($upsell_id),
+                'type'       => $upsell->get_type(),
+                'can_add'    => ($supports_simple_add && $is_purchasable && $is_in_stock),
+                'status'     => $status,
+                'status_label' => $status_label,
+            ];
+        }
+
+        /**
+         * Filter the upsell products payload used for affiliate accessory prompts.
+         *
+         * @param array      $products Structured data for upsell products.
+         * @param WC_Product $product  The source product.
+         * @param int        $limit    Requested limit.
+         */
+        return apply_filters('lf_upsell_products_for_affiliate_prompt', $products, $product, $limit);
+    }
 }

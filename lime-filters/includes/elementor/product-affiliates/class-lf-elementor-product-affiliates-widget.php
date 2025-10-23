@@ -196,7 +196,7 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
         $table_html = '';
         $show_table = ($settings['show_comparison'] === 'yes' && !empty($settings['comparison_rows']));
         if ($show_table) {
-            $table_html = $this->render_comparison_table($settings['comparison_rows'], $items, $sku);
+            $table_html = $this->render_comparison_table($settings['comparison_rows'], $items, $sku, $product_id);
             if ($table_html === '') {
                 $show_table = false;
             }
@@ -208,7 +208,7 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
                 $label = $item['label'];
                 $has_logo = $item['logo'] !== '';
                 $button_classes = ['lf-affiliates__button', 'affiliate-button'];
-                echo '<a class="' . esc_attr(implode(' ', $button_classes)) . '" href="' . esc_url($item['url']) . '" target="_blank" rel="nofollow noopener noreferrer" data-store="' . esc_attr($item['store']) . '"' . ($sku ? ' data-sku="' . esc_attr($sku) . '"' : '') . '>';
+                echo '<a class="' . esc_attr(implode(' ', $button_classes)) . '" href="' . esc_url($item['url']) . '" target="_blank" rel="nofollow noopener noreferrer" data-store="' . esc_attr($item['store']) . '" data-affiliate-link="1" data-product-id="' . esc_attr($product_id) . '"' . ($sku ? ' data-sku="' . esc_attr($sku) . '"' : '') . '>';
                 if ($has_logo) {
                     echo '<span class="lf-affiliates__logo">';
                     echo '<img src="' . esc_url($item['logo']) . '" alt="' . esc_attr($label) . '" loading="lazy" />';
@@ -226,6 +226,27 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
             echo $table_html;
         }
 
+        // Affiliate accessory modal container.
+        $upsell_products = LF_Helpers::upsell_products_for($product, 4);
+        $upsell_payload  = '';
+        if (is_array($upsell_products)) {
+            $encoded = wp_json_encode($upsell_products, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+            if ($encoded !== false) {
+                $upsell_payload = $encoded;
+            }
+        }
+
+        echo '<div class="lf-affiliates-upsell-modal" data-upsell-modal data-product-id="' . esc_attr($product_id) . '" hidden>';
+        echo '  <div class="lf-affiliates-upsell-modal__backdrop" data-upsell-close></div>';
+        echo '  <div class="lf-affiliates-upsell-modal__dialog" role="dialog" aria-modal="true" tabindex="-1">';
+        echo '    <div class="lf-affiliates-upsell-modal__content" data-upsell-content>';
+        echo '      <!-- Accessory cards rendered via JS -->';
+        echo '    </div>';
+        echo '  </div>';
+        if ($upsell_payload !== '') {
+            echo '  <script type="application/json" data-upsell-json data-product-id="' . esc_attr($product_id) . '">' . $upsell_payload . '</script>';
+        }
+        echo '</div>';
         echo '</div>';
     }
 
@@ -243,6 +264,24 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
             ['lime-filters'],
             LF_VERSION
         );
+
+        wp_register_style(
+            'lf-product-affiliates-modal',
+            LF_PLUGIN_URL . 'includes/elementor/product-affiliates/product-affiliates-modal.css',
+            ['lf-product-affiliates'],
+            LF_VERSION
+        );
+
+        wp_register_script(
+            'lf-product-affiliates-modal',
+            LF_PLUGIN_URL . 'includes/elementor/product-affiliates/product-affiliates-modal.js',
+            [],
+            LF_VERSION,
+            true
+        );
+
+        wp_enqueue_style('lf-product-affiliates-modal');
+        wp_enqueue_script('lf-product-affiliates-modal');
 
         self::$assets_enqueued = true;
     }
@@ -313,7 +352,7 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
         return null;
     }
 
-    protected function render_comparison_table(array $rows, array $items, $sku)
+    protected function render_comparison_table(array $rows, array $items, $sku, $product_id = null)
     {
         if (empty($rows) || empty($items)) {
             return '';
@@ -354,9 +393,10 @@ class LF_Elementor_Product_Affiliates_Widget extends \Elementor\Widget_Base
             $logo  = $item['logo'];
             $href  = $item['url'];
             $store_key = $item['store'];
+            $product_attr = $product_id ? ' data-product-id="' . esc_attr($product_id) . '"' : '';
 
             echo '<th scope="col" class="lf-affiliates__table-store">';
-            echo '<a class="lf-affiliates__table-link affiliate-button" href="' . esc_url($href) . '" target="_blank" rel="nofollow noopener noreferrer" data-store="' . esc_attr($store_key) . '"' . ($sku ? ' data-sku="' . esc_attr($sku) . '"' : '') . '>';
+            echo '<a class="lf-affiliates__table-link affiliate-button" href="' . esc_url($href) . '" target="_blank" rel="nofollow noopener noreferrer" data-store="' . esc_attr($store_key) . '" data-affiliate-link="1"' . ($sku ? ' data-sku="' . esc_attr($sku) . '"' : '') . $product_attr . '>';
             if ($logo) {
                 echo '<span class="lf-affiliates__table-logo"><img src="' . esc_url($logo) . '" alt="' . esc_attr($label) . '" loading="lazy" /></span>';
                 echo '<span class="lf-affiliates__table-label sr-only">' . esc_html($label) . '</span>';
