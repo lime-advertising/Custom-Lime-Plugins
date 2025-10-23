@@ -51,13 +51,10 @@ class LF_Frontend
     $show_counts_bool = ($show_counts_flag === 'yes');
 
     $allowed_orderby = ['menu_order', 'popularity', 'rating', 'date', 'price', 'price-desc'];
-    $current_orderby = isset($_GET['orderby']) ? sanitize_text_field($_GET['orderby']) : 'menu_order';
-    if (!in_array($current_orderby, $allowed_orderby, true)) {
-      $current_orderby = 'menu_order';
-    }
+    $current_orderby = self::query_orderby_from_request($allowed_orderby);
 
     $pagination_enabled = ($atts['pagination'] === 'yes');
-    $current_page = max(1, get_query_var('paged') ? (int) get_query_var('paged') : 1);
+    $current_page = self::query_page_from_request();
     $requested_per_page = isset($atts['per_page']) ? (int) $atts['per_page'] : 0;
     if ($requested_per_page < 1) {
       $requested_per_page = 0;
@@ -74,13 +71,15 @@ class LF_Frontend
       'mobile'  => self::sanitize_column_attr($atts['columns_mobile']),
     ];
 
+    $initial_filters = self::query_filters_from_request();
+
     $initial_html    = '';
     $pagination_html = '';
     $filters_payload = [];
     $resolved_columns = [];
 
     if (class_exists('LF_AJAX') && method_exists('LF_AJAX', 'get_products_html')) {
-      $response = LF_AJAX::get_products_html($category_slug, [], $current_orderby, $current_page, $pagination_enabled, $requested_per_page, $show_counts_flag, $columns_config);
+      $response = LF_AJAX::get_products_html($category_slug, $initial_filters, $current_orderby, $current_page, $pagination_enabled, $requested_per_page, $show_counts_flag, $columns_config);
       if (is_array($response)) {
         $initial_html     = isset($response['html']) ? $response['html'] : '';
         $pagination_html  = isset($response['pagination']) ? $response['pagination'] : '';
@@ -373,6 +372,96 @@ class LF_Frontend
     } elseif (function_exists('woocommerce_track_product_view')) {
       woocommerce_track_product_view();
     }
+  }
+
+  protected static function query_filters_from_request()
+  {
+    if (!isset($_GET['lf_filters'])) {
+      return [];
+    }
+
+    $raw = wp_unslash($_GET['lf_filters']);
+    if (!is_string($raw) || $raw === '') {
+      return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+      return [];
+    }
+
+    $filters = [];
+    foreach ($decoded as $taxonomy => $values) {
+      $taxonomy = sanitize_key($taxonomy);
+      if ($taxonomy === '') {
+        continue;
+      }
+
+      if (is_string($values)) {
+        $values = array_map('trim', explode(',', $values));
+      }
+
+      if (!is_array($values)) {
+        continue;
+      }
+
+      $slugs = [];
+      foreach ($values as $value) {
+        if (!is_string($value) || $value === '') {
+          continue;
+        }
+        $slug = sanitize_title($value);
+        if ($slug !== '') {
+          $slugs[] = $slug;
+        }
+      }
+
+      if (!empty($slugs)) {
+        $filters[$taxonomy] = array_values(array_unique($slugs));
+      }
+    }
+
+    return $filters;
+  }
+
+  protected static function query_orderby_from_request(array $allowed)
+  {
+    $value = '';
+    if (isset($_GET['lf_orderby'])) {
+      $value = sanitize_text_field(wp_unslash($_GET['lf_orderby']));
+    } elseif (isset($_GET['orderby'])) {
+      $value = sanitize_text_field(wp_unslash($_GET['orderby']));
+    }
+
+    if ($value === '') {
+      return 'menu_order';
+    }
+
+    if (!in_array($value, $allowed, true)) {
+      return 'menu_order';
+    }
+
+    return $value;
+  }
+
+  protected static function query_page_from_request()
+  {
+    if (isset($_GET['lf_page'])) {
+      $page = (int) wp_unslash($_GET['lf_page']);
+      if ($page > 0) {
+        return $page;
+      }
+    }
+
+    $paged = get_query_var('paged');
+    if ($paged) {
+      $paged = (int) $paged;
+      if ($paged > 0) {
+        return $paged;
+      }
+    }
+
+    return 1;
   }
 
 }

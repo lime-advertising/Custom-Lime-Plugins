@@ -81,5 +81,13 @@ class LF_Elementor_Widget {
             }
         }
 
+        $title_share_path = LF_PLUGIN_DIR . 'includes/elementor/product-title-share/class-lf-elementor-product-title-share-widget.php';
+        if (file_exists($title_share_path)) {
+            require_once $title_share_path;
+            if (class_exists('LF_Elementor_Product_Title_Share_Widget')) {
+                $widgets_manager->register( new \LF_Elementor_Product_Title_Share_Widget() );
+            }
+        }
+
     }
 }

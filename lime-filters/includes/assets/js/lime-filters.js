@@ -193,6 +193,59 @@
     fragments.forEach($chip => $chips.append($chip));
   }
 
+  const HISTORY_SUPPORTED = typeof window !== 'undefined' && window.history && typeof window.history.replaceState === 'function';
+
+  function cleanFiltersObject(filters) {
+    const cleaned = {};
+    if (!filters || typeof filters !== 'object') {
+      return cleaned;
+    }
+    Object.keys(filters).forEach(tax => {
+      const vals = Array.isArray(filters[tax]) ? filters[tax].filter(Boolean) : [];
+      if (vals.length) {
+        cleaned[tax] = vals;
+      }
+    });
+    return cleaned;
+  }
+
+  function updateUrlState(filters, orderby, page) {
+    if (!HISTORY_SUPPORTED) {
+      return;
+    }
+
+    let url;
+    try {
+      url = new URL(window.location.href);
+    } catch (err) {
+      return;
+    }
+
+    const cleaned = cleanFiltersObject(filters);
+
+    url.searchParams.delete('lf_filters');
+    url.searchParams.delete('lf_orderby');
+    url.searchParams.delete('lf_page');
+
+    if (Object.keys(cleaned).length) {
+      try {
+        url.searchParams.set('lf_filters', JSON.stringify(cleaned));
+      } catch (err) {
+        // ignore malformed JSON
+      }
+    }
+
+    if (orderby && orderby !== 'menu_order') {
+      url.searchParams.set('lf_orderby', orderby);
+    }
+
+    if (page && page > 1) {
+      url.searchParams.set('lf_page', page);
+    }
+
+    window.history.replaceState(null, '', url.toString());
+  }
+
   function openMobileFilters($root) {
     if (window.innerWidth >= 992) return;
     const $panel = $root.find('[data-role="mobile-filters"]');
@@ -332,6 +385,10 @@
         if (resp.data.wishlist !== undefined) {
           $(document).trigger('lf:wishlist:update', [resp.data.wishlist]);
         }
+
+        const finalPage = resp && resp.data && resp.data.page ? parseInt(resp.data.page, 10) || nextPage : nextPage;
+        const activeFilters = gatherSelections($root);
+        updateUrlState(activeFilters, orderby, finalPage);
       }
     }).always(function(){
       $root.removeClass('lf-loading');
