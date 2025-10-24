@@ -3,6 +3,8 @@
   --lf-border: #a9a9a9;
   --lf-bg: #000000;
   --lf-text: #ffffff;
+  --lf-sticky-offset: 90px;
+  --lf-sticky-row-height: 64px;
 }
 .lime-filters {
   font-family: inherit;
@@ -257,6 +259,35 @@ body.lf-offcanvas-open {
   gap: 12px;
   align-items: center;
   margin-bottom: 12px;
+}
+
+@media (min-width: 768px) {
+  .lf-layout-horizontal .lf-row {
+    position: sticky;
+    top: var(--lf-sticky-offset);
+    z-index: 15;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(4px);
+    padding: 12px 12px 12px 0;
+    margin-left: -4px;
+    margin-right: -4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .lf-layout-horizontal .lf-chips {
+    position: sticky;
+    top: calc(var(--lf-sticky-offset) + var(--lf-sticky-row-height));
+    z-index: 14;
+    background: rgba(0, 0, 0, 0.92);
+    padding: 8px 12px 12px;
+    margin-left: -4px;
+    margin-right: -4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .lf-layout-horizontal .lf-row + .lf-results {
+    padding-top: calc(var(--lf-sticky-row-height) / 2);
+  }
 }
 .lf-dropdown {
   display: inline-block;
@@ -615,10 +646,19 @@ body.lf-offcanvas-open {
     padding: 0;
     transform: none !important;
     border-radius: 10px;
-    overflow: visible;
+    align-self: flex-start;
+    position: relative;
   }
   .lf-layout-sidebar .lf-offcanvas .lf-sidebar {
     padding: 12px;
+  }
+  .lf-layout-sidebar .lf-offcanvas .lf-offcanvas__inner {
+    position: sticky;
+    top: var(--lf-sticky-offset);
+    max-height: calc(100vh - var(--lf-sticky-offset) - 24px);
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-right: -6px;
   }
   .lf-layout-sidebar .lf-wrapper .lf-results {
     flex: 1;
